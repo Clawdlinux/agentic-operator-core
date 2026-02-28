@@ -469,11 +469,22 @@ agentic-k8s-operator/
 
 ## License
 
-Dual-licensed:
-- **Open Source:** GNU Affero Public License v3 (AGPL-3.0)
-- **Commercial:** Proprietary license with Ed25519 JWT validation
+**Apache License 2.0**
 
-See LICENSE file for details.
+This repository is licensed under the Apache License 2.0. See the LICENSE file for full terms.
+
+**Why Apache 2.0:**
+- Standard for Kubernetes ecosystem (same as Kubernetes, Argo Workflows, Kubebuilder)
+- Enterprise-friendly with explicit patent grant
+- Allows unrestricted commercial use
+- Familiar to procurement and legal teams
+
+**Commercial Protection:**
+The open-source code has no restrictions. Commercial protection comes from the **Helm chart with Ed25519 JWT license enforcement**:
+- The Helm deployment includes cryptographic license validation
+- Licenses are issued as JWT tokens signed with Ed25519
+- License enforcement happens at operator startup
+- This is where commercial licensing is enforced, not in the code
 
 ---
 
