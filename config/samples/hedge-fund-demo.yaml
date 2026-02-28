@@ -1,0 +1,243 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: hedge-fund-competitive-intelligence
+  namespace: agentic-system
+spec:
+  # What the agent will do
+  objective: |
+    Analyze competitor B2B SaaS pricing pages (Notion, Linear, Asana).
+    Extract pricing structures, features, and strategic positioning.
+    Generate professional competitive intelligence report.
+    Store report in MinIO for analyst review.
+  
+  # What type of workload this is
+  workloadType: generic
+  
+  # Which agents run this workload
+  agents:
+    - "competitor-scraper"    # Extracts pricing data from URLs
+    - "llm-synthesizer"       # Uses Claude Sonnet for analysis
+    - "report-generator"      # Creates professional output
+  
+  # MCP server for external integrations
+  mcpServerEndpoint: "http://minio-api:9000"
+  
+  # Auto-approval threshold (80% = moderate confidence required)
+  autoApproveThreshold: "0.80"
+  
+  # OPA policy enforcement (permissive vs. strict)
+  opaPolicy: permissive
+  
+  # Configuration for this specific workload
+  metadata:
+    labels:
+      use-case: "competitive-intelligence"
+      customer-facing: "true"
+      data-sensitivity: "confidential"
+    annotations:
+      description: "Hedge fund competitive intelligence pipeline - daily analysis"
+      sla-hours: "4"
+      cost-budget-daily: "$5"
+
+---
+# Example: Triggered via Argo Workflow
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: hedge-fund-daily
+  namespace: argo-workflows
+spec:
+  entrypoint: competitive-analysis
+  
+  templates:
+  - name: competitive-analysis
+    dag:
+      tasks:
+      - name: scrape-competitors
+        template: scrape-task
+      - name: synthesize
+        template: synthesize-task
+        dependencies: scrape-competitors
+      - name: generate-report
+        template: report-task
+        dependencies: synthesize
+  
+  - name: scrape-task
+    container:
+      image: registry.digitalocean.com/agentic-operator:latest
+      command: ["python3", "agents/tasks/scraper.py"]
+      args:
+        - "--urls=notion.com/pricing,linear.app/pricing,asana.com/pricing"
+        - "--output=/tmp/competitor-data.json"
+      env:
+      - name: LITELLM_PROXY_URL
+        value: "http://litellm:8000"
+      volumeMounts:
+      - name: shared-data
+        mountPath: /tmp
+  
+  - name: synthesize-task
+    container:
+      image: registry.digitalocean.com/agentic-operator:latest
+      command: ["python3", "agents/tasks/synthesizer.py"]
+      args:
+        - "--input=/tmp/competitor-data.json"
+        - "--model=claude-3-5-sonnet"
+        - "--output=/tmp/analysis.json"
+      env:
+      - name: LITELLM_PROXY_URL
+        value: "http://litellm:8000"
+      volumeMounts:
+      - name: shared-data
+        mountPath: /tmp
+  
+  - name: report-task
+    container:
+      image: registry.digitalocean.com/agentic-operator:latest
+      command: ["python3", "agents/tasks/report_generator.py"]
+      args:
+        - "--input=/tmp/analysis.json"
+        - "--output=/tmp/report.pdf"
+        - "--minio-bucket=hedge-fund-reports"
+      env:
+      - name: MINIO_ENDPOINT
+        value: "minio:9000"
+      - name: MINIO_ROOT_USER
+        valueFrom:
+          secretKeyRef:
+            name: minio-credentials
+            key: username
+      - name: MINIO_ROOT_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: minio-credentials
+            key: password
+      volumeMounts:
+      - name: shared-data
+        mountPath: /tmp
+  
+  volumes:
+  - name: shared-data
+    emptyDir: {}
+  
+  # Schedule daily at 9 AM UTC
+  schedule: "0 9 * * *"
+
+---
+# Service Account for workload execution
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: competitor-intelligence-agent
+  namespace: agentic-system
+
+---
+# RBAC: Allow agent to access MinIO, read ConfigMaps, create Workflows
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: competitor-intelligence-agent
+rules:
+# Access MinIO (via network policy)
+- apiGroups: [""]
+  resources: ["services"]
+  resourceNames: ["minio"]
+  verbs: ["get"]
+
+# Create/read reports ConfigMap
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["competitor-reports"]
+  verbs: ["get", "create", "patch"]
+
+# Trigger Argo Workflows
+- apiGroups: ["argoproj.io"]
+  resources: ["workflows"]
+  verbs: ["create", "get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: competitor-intelligence-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: competitor-intelligence-agent
+subjects:
+- kind: ServiceAccount
+  name: competitor-intelligence-agent
+  namespace: agentic-system
+
+---
+# Network Policy: Isolate agent access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: competitor-intelligence-agent
+  namespace: agentic-system
+spec:
+  podSelector:
+    matchLabels:
+      app: competitor-intelligence-agent
+  
+  # Allow outbound only to:
+  # - LiteLLM (for Claude Sonnet calls)
+  # - MinIO (for report storage)
+  # - Kubernetes API (for operability)
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: litellm
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  - to:
+    - podSelector:
+        matchLabels:
+          app: minio
+    ports:
+    - protocol: TCP
+      port: 9000
+  
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443  # Kubernetes API
+    - protocol: TCP
+      port: 53   # DNS
+  
+  policyTypes:
+  - Egress
+
+---
+# ConfigMap: Agent configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: competitor-intelligence-config
+  namespace: agentic-system
+data:
+  competitors.json: |
+    {
+      "urls": [
+        "https://notion.com/pricing",
+        "https://linear.app/pricing",
+        "https://asana.com/pricing"
+      ],
+      "analysis_prompt": "Analyze pricing strategy, features, and competitive positioning. Generate hedge fund investment thesis.",
+      "output_format": "professional-pdf",
+      "recipients": ["hedge-fund-analysts@example.com"]
+    }
+  
+  synthesis_template: |
+    You are a hedge fund research analyst. Based on the competitor data provided:
+    1. Summarize pricing strategies and differentiation
+    2. Identify strategic signals and market positioning
+    3. Provide investment implications
+    4. Rate competitive strength (1-5 scale)
+    Format: Professional, 500-800 words, actionable insights.
