@@ -6,8 +6,9 @@
 # Global settings (inherited by all subcharts)
 # ---------------------------------------------------------------------------
 global:
-  imageRegistry: ""          # Override all image registries, e.g. "my.registry.io"
-  imagePullSecrets: []       # e.g. ["regcred"]
+  imageRegistry: "registry.digitalocean.com/agentic-operator"  # DigitalOcean Container Registry
+  imagePullSecrets: 
+    - name: do-registry-secret # Kubernetes secret with DO registry credentials
   storageClass: ""           # Default StorageClass for PVCs
   namespace: agentic-system  # Target namespace (also rendered by namespace.yaml)
 
@@ -27,9 +28,9 @@ agenticOperator:
   enabled: true
   replicaCount: 1
   image:
-    repository: ghcr.io/shreyanshjain7174/agentic-operator
-    tag: "0.1.0"
-    pullPolicy: IfNotPresent
+    repository: agentic-operator  # Pulls from global.imageRegistry (DigitalOcean)
+    tag: "latest"
+    pullPolicy: Always  # Always pull to get latest from DO registry
   resources:
     requests:
       cpu: "250m"
