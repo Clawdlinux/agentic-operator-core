@@ -6,7 +6,7 @@ const NAV_LINKS = [
   { label: 'Features', href: '#features' },
   { label: 'Use Cases', href: '#use-cases' },
   { label: 'GitHub', href: 'https://github.com/shreyanshjain7174/agentic-k8s-operator', external: true },
-  { label: 'Docs', href: '#docs' },
+  { label: 'Docs', href: 'https://github.com/shreyanshjain7174/agentic-k8s-operator#readme', external: true },
 ];
 
 const GITHUB_URL = 'https://github.com/shreyanshjain7174/agentic-k8s-operator';
