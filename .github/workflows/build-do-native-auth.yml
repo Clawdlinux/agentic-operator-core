@@ -1,0 +1,109 @@
+name: Build and Push (DO Native Auth)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Dockerfile'
+      - 'cmd/**'
+      - 'pkg/**'
+      - 'api/**'
+      - 'internal/**'
+      - '.github/workflows/build-do-native-auth.yml'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/agentic-operator
+  DO_REGISTRY: registry.digitalocean.com
+  DO_IMAGE_NAME: agentic-operator/agentic-operator
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to DigitalOcean Registry (Native Auth)
+        run: |
+          # Use doctl's native registry login
+          # This is more reliable than manual OAuth token handling
+          echo "Authenticating with DigitalOcean registry via doctl..."
+          
+          # Install doctl if not available
+          if ! command -v doctl &> /dev/null; then
+            echo "Installing doctl..."
+            cd /tmp
+            wget https://github.com/digitalocean/doctl/releases/download/v1.99.1/doctl-1.99.1-linux-amd64.tar.gz
+            tar xf doctl-1.99.1-linux-amd64.tar.gz
+            sudo mv doctl /usr/local/bin/
+          fi
+          
+          # Authenticate doctl with the API token
+          doctl auth init --access-token "${{ secrets.DIGITALOCEAN_TOKEN }}" --format text
+          
+          # Log in Docker to the registry using doctl's native authentication
+          # This generates credentials and configures Docker
+          doctl registry login
+          
+          echo "✅ Successfully authenticated with DigitalOcean registry"
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ env.DO_REGISTRY }}/${{ env.DO_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Make GHCR package public
+        run: |
+          echo "Making GHCR package public..."
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/user/packages/container/agentic-operator/access \
+            -d '{"visibility":"public"}' \
+            || echo "Package public access may already be set"
+
+      - name: Verify images
+        run: |
+          echo "✅ Images pushed successfully:"
+          echo "  GHCR: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          echo "  DigitalOcean: ${{ env.DO_REGISTRY }}/${{ env.DO_IMAGE_NAME }}:latest"
+          echo ""
+          echo "Pull commands:"
+          echo "  docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          echo "  docker pull ${{ env.DO_REGISTRY }}/${{ env.DO_IMAGE_NAME }}:latest"
