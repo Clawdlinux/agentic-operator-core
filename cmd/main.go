@@ -38,6 +38,7 @@ import (
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
 	"github.com/shreyansh/agentic-operator/internal/controller"
 	"github.com/shreyansh/agentic-operator/pkg/evaluation"
+	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -179,10 +180,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Phase 7: Initialize multi-tenancy components
+	tenantResolver := multitenancy.NewResolver()
+	tenants := []*multitenancy.TenantContext{} // Will be populated from cluster config
+	quotaMgr := multitenancy.NewQuotaManager(tenants)
+	slaMonitor := multitenancy.NewSLAMonitor(tenants)
+	
 	if err := (&controller.AgentWorkloadReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		Evaluator: evaluation.NewEvaluator(), // Phase 4: Agent Evaluation Pipeline
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Evaluator:  evaluation.NewEvaluator(), // Phase 4: Agent Evaluation Pipeline
+		QuotaMgr:   quotaMgr,                  // Phase 7: Quota enforcement
+		SLAMonitor: slaMonitor,                // Phase 7: SLA tracking
+		TenantRes:  tenantResolver,            // Phase 7: Tenant isolation
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "AgentWorkload")
 		os.Exit(1)
