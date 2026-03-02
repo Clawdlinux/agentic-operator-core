@@ -39,6 +39,7 @@ import (
 	"github.com/shreyansh/agentic-operator/pkg/mcp"
 	"github.com/shreyansh/agentic-operator/pkg/metrics"
 	"github.com/shreyansh/agentic-operator/pkg/opa"
+	"github.com/shreyansh/agentic-operator/pkg/resilience"
 	"github.com/shreyansh/agentic-operator/pkg/routing"
 )
 
@@ -114,12 +115,40 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	// ========== MODEL ROUTING (Phase 3) ==========
+	// ========== MODEL ROUTING (Phase 3) with Retry (Phase 5) ==========
 	// Handle cost-aware model routing if enabled
 	if workload.Spec.ModelStrategy != nil && *workload.Spec.ModelStrategy == "cost-aware" {
-		response, routingInfo, err := r.routeAndCallModel(ctx, &workload)
+		type routeResult struct {
+			response    *llm.ModelResponse
+			routingInfo *llm.RoutingInfo
+		}
+		retryCfg := resilience.DefaultRetryConfig()
+		result, retryInfo := resilience.WithRetry(ctx, retryCfg, "model-routing", func(retryCtx context.Context) (routeResult, error) {
+			resp, ri, err := r.routeAndCallModel(retryCtx, &workload)
+			return routeResult{response: resp, routingInfo: ri}, err
+		})
+		response := result.response
+		routingInfo := result.routingInfo
+		err := retryInfo.LastErr
+
 		if err != nil {
-			log.Error(err, "model routing failed")
+			log.Error(err, "model routing failed after retries",
+				"attempts", retryInfo.Attempts,
+				"duration", retryInfo.Duration,
+			)
+			// Phase 4: Record failure evaluation
+			if r.Evaluator != nil {
+				failRecord := evaluation.ExecutionRecord{
+					WorkloadID:   workload.Name,
+					Namespace:    workload.Namespace,
+					Status:       "failure",
+					ErrorType:    "model_routing",
+					ErrorMessage: err.Error(),
+				}
+				if evalResult, evalErr := r.Evaluator.Evaluate(ctx, failRecord); evalErr == nil {
+					evaluation.RecordEvaluation(evalResult)
+				}
+			}
 			workload.Status.Phase = "Failed"
 			if err := r.Status().Update(ctx, &workload); err != nil {
 				log.Error(err, "failed to update workload status")
