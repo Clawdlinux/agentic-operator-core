@@ -88,6 +88,32 @@ type AgentWorkloadSpec struct {
 	// timeouts defines execution timeouts
 	// +optional
 	Timeouts *TimeoutSpec `json:"timeouts,omitempty"`
+
+	// modelStrategy defines how models are selected for tasks
+	// "fixed" = use single configured model for all tasks
+	// "cost-aware" = route tasks to different models based on classification
+	// +kubebuilder:validation:Enum=fixed;cost-aware
+	// +kubebuilder:default=fixed
+	// +optional
+	ModelStrategy *string `json:"modelStrategy,omitempty"`
+
+	// taskClassifier determines how to classify tasks for routing
+	// "default" = use built-in keyword-based classifier
+	// +kubebuilder:default=default
+	// +optional
+	TaskClassifier *string `json:"taskClassifier,omitempty"`
+
+	// providers defines LLM providers available for this workload
+	// Users specify their own API endpoints and credentials
+	// +optional
+	Providers []LLMProvider `json:"providers,omitempty"`
+
+	// modelMapping maps task categories to model names
+	// Keys: "validation", "analysis", "reasoning"
+	// Values: "provider-name/model-name" (e.g. "openai/gpt-4")
+	// Only used when modelStrategy is "cost-aware"
+	// +optional
+	ModelMapping map[string]string `json:"modelMapping,omitempty"`
 }
 
 // OrchestrationSpec defines orchestration settings for Argo Workflows
@@ -143,6 +169,49 @@ type TimeoutSpec struct {
 	// suspendGate is the timeout for suspend gate approval in seconds
 	// +optional
 	SuspendGate *int32 `json:"suspendGate,omitempty"`
+}
+
+// LLMProvider defines an LLM provider configuration
+type LLMProvider struct {
+	// name is the unique identifier for this provider (e.g. "openai", "workers-ai", "local-vllm")
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+
+	// type specifies the provider type
+	// "openai-compatible" = OpenAI API or compatible (e.g. vLLM, LocalAI)
+	// "workers-ai" = Cloudflare Workers AI
+	// "custom" = custom provider type
+	// +kubebuilder:validation:Enum=openai-compatible;workers-ai;custom
+	Type string `json:"type"`
+
+	// endpoint is the API base URL for the provider (e.g. "https://api.openai.com/v1")
+	// Required for openai-compatible providers
+	// +optional
+	Endpoint *string `json:"endpoint,omitempty"`
+
+	// apiKeySecret references a Kubernetes Secret containing the API key
+	// Secret key must be "api-key" or "token"
+	// Example: {"name": "openai-credentials", "key": "api-key"}
+	// +optional
+	APIKeySecret *SecretKeyRef `json:"apiKeySecret,omitempty"`
+
+	// customConfig allows arbitrary provider-specific configuration
+	// +optional
+	CustomConfig map[string]string `json:"customConfig,omitempty"`
+}
+
+// SecretKeyRef references a key in a Kubernetes Secret
+type SecretKeyRef struct {
+	// name is the name of the Secret in the same namespace
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// key is the key within the Secret (default: "api-key")
+	// +kubebuilder:default=api-key
+	// +optional
+	Key *string `json:"key,omitempty"`
 }
 
 // Action represents a proposed or executed action by an agent
