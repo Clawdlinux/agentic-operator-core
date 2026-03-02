@@ -132,7 +132,7 @@ export default function OpenSource() {
               <div className="flex items-center gap-2 mb-1">
                 <Github size={18} style={{ color: 'rgba(255,255,255,0.5)' }} />
                 <a
-                  href="https://github.com/shreyanshjain7174/agentic-k8s-operator"
+                  href="https://github.com/Clawdlinux/agentic-operator-core"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-lg hover:underline"
@@ -142,7 +142,7 @@ export default function OpenSource() {
                     textDecoration: 'none',
                   }}
                 >
-                  shreyanshjain7174/agentic-k8s-operator
+                  Clawdlinux/agentic-operator-core
                 </a>
               </div>
               <p
@@ -159,7 +159,7 @@ export default function OpenSource() {
             {/* CTA buttons */}
             <div className="flex items-center gap-3 flex-wrap">
               <a
-                href="https://github.com/shreyanshjain7174/agentic-k8s-operator"
+                href="https://github.com/Clawdlinux/agentic-operator-core"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105"
@@ -175,7 +175,7 @@ export default function OpenSource() {
                 Star on GitHub
               </a>
               <a
-                href="https://github.com/shreyanshjain7174/agentic-k8s-operator/fork"
+                href="https://github.com/Clawdlinux/agentic-operator-core/fork"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105"

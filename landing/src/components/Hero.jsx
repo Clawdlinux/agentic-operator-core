@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, ArrowRight } from 'lucide-react';
 import ParticleNetwork from '../utils/particleNetwork';
 
-const GITHUB_URL = 'https://github.com/shreyanshjain7174/agentic-k8s-operator';
+const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
 
 const USE_CASES = [
   'Run hedge fund intelligence pipelines inside Kubernetes.',

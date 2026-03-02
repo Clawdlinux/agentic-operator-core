@@ -227,7 +227,7 @@ export default function Footer() {
               {/* GitHub only */}
               <div className="flex items-center gap-3 mt-6">
                 <a
-                  href="https://github.com/shreyanshjain7174/agentic-k8s-operator"
+                  href="https://github.com/Clawdlinux/agentic-operator-core"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="GitHub"
@@ -284,7 +284,7 @@ export default function Footer() {
               </h4>
               <ul className="space-y-3">
                 {[
-                  { label: 'GitHub', href: 'https://github.com/shreyanshjain7174/agentic-k8s-operator', external: true },
+                  { label: 'GitHub', href: 'https://github.com/Clawdlinux/agentic-operator-core', external: true },
                   { label: 'Helm Chart', href: 'https://registry.digitalocean.com/agentic-operator/charts/agentic-operator', external: true },
                 ].map(({ label, href, external }) => (
                   <li key={label}><FooterLink href={href} external={external}>{label}</FooterLink></li>

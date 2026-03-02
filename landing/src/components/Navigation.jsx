@@ -5,11 +5,11 @@ import { Menu, X, Star, ExternalLink, Hexagon } from 'lucide-react';
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
   { label: 'Use Cases', href: '#use-cases' },
-  { label: 'GitHub', href: 'https://github.com/shreyanshjain7174/agentic-k8s-operator', external: true },
-  { label: 'Docs', href: 'https://github.com/shreyanshjain7174/agentic-k8s-operator#readme', external: true },
+  { label: 'GitHub', href: 'https://github.com/Clawdlinux/agentic-operator-core', external: true },
+  { label: 'Docs', href: 'https://github.com/Clawdlinux/agentic-operator-core#readme', external: true },
 ];
 
-const GITHUB_URL = 'https://github.com/shreyanshjain7174/agentic-k8s-operator';
+const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
 
 export default function Navigation() {
   const [menuOpen, setMenuOpen] = useState(false);
