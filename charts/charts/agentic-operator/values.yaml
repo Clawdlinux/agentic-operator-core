@@ -1,8 +1,8 @@
 replicaCount: 1
 image:
-  repository: ghcr.io/shreyanshjain7174/agentic-operator
-  tag: "0.1.0"
-  pullPolicy: IfNotPresent
+  repository: ghcr.io/clawdlinux/agentic-operator-core/agentic-operator
+  tag: "latest"
+  pullPolicy: Always
 service:
   type: ClusterIP
   port: 8080

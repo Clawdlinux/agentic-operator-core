@@ -63,12 +63,16 @@ jobs:
       - name: Make GHCR package public
         run: |
           echo "Making GHCR package public..."
+          # Package name is nested: agentic-operator-core/agentic-operator
+          # Must use org endpoint with URL-encoded package name
+          PACKAGE_NAME=$(echo "${{ github.repository }}/agentic-operator" | cut -d'/' -f2- | sed 's|/|%2F|g')
+          echo "Package name (encoded): $PACKAGE_NAME"
           curl -X PATCH \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/user/packages/container/agentic-operator/access \
+            "https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}" \
             -d '{"visibility":"public"}' \
-            || echo "Package public access may already be set"
+            || echo "Package public access may already be set (or org policy restricts public packages)"
 
       - name: Image push summary
         run: |
