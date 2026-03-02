@@ -33,6 +33,7 @@ import (
 
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
 	"github.com/shreyansh/agentic-operator/pkg/argo"
+	"github.com/shreyansh/agentic-operator/pkg/evaluation"
 	"github.com/shreyansh/agentic-operator/pkg/license"
 	"github.com/shreyansh/agentic-operator/pkg/llm"
 	"github.com/shreyansh/agentic-operator/pkg/mcp"
@@ -49,6 +50,7 @@ type AgentWorkloadReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Validator *license.Validator // License validation (optional, can be nil)
+	Evaluator *evaluation.Evaluator // Phase 4: Agent Evaluation Pipeline
 }
 
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads,verbs=get;list;watch;create;update;patch;delete
@@ -535,10 +537,32 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 		"outputTokens", routingInfo.OutputTokens,
 	)
 
-	// Record metrics
+	// Record routing metrics
 	metricsRecorder := metrics.NewRoutingMetrics()
 	metricsRecorder.RecordModelRouting(routingInfo.TaskCategory, routingInfo.ProviderName, routingInfo.ModelName)
 	metricsRecorder.RecordTokenUsage(routingInfo.ProviderName, routingInfo.ModelName, routingInfo.InputTokens, routingInfo.OutputTokens)
+
+	// Phase 4: Agent Evaluation — score quality of the model response
+	if r.Evaluator != nil {
+		execRecord := evaluation.ExecutionRecord{
+			WorkloadID:   workload.Name,
+			Namespace:    workload.Namespace,
+			ModelUsed:    routingInfo.ProviderName + "/" + routingInfo.ModelName,
+			TaskCategory: routingInfo.TaskCategory,
+			Status:       "success",
+			Output:       response.Content,
+			InputTokens:  routingInfo.InputTokens,
+			OutputTokens: routingInfo.OutputTokens,
+		}
+		if evalResult, evalErr := r.Evaluator.Evaluate(ctx, execRecord); evalErr == nil {
+			evaluation.RecordEvaluation(evalResult)
+			log.Info("evaluation complete",
+				"workload", workload.Name,
+				"qualityScore", evalResult.Quality.OverallScore,
+				"hallucinRisk", evalResult.Quality.HallucinRisk,
+			)
+		}
+	}
 
 	return response, routingInfo, nil
 }

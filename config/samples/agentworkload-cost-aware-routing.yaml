@@ -1,0 +1,102 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: phase3-market-intelligence
+  namespace: argo-workflows
+  labels:
+    phase: "3"
+    feature: "cost-aware-routing"
+    testing: "true"
+spec:
+  # Enable cost-aware routing (Phase 3 feature)
+  modelStrategy: cost-aware
+  taskClassifier: default
+  
+  # Define LLM providers (users bring their own API keys)
+  providers:
+    # Mock provider for testing (will fail to connect but shows routing logic)
+    - name: mock-openai
+      type: openai-compatible
+      endpoint: http://localhost:8000/v1
+      apiKeySecret:
+        name: openai-api-key
+        key: api-key
+  
+  # Map task categories to models
+  # Tasks will be classified and routed to appropriate model
+  modelMapping:
+    # Validation tasks: simple, short prompts → GPT-3.5 (cheapest)
+    # Example: "Parse JSON", "Format data", "Verify email"
+    validation: mock-openai/gpt-3.5-turbo
+    
+    # Analysis tasks: medium complexity → GPT-4 (balanced)
+    # Example: "Analyze trends", "Compare approaches", "Classify data"
+    analysis: mock-openai/gpt-4
+    
+    # Reasoning tasks: complex, long prompts → GPT-4 Turbo (best quality)
+    # Example: "Why did X fail?", "Design novel solution", "Elaborate on..."
+    reasoning: mock-openai/gpt-4-turbo
+  
+  # Task objective (will be classified and routed automatically)
+  objective: |
+    Analyze the recent market trends in technology stocks.
+    Look at Q1 2026 performance for AAPL, MSFT, GOOGL, META, NVDA.
+    Identify the key patterns and what's driving them.
+    What should investors focus on for the rest of 2026?
+  
+  # Standard AgentWorkload fields
+  workloadType: generic
+  autoApproveThreshold: "0.95"
+  opaPolicy: strict
+  
+  # Timeouts
+  timeouts:
+    execution: 300
+    suspendGate: 60
+
+---
+# Kubernetes Secret for mock API key (required for provider)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openai-api-key
+  namespace: argo-workflows
+  labels:
+    phase: "3"
+    testing: "true"
+type: Opaque
+data:
+  # base64 encoded: "sk-test-key-phase3"
+  api-key: c2stdGVzdC1rZXktcGhhc2Uz
+
+---
+# Example with real OpenAI provider (requires actual API key)
+# Uncomment to use with real OpenAI API
+---
+# apiVersion: agentic.clawdlinux.org/v1alpha1
+# kind: AgentWorkload
+# metadata:
+#   name: phase3-openai-live
+#   namespace: argo-workflows
+#   labels:
+#     phase: "3"
+#     provider: "openai"
+#     live: "true"
+# spec:
+#   modelStrategy: cost-aware
+#   taskClassifier: default
+#   
+#   providers:
+#     - name: openai
+#       type: openai-compatible
+#       endpoint: https://api.openai.com/v1
+#       apiKeySecret:
+#         name: openai-live-key  # Must exist in namespace
+#         key: api-key
+#   
+#   modelMapping:
+#     validation: openai/gpt-3.5-turbo
+#     analysis: openai/gpt-4
+#     reasoning: openai/gpt-4-turbo
+#   
+#   objective: "Analyze Q1 2026 tech sector performance trends"

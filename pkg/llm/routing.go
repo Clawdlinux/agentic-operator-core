@@ -76,8 +76,9 @@ func (mr *ModelRouter) RouteAndCall(
 	}
 
 	// Parse provider/model from spec (format: "provider-name/model-name")
-	parts := strings.Split(modelSpec, "/")
-	if len(parts) != 2 {
+	// Use SplitN to support model paths with slashes (e.g. "@cf/meta/llama-2-7b-chat-int8")
+	parts := strings.SplitN(modelSpec, "/", 2)
+	if len(parts) < 2 {
 		AddSpanEvent(rootSpan, "routing_failed",
 			attribute.String("reason", "invalid model spec format"),
 			attribute.String("spec", modelSpec))

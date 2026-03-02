@@ -1,0 +1,433 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: agentworkloads.agentic.clawdlinux.org
+spec:
+  group: agentic.clawdlinux.org
+  names:
+    kind: AgentWorkload
+    listKind: AgentWorkloadList
+    plural: agentworkloads
+    singular: agentworkload
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AgentWorkload is the Schema for the agentworkloads API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of AgentWorkload
+            properties:
+              agents:
+                description: agents is a list of agent names to run for this workload
+                items:
+                  type: string
+                type: array
+              autoApproveThreshold:
+                default: "0.95"
+                description: autoApproveThreshold is the confidence level (0-1) above
+                  which actions are auto-approved (as string, e.g. "0.95")
+                pattern: ^0(\.[0-9]{1,2})?$|^1(\.0{1,2})?$
+                type: string
+              jobId:
+                description: jobId uniquely identifies this agent workload job
+                type: string
+              mcpServerEndpoint:
+                description: mcpServerEndpoint is the HTTP endpoint of the MCP server
+                  (e.g. "http://mcp-server:8000")
+                pattern: ^https?://[a-zA-Z0-9.-]+(:[0-9]+)?$
+                type: string
+              modelMapping:
+                additionalProperties:
+                  type: string
+                description: |-
+                  modelMapping maps task categories to model names
+                  Keys: "validation", "analysis", "reasoning"
+                  Values: "provider-name/model-name" (e.g. "openai/gpt-4")
+                  Only used when modelStrategy is "cost-aware"
+                type: object
+              modelStrategy:
+                default: fixed
+                description: |-
+                  modelStrategy defines how models are selected for tasks
+                  "fixed" = use single configured model for all tasks
+                  "cost-aware" = route tasks to different models based on classification
+                enum:
+                - fixed
+                - cost-aware
+                type: string
+              objective:
+                description: objective is the high-level goal for the agent (e.g.
+                  "optimize cluster performance")
+                maxLength: 1000
+                minLength: 1
+                type: string
+              opaPolicy:
+                default: strict
+                description: opaPolicy controls the safety policy for action execution
+                enum:
+                - strict
+                - permissive
+                type: string
+              orchestration:
+                description: orchestration defines how the workflow is orchestrated
+                properties:
+                  type:
+                    description: type is the orchestration engine (e.g. "argo")
+                    type: string
+                  workflowTemplateRef:
+                    description: workflowTemplateRef references the Argo WorkflowTemplate
+                      to use
+                    properties:
+                      name:
+                        description: name is the name of the WorkflowTemplate
+                        type: string
+                      namespace:
+                        description: namespace is the namespace of the WorkflowTemplate
+                        type: string
+                    type: object
+                type: object
+              providers:
+                description: |-
+                  providers defines LLM providers available for this workload
+                  Users specify their own API endpoints and credentials
+                items:
+                  description: LLMProvider defines an LLM provider configuration
+                  properties:
+                    apiKeySecret:
+                      description: |-
+                        apiKeySecret references a Kubernetes Secret containing the API key
+                        Secret key must be "api-key" or "token"
+                        Example: {"name": "openai-credentials", "key": "api-key"}
+                      properties:
+                        key:
+                          default: api-key
+                          description: 'key is the key within the Secret (default:
+                            "api-key")'
+                          type: string
+                        name:
+                          description: name is the name of the Secret in the same
+                            namespace
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    customConfig:
+                      additionalProperties:
+                        type: string
+                      description: customConfig allows arbitrary provider-specific
+                        configuration
+                      type: object
+                    endpoint:
+                      description: |-
+                        endpoint is the API base URL for the provider (e.g. "https://api.openai.com/v1")
+                        Required for openai-compatible providers
+                      type: string
+                    name:
+                      description: name is the unique identifier for this provider
+                        (e.g. "openai", "workers-ai", "local-vllm")
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    type:
+                      description: |-
+                        type specifies the provider type
+                        "openai-compatible" = OpenAI API or compatible (e.g. vLLM, LocalAI)
+                        "workers-ai" = Cloudflare Workers AI
+                        "custom" = custom provider type
+                      enum:
+                      - openai-compatible
+                      - workers-ai
+                      - custom
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                type: array
+              resources:
+                description: resources defines CPU and memory limits for workflow
+                  execution
+                properties:
+                  limits:
+                    description: limits defines maximum resource limits
+                    properties:
+                      cpu:
+                        description: cpu is the CPU resource request/limit (e.g. "500m",
+                          "1")
+                        type: string
+                      memory:
+                        description: memory is the memory resource request/limit (e.g.
+                          "512Mi", "1Gi")
+                        type: string
+                    type: object
+                  requests:
+                    description: requests defines minimum resource requirements
+                    properties:
+                      cpu:
+                        description: cpu is the CPU resource request/limit (e.g. "500m",
+                          "1")
+                        type: string
+                      memory:
+                        description: memory is the memory resource request/limit (e.g.
+                          "512Mi", "1Gi")
+                        type: string
+                    type: object
+                type: object
+              scriptUrl:
+                description: scriptUrl is the URL to the agent script to execute
+                type: string
+              targetBucket:
+                description: targetBucket is the S3 bucket where artifacts will be
+                  stored
+                type: string
+              targetPrefix:
+                description: targetPrefix is the path prefix within the bucket for
+                  artifacts
+                type: string
+              targetUrls:
+                description: targetUrls is a list of URLs to be processed by the agent
+                  workflow
+                items:
+                  type: string
+                type: array
+              taskClassifier:
+                default: default
+                description: |-
+                  taskClassifier determines how to classify tasks for routing
+                  "default" = use built-in keyword-based classifier
+                type: string
+              timeouts:
+                description: timeouts defines execution timeouts
+                properties:
+                  execution:
+                    description: execution is the total execution timeout in seconds
+                    format: int32
+                    type: integer
+                  suspendGate:
+                    description: suspendGate is the timeout for suspend gate approval
+                      in seconds
+                    format: int32
+                    type: integer
+                type: object
+              workloadType:
+                description: workloadType defines the infrastructure type (generic,
+                  ceph, minio, postgres, etc.)
+                enum:
+                - generic
+                - ceph
+                - minio
+                - postgres
+                - aws
+                - kubernetes
+                type: string
+            type: object
+          status:
+            description: status defines the observed state of AgentWorkload
+            properties:
+              argoPhase:
+                description: |-
+                  argoPhase tracks the current Argo Workflow phase
+                  Values: Pending, Running, Suspended, Succeeded, Failed, Error
+                  Updated by the operator when reconciling workflow status
+                type: string
+              argoWorkflow:
+                description: |-
+                  argoWorkflow references the associated Argo Workflow CR
+                  Set when the operator creates a workflow for Argo orchestration
+                properties:
+                  createdAt:
+                    description: createdAt is when the Workflow CR was created
+                    format: date-time
+                    type: string
+                  name:
+                    description: name is the name of the Argo Workflow CR
+                    type: string
+                  namespace:
+                    description: namespace is the namespace of the Argo Workflow CR
+                      (usually "argo-workflows")
+                    type: string
+                  uid:
+                    description: uid is the unique identifier of the Workflow CR
+                    type: string
+                type: object
+              conditions:
+                description: |-
+                  conditions represent the current state of the AgentWorkload resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              executedActions:
+                description: executedActions is a list of actions that were approved
+                  and executed
+                items:
+                  description: Action represents a proposed or executed action by
+                    an agent
+                  properties:
+                    approved:
+                      description: approved indicates if this action was approved
+                      type: boolean
+                    confidence:
+                      description: confidence is the agent's confidence in this action
+                        (0-1, as string e.g. "0.95")
+                      pattern: ^0(\.[0-9]{1,2})?$|^1(\.0{1,2})?$
+                      type: string
+                    description:
+                      description: description explains what the action does
+                      type: string
+                    name:
+                      description: name is a unique identifier for this action
+                      type: string
+                    timestamp:
+                      description: timestamp is when the action was proposed
+                      format: date-time
+                      type: string
+                  required:
+                  - confidence
+                  - description
+                  - name
+                  type: object
+                type: array
+              lastReconcileTime:
+                description: lastReconcileTime is the last time the resource was reconciled
+                format: date-time
+                type: string
+              phase:
+                description: 'phase is the current lifecycle phase: Pending, Running,
+                  Completed, Failed'
+                type: string
+              proposedActions:
+                description: proposedActions is a list of actions proposed by agents
+                items:
+                  description: Action represents a proposed or executed action by
+                    an agent
+                  properties:
+                    approved:
+                      description: approved indicates if this action was approved
+                      type: boolean
+                    confidence:
+                      description: confidence is the agent's confidence in this action
+                        (0-1, as string e.g. "0.95")
+                      pattern: ^0(\.[0-9]{1,2})?$|^1(\.0{1,2})?$
+                      type: string
+                    description:
+                      description: description explains what the action does
+                      type: string
+                    name:
+                      description: name is a unique identifier for this action
+                      type: string
+                    timestamp:
+                      description: timestamp is when the action was proposed
+                      format: date-time
+                      type: string
+                  required:
+                  - confidence
+                  - description
+                  - name
+                  type: object
+                type: array
+              readyAgents:
+                description: readyAgents is the number of agents ready to execute
+                format: int32
+                type: integer
+              workflowArtifacts:
+                additionalProperties:
+                  type: string
+                description: |-
+                  workflowArtifacts maps workflow step names to their artifact locations
+                  Example: {"scraper": "s3://bucket/job_id/raw_html.json"}
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

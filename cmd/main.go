@@ -37,6 +37,7 @@ import (
 
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
 	"github.com/shreyansh/agentic-operator/internal/controller"
+	"github.com/shreyansh/agentic-operator/pkg/evaluation"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -179,8 +180,9 @@ func main() {
 	}
 
 	if err := (&controller.AgentWorkloadReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Evaluator: evaluation.NewEvaluator(), // Phase 4: Agent Evaluation Pipeline
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "AgentWorkload")
 		os.Exit(1)

@@ -75,6 +75,13 @@ func (p *OpenAICompatibleProvider) Type() string {
 
 // CallModel sends a request to the OpenAI-compatible API
 func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, model string, prompt string) (*ModelResponse, error) {
+	// Cloudflare Workers AI requires model names prefixed with "@cf/"
+	// If provider is Cloudflare and model doesn't already have the prefix, add it.
+	if (strings.Contains(p.name, "cloudflare") || strings.Contains(p.name, "workers-ai")) &&
+		!strings.HasPrefix(model, "@cf/") {
+		model = "@cf/meta/" + model
+	}
+
 	// Prepare request body
 	reqBody := map[string]interface{}{
 		"model":       model,

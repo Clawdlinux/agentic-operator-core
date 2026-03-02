@@ -1,0 +1,25 @@
+# Phase 4 - Agent Evaluation Test Workload (Cloudflare Workers AI)
+# Demonstrates: cost-aware routing + live evaluation scoring + Prometheus metrics
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: phase4-eval-test
+  namespace: argo-workflows
+spec:
+  modelStrategy: cost-aware
+  taskClassifier: default
+  providers:
+    - name: cloudflare-workers-ai
+      type: openai-compatible
+      # Cloudflare Workers AI OpenAI-compatible endpoint
+      endpoint: https://api.cloudflare.com/client/v4/accounts/77cadcf59e5fc8c48a5f2d8741a93041/ai/v1
+      apiKeySecret:
+        name: cloudflare-workers-ai-token
+        key: api-token
+  modelMapping:
+    # @cf/ prefix handled automatically by provider layer (Phase 3 fix)
+    validation: cloudflare-workers-ai/@cf/meta/llama-2-7b-chat-int8
+    analysis:   cloudflare-workers-ai/@cf/meta/llama-2-7b-chat-int8
+    reasoning:  cloudflare-workers-ai/@cf/meta/llama-2-7b-chat-int8
+  # Validation task → lightweight model → quality scored by evaluator
+  objective: "Validate this data: revenue Q1=1.2M, Q2=1.5M, Q3=1.8M. Are the numbers consistent with 25% quarterly growth?"
