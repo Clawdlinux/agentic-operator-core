@@ -38,6 +38,7 @@ import (
 	"github.com/shreyansh/agentic-operator/pkg/llm"
 	"github.com/shreyansh/agentic-operator/pkg/mcp"
 	"github.com/shreyansh/agentic-operator/pkg/metrics"
+	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
 	"github.com/shreyansh/agentic-operator/pkg/opa"
 	"github.com/shreyansh/agentic-operator/pkg/resilience"
 	"github.com/shreyansh/agentic-operator/pkg/routing"
@@ -49,9 +50,12 @@ const maxActionsInStatus = 100
 // AgentWorkloadReconciler reconciles a AgentWorkload object
 type AgentWorkloadReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	Validator *license.Validator // License validation (optional, can be nil)
-	Evaluator *evaluation.Evaluator // Phase 4: Agent Evaluation Pipeline
+	Scheme      *runtime.Scheme
+	Validator   *license.Validator       // License validation (optional, can be nil)
+	Evaluator   *evaluation.Evaluator    // Phase 4: Agent Evaluation Pipeline
+	QuotaMgr    *multitenancy.QuotaManager // Phase 7: Per-tenant quotas
+	SLAMonitor  *multitenancy.SLAMonitor   // Phase 7: SLA tracking
+	TenantRes   *multitenancy.Resolver     // Phase 7: Tenant isolation
 }
 
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads,verbs=get;list;watch;create;update;patch;delete
@@ -115,6 +119,28 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	// ========== QUOTA ENFORCEMENT (Phase 7) ==========
+	// Check per-tenant quotas BEFORE processing the workload
+	if r.QuotaMgr != nil && r.TenantRes != nil {
+		// Extract tenant from namespace
+		tenant, err := r.TenantRes.ExtractFromNamespace(ctx, workload.Namespace)
+		if err == nil && tenant != nil {
+			// Check quota (assume $10 cost per workload for estimation)
+			estCost := 10.0
+			if err := r.QuotaMgr.CheckAndConsume(tenant.Name, estCost); err != nil {
+				log.Error(err, "quota check failed",
+					"tenant", tenant.Name,
+					"error", err.Error(),
+				)
+				workload.Status.Phase = "Failed"
+			if err := r.Status().Update(ctx, &workload); err != nil {
+					log.Error(err, "failed to update workload status")
+				}
+				return ctrl.Result{RequeueAfter: 1 * time.Hour}, nil // Requeue later when quota resets
+			}
+		}
+	}
+
 	// ========== MODEL ROUTING (Phase 3) with Retry (Phase 5) ==========
 	// Handle cost-aware model routing if enabled
 	if workload.Spec.ModelStrategy != nil && *workload.Spec.ModelStrategy == "cost-aware" {
@@ -149,6 +175,14 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 					evaluation.RecordEvaluation(evalResult)
 				}
 			}
+			
+			// Phase 7: Track SLA failure
+			if r.SLAMonitor != nil && r.TenantRes != nil {
+				if tenant, err := r.TenantRes.ExtractFromNamespace(ctx, workload.Namespace); err == nil && tenant != nil {
+					_ = r.SLAMonitor.RecordFailure(tenant.Name)
+				}
+			}
+			
 			workload.Status.Phase = "Failed"
 			if err := r.Status().Update(ctx, &workload); err != nil {
 				log.Error(err, "failed to update workload status")
@@ -190,6 +224,14 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 
 			workload.Status.Phase = "Completed"
+			
+			// Phase 7: Track SLA success
+			if r.SLAMonitor != nil && r.TenantRes != nil {
+				if tenant, err := r.TenantRes.ExtractFromNamespace(ctx, workload.Namespace); err == nil && tenant != nil {
+					_ = r.SLAMonitor.RecordSuccess(tenant.Name)
+				}
+			}
+			
 			if err := r.Status().Update(ctx, &workload); err != nil {
 				log.Error(err, "failed to update workload status with routing info")
 				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
