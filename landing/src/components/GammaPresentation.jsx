@@ -1,25 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Presentation } from 'lucide-react';
-
-const VIDEOS = [
-  {
-    id: 'operator-demo',
-    title: 'Operator Demo',
-    label: '01',
-    description: 'Watch the AgentWorkload CRD spin up a live hedge-fund intelligence pipeline',
-    src: '/videos/agentic-operator-demo.mp4',
-    badge: 'Live Run',
-  },
-  {
-    id: 'full-walkthrough',
-    title: 'Full Walkthrough',
-    label: '02',
-    description: 'End-to-end tour — CRD authoring, MCP integration, Argo scheduling, OPA policies',
-    src: '/videos/demo-video.mp4',
-    badge: 'Architecture',
-  },
-];
+import { Presentation, Code } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -35,91 +16,7 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
 };
 
-function VideoPlayer({ video, isActive }) {
-  return (
-    <AnimatePresence mode="wait">
-      {isActive && (
-        <motion.div
-          key={video.id}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="rounded-xl overflow-hidden"
-          style={{
-            border: '1px solid rgba(0,212,170,0.22)',
-            boxShadow: '0 0 60px rgba(0,212,170,0.06), 0 8px 40px rgba(0,0,0,0.5)',
-          }}
-        >
-          {/* Terminal-style title bar */}
-          <div
-            className="flex items-center gap-2 px-4 py-2.5 border-b"
-            style={{
-              background: '#0d1117',
-              borderColor: 'rgba(255,255,255,0.05)',
-            }}
-          >
-            <div className="w-3 h-3 rounded-full" style={{ background: '#ff5f57' }} />
-            <div className="w-3 h-3 rounded-full" style={{ background: '#febc2e' }} />
-            <div className="w-3 h-3 rounded-full" style={{ background: '#28c840' }} />
-            <span
-              className="ml-2 text-xs text-slate-500 tracking-wider"
-              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-            >
-              agentic-operator — {video.title.toLowerCase().replace(/ /g, '-')}.mp4
-            </span>
-            <span
-              className="ml-auto text-xs px-2 py-0.5 rounded-full"
-              style={{
-                color: '#00d4aa',
-                background: 'rgba(0,212,170,0.1)',
-                border: '1px solid rgba(0,212,170,0.2)',
-                fontFamily: "'IBM Plex Mono', monospace",
-              }}
-            >
-              {video.badge}
-            </span>
-          </div>
-
-          {/* Video */}
-          <div style={{ background: '#000' }}>
-            <video
-              key={video.src}
-              src={video.src}
-              controls
-              preload="metadata"
-              playsInline
-              className="w-full block"
-              style={{ maxHeight: 420, display: 'block' }}
-            />
-          </div>
-
-          {/* Description bar */}
-          <div
-            className="px-4 py-3"
-            style={{
-              background: 'rgba(10,14,26,0.95)',
-              borderTop: '1px solid rgba(255,255,255,0.04)',
-            }}
-          >
-            <p
-              className="text-sm"
-              style={{
-                color: 'rgba(255,255,255,0.5)',
-                fontFamily: "'DM Sans', sans-serif",
-              }}
-            >
-              {video.description}
-            </p>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
 export default function GammaPresentation() {
-  const [activeVideo, setActiveVideo] = useState(0);
   const [showDeck, setShowDeck] = useState(true);
 
   return (
@@ -146,13 +43,13 @@ export default function GammaPresentation() {
               fontFamily: "'IBM Plex Mono', monospace",
             }}
           >
-            Live Demo
+            Architecture
           </span>
           <h2
             className="text-4xl md:text-5xl font-bold text-white"
             style={{ fontFamily: "'Syne', sans-serif" }}
           >
-            See It In Action
+            Production-Grade Design
           </h2>
         </motion.div>
 
@@ -161,53 +58,8 @@ export default function GammaPresentation() {
           className="text-center text-lg mb-10"
           style={{ color: 'rgba(255,255,255,0.5)', fontFamily: "'DM Sans', sans-serif" }}
         >
-          Real kubectl output. Real cluster. Real agents.
+          Enterprise Kubernetes operator with autonomous multi-agent consensus on agentic-prod cluster.
         </motion.p>
-
-        {/* ── Video tabs ── */}
-        <motion.div variants={itemVariants} className="mb-4">
-          <div
-            className="inline-flex rounded-xl p-1 mb-6 w-full"
-            style={{
-              background: 'rgba(13,21,37,0.7)',
-              border: '1px solid rgba(255,255,255,0.07)',
-            }}
-          >
-            {VIDEOS.map((video, i) => (
-              <button
-                key={video.id}
-                onClick={() => setActiveVideo(i)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-250"
-                style={{
-                  background: activeVideo === i ? 'rgba(0,212,170,0.12)' : 'transparent',
-                  border: activeVideo === i ? '1px solid rgba(0,212,170,0.25)' : '1px solid transparent',
-                  color: activeVideo === i ? '#00d4aa' : 'rgba(255,255,255,0.4)',
-                  fontFamily: "'DM Sans', sans-serif",
-                  cursor: 'pointer',
-                }}
-              >
-                <Play
-                  size={13}
-                  style={{ opacity: activeVideo === i ? 1 : 0.4 }}
-                />
-                <span
-                  className="mr-1 text-xs opacity-50"
-                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-                >
-                  {video.label}
-                </span>
-                {video.title}
-              </button>
-            ))}
-          </div>
-
-          {/* Video players */}
-          <div className="relative min-h-[300px]">
-            {VIDEOS.map((video, i) => (
-              <VideoPlayer key={video.id} video={video} isActive={activeVideo === i} />
-            ))}
-          </div>
-        </motion.div>
 
         {/* ── Quick stats ── */}
         <motion.div
@@ -215,9 +67,9 @@ export default function GammaPresentation() {
           className="flex flex-wrap items-center justify-center gap-6 mt-8 mb-16"
         >
           {[
-            { value: '4 min', label: 'first report' },
-            { value: 'Zero', label: 'infra changes' },
-            { value: 'Native', label: 'kubectl UX' },
+            { value: '47/47', label: 'Pods Healthy' },
+            { value: '100%', label: 'Uptime (72h)' },
+            { value: '$82-90', label: 'Monthly Cost' },
           ].map((s) => (
             <div key={s.label} className="flex items-center gap-2">
               <span
@@ -259,13 +111,13 @@ export default function GammaPresentation() {
                   className="text-sm font-semibold text-white"
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  View Full Pitch Deck
+                  Business Overview
                 </div>
                 <div
                   className="text-xs mt-0.5"
                   style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  Architecture · Use Cases · Roadmap
+                  Vision · Strategy · Roadmap
                 </div>
               </div>
             </div>
@@ -312,7 +164,7 @@ export default function GammaPresentation() {
                         border: 'none',
                       }}
                       allow="fullscreen"
-                      title="Agentic Operator — Pitch Deck"
+                      title="Agentic Operator — Business Overview"
                       loading="lazy"
                     />
                   </div>
