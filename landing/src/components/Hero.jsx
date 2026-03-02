@@ -6,9 +6,11 @@ import ParticleNetwork from '../utils/particleNetwork';
 const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
 
 const USE_CASES = [
-  'Run hedge fund intelligence pipelines inside Kubernetes.',
-  'Schedule AI research agents as native CronWorkflows.',
-  'Observe, scale, and manage LLM agents with kubectl.',
+  'Deploy multi-tenant AI agents with automatic SLA-driven scaling.',
+  'Cost-optimized model routing: validate→cheap, analyze→medium, reason→expensive.',
+  'Production-grade resilience: retry logic, circuit breakers, PII scrubbing.',
+  'Enterprise-ready: Ed25519 licensing, per-tenant quotas, audit trails.',
+  'Full observability: OpenTelemetry tracing, Prometheus metrics, Loki logs.',
 ];
 
 const TERMINAL_LINES = [
@@ -317,7 +319,7 @@ export default function Hero() {
           </a>
         </motion.div>
 
-        {/* Pod health ticker */}
+        {/* Production stats ticker */}
         <motion.div
           className="flex items-center justify-center gap-2 mb-14"
           initial={{ opacity: 0 }}
@@ -332,7 +334,7 @@ export default function Hero() {
             className="text-xs text-slate-500"
             style={{ fontFamily: "'IBM Plex Mono', monospace" }}
           >
-            47/47 pods healthy · 72hr uptime · Apache 2.0
+            77/77 tests passing · Phases 3-8 complete · Apache 2.0
           </span>
         </motion.div>
 

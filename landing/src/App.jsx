@@ -4,6 +4,7 @@ import Navigation from './components/Navigation';
 import Hero from './components/Hero';
 import StatsBar from './components/StatsBar';
 import Offerings from './components/Offerings';
+import Features from './components/Features';
 import UseCases from './components/UseCases';
 import Architecture from './components/Architecture';
 import GammaPresentation from './components/GammaPresentation';
@@ -32,6 +33,7 @@ export default function App() {
 
         <section id="features">
           <Offerings />
+          <Features />
         </section>
 
         <section id="use-cases">
