@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -33,8 +34,11 @@ import (
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
 	"github.com/shreyansh/agentic-operator/pkg/argo"
 	"github.com/shreyansh/agentic-operator/pkg/license"
+	"github.com/shreyansh/agentic-operator/pkg/llm"
 	"github.com/shreyansh/agentic-operator/pkg/mcp"
+	"github.com/shreyansh/agentic-operator/pkg/metrics"
 	"github.com/shreyansh/agentic-operator/pkg/opa"
+	"github.com/shreyansh/agentic-operator/pkg/routing"
 )
 
 // Maximum number of actions to keep in status to prevent unbounded growth
@@ -105,6 +109,63 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 		} else {
 			log.Info("No license found (running in dev mode)")
+		}
+	}
+
+	// ========== MODEL ROUTING (Phase 3) ==========
+	// Handle cost-aware model routing if enabled
+	if workload.Spec.ModelStrategy != nil && *workload.Spec.ModelStrategy == "cost-aware" {
+		response, routingInfo, err := r.routeAndCallModel(ctx, &workload)
+		if err != nil {
+			log.Error(err, "model routing failed")
+			workload.Status.Phase = "Failed"
+			if err := r.Status().Update(ctx, &workload); err != nil {
+				log.Error(err, "failed to update workload status")
+			}
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+
+		if response != nil && routingInfo != nil {
+			// Update status with routing info
+			if workload.Status.Conditions == nil {
+				workload.Status.Conditions = []metav1.Condition{}
+			}
+
+			condition := metav1.Condition{
+				Type:               "ModelRoutingSucceeded",
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: workload.Generation,
+				Reason:             "RoutingCompleted",
+				Message: fmt.Sprintf(
+					"Task classified as %s, routed to %s/%s (input:%d tokens, output:%d tokens)",
+					routingInfo.TaskCategory, routingInfo.ProviderName, routingInfo.ModelName,
+					routingInfo.InputTokens, routingInfo.OutputTokens,
+				),
+				LastTransitionTime: metav1.Now(),
+			}
+
+			// Replace or append condition
+			foundIdx := -1
+			for i, c := range workload.Status.Conditions {
+				if c.Type == "ModelRoutingSucceeded" {
+					foundIdx = i
+					break
+				}
+			}
+			if foundIdx >= 0 {
+				workload.Status.Conditions[foundIdx] = condition
+			} else {
+				workload.Status.Conditions = append(workload.Status.Conditions, condition)
+			}
+
+			workload.Status.Phase = "Completed"
+			if err := r.Status().Update(ctx, &workload); err != nil {
+				log.Error(err, "failed to update workload status with routing info")
+				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			}
+
+			log.Info("model routing completed successfully", "routingInfo", routingInfo)
+			return ctrl.Result{}, nil // Don't requeue if routing completed
 		}
 	}
 
@@ -401,6 +462,85 @@ func (r *AgentWorkloadReconciler) reconcileArgoWorkflow(ctx context.Context, wor
 	}
 
 	return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
+}
+
+// routeAndCallModel handles cost-aware model routing for instructions
+// It classifies the task, selects the appropriate model/provider, and calls it
+// Returns the model response and routing metadata for tracking
+func (r *AgentWorkloadReconciler) routeAndCallModel(
+	ctx context.Context,
+	workload *agenticv1alpha1.AgentWorkload,
+) (*llm.ModelResponse, *llm.RoutingInfo, error) {
+	log := logf.FromContext(ctx)
+
+	// Check if cost-aware routing is enabled
+	modelStrategy := "fixed" // Default
+	if workload.Spec.ModelStrategy != nil {
+		modelStrategy = *workload.Spec.ModelStrategy
+	}
+
+	if modelStrategy != "cost-aware" {
+		log.Info("model routing disabled (modelStrategy != cost-aware)", "modelStrategy", modelStrategy)
+		return nil, nil, nil
+	}
+
+	// Get the task classifier
+	classifierType := "default"
+	if workload.Spec.TaskClassifier != nil {
+		classifierType = *workload.Spec.TaskClassifier
+	}
+
+	var classifier *routing.TaskClassifier
+	switch classifierType {
+	case "default":
+		classifier = routing.NewDefaultClassifier()
+	default:
+		log.Error(nil, "unknown task classifier type", "type", classifierType)
+		return nil, nil, fmt.Errorf("unknown task classifier: %s", classifierType)
+	}
+
+	// Get the task instructions (use objective as the primary instruction source)
+	instructions := ""
+	if workload.Spec.Objective != nil {
+		instructions = *workload.Spec.Objective
+	}
+	if instructions == "" {
+		log.Info("skipping model routing: no objective/instructions found")
+		return nil, nil, nil
+	}
+
+	// Initialize the provider registry and model router
+	registry := llm.NewProviderRegistry()
+	router := llm.NewModelRouter(registry, classifier)
+
+	// Route and call the model
+	response, routingInfo, err := router.RouteAndCall(
+		ctx,
+		r.Client,
+		workload.Namespace,
+		&workload.Spec,
+		instructions,
+	)
+
+	if err != nil {
+		log.Error(err, "model routing failed", "objective", instructions)
+		return nil, nil, err
+	}
+
+	log.Info("model routing successful",
+		"taskCategory", routingInfo.TaskCategory,
+		"provider", routingInfo.ProviderName,
+		"model", routingInfo.ModelName,
+		"inputTokens", routingInfo.InputTokens,
+		"outputTokens", routingInfo.OutputTokens,
+	)
+
+	// Record metrics
+	metricsRecorder := metrics.NewRoutingMetrics()
+	metricsRecorder.RecordModelRouting(routingInfo.TaskCategory, routingInfo.ProviderName, routingInfo.ModelName)
+	metricsRecorder.RecordTokenUsage(routingInfo.ProviderName, routingInfo.ModelName, routingInfo.InputTokens, routingInfo.OutputTokens)
+
+	return response, routingInfo, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
