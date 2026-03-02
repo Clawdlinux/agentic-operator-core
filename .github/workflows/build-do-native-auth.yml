@@ -46,20 +46,33 @@ jobs:
           # This is more reliable than manual OAuth token handling
           echo "Authenticating with DigitalOcean registry via doctl..."
           
-          # Install doctl if not available
+          # Try to use pre-installed doctl, or install if needed
           if ! command -v doctl &> /dev/null; then
             echo "Installing doctl..."
             cd /tmp
-            wget https://github.com/digitalocean/doctl/releases/download/v1.99.1/doctl-1.99.1-linux-amd64.tar.gz
-            tar xf doctl-1.99.1-linux-amd64.tar.gz
+            
+            # Use latest stable release (v1.101.0)
+            DOCTL_VERSION=$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | grep -oP '"tag_name": "\K[^"]+')
+            if [ -z "$DOCTL_VERSION" ]; then
+              DOCTL_VERSION="v1.101.0"  # Fallback
+            fi
+            
+            echo "Downloading doctl $DOCTL_VERSION..."
+            wget "https://github.com/digitalocean/doctl/releases/download/${DOCTL_VERSION}/doctl-${DOCTL_VERSION#v}-linux-amd64.tar.gz"
+            tar xf doctl-*.tar.gz
             sudo mv doctl /usr/local/bin/
           fi
           
+          echo "doctl version:"
+          doctl version
+          
           # Authenticate doctl with the API token
-          doctl auth init --access-token "${{ secrets.DIGITALOCEAN_TOKEN }}" --format text
+          echo "Initializing doctl with API token..."
+          doctl auth init --access-token "${{ secrets.DIGITALOCEAN_TOKEN }}"
           
           # Log in Docker to the registry using doctl's native authentication
           # This generates credentials and configures Docker
+          echo "Logging in to DigitalOcean Container Registry..."
           doctl registry login
           
           echo "✅ Successfully authenticated with DigitalOcean registry"
