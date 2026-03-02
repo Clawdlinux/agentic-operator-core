@@ -46,6 +46,37 @@ agenticOperator:
   logLevel: info
   env: {}
 
+  # Phase 4: Agent Evaluation Pipeline
+  evaluation:
+    enabled: true            # Enable quality scoring for every model call
+
+  # Phase 5: Production Hardening
+  resilience:
+    retry:
+      maxRetries: 3          # Max retry attempts for LLM API calls
+      initialBackoffMs: 1000 # Starting backoff (1s)
+      maxBackoffMs: 30000    # Cap at 30s
+      jitter: true           # Randomize to prevent thundering herd
+    circuitBreaker:
+      failureThreshold: 5    # Open after 5 consecutive failures
+      successThreshold: 2    # Close after 2 successes in half-open
+      resetTimeoutMs: 60000  # Wait 60s before trying half-open
+    sanitizer:
+      enabled: true          # Scrub PII/secrets from logs
+
+  # Phase 3: Model Routing
+  modelRouting:
+    defaultStrategy: "fixed" # "fixed" or "cost-aware"
+
+# ---------------------------------------------------------------------------
+# Cloudflare Workers AI (optional LLM provider)
+# ---------------------------------------------------------------------------
+cloudflareAI:
+  enabled: false
+  accountId: ""              # Your Cloudflare Account ID
+  apiToken: ""               # API token with Workers AI Read+Write
+  defaultModel: "@cf/meta/llama-2-7b-chat-int8"
+
 # ---------------------------------------------------------------------------
 # Argo Workflows
 # ---------------------------------------------------------------------------
