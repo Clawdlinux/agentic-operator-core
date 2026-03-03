@@ -1,6 +1,4 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Presentation, Code } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const containerVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -17,7 +15,6 @@ const itemVariants = {
 };
 
 export default function GammaPresentation() {
-  const [showDeck, setShowDeck] = useState(true);
 
   return (
     <section
@@ -88,90 +85,40 @@ export default function GammaPresentation() {
           ))}
         </motion.div>
 
-        {/* ── Pitch deck (collapsible) ── */}
+        {/* ── v1.0.0 Features ── */}
         <motion.div variants={itemVariants}>
-          <button
-            onClick={() => setShowDeck((v) => !v)}
-            className="w-full flex items-center justify-between px-5 py-4 rounded-xl transition-all duration-200 group"
+          <div
+            className="w-full grid grid-cols-1 md:grid-cols-3 gap-4 rounded-xl p-6"
             style={{
               background: 'rgba(13,21,37,0.5)',
               border: '1px solid rgba(0,212,170,0.12)',
-              cursor: 'pointer',
             }}
           >
-            <div className="flex items-center gap-3">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.2)' }}
-              >
-                <Presentation size={15} style={{ color: '#00d4aa' }} />
-              </div>
-              <div className="text-left">
+            {[
+              { icon: '🏢', title: 'Tenant CRD', desc: 'Automated multi-tenant provisioning' },
+              { icon: '🔒', title: 'RBAC Isolation', desc: 'Complete namespace segregation' },
+              { icon: '💰', title: 'Cost Control', desc: 'Token tracking & quota enforcement' },
+              { icon: '📊', title: 'Observability', desc: 'Prometheus + OpenTelemetry' },
+              { icon: '📚', title: 'Documentation', desc: '12 comprehensive guides' },
+              { icon: '🚀', title: 'Production Ready', desc: '100% test coverage & validation' },
+            ].map((f) => (
+              <div key={f.title} className="text-center">
+                <div className="text-3xl mb-2">{f.icon}</div>
                 <div
                   className="text-sm font-semibold text-white"
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  Business Overview
+                  {f.title}
                 </div>
                 <div
-                  className="text-xs mt-0.5"
+                  className="text-xs mt-1"
                   style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  Vision · Strategy · Roadmap
+                  {f.desc}
                 </div>
               </div>
-            </div>
-            <motion.div
-              animate={{ rotate: showDeck ? 180 : 0 }}
-              transition={{ duration: 0.25 }}
-              style={{ color: 'rgba(0,212,170,0.6)' }}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </motion.div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {showDeck && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.35, ease: 'easeInOut' }}
-                style={{ overflow: 'hidden' }}
-              >
-                <div className="pt-4 relative">
-                  {/* Ambient glow behind iframe */}
-                  <div
-                    className="absolute inset-0 rounded-full blur-3xl pointer-events-none"
-                    style={{ background: 'rgba(0,212,170,0.05)' }}
-                  />
-                  <div
-                    className="rounded-xl overflow-hidden"
-                    style={{
-                      position: 'relative',
-                      border: '1px solid rgba(0,212,170,0.18)',
-                      boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
-                    }}
-                  >
-                    <iframe
-                      src="https://gamma.app/embed/g53pjztg8z13h71"
-                      style={{
-                        width: '100%',
-                        height: 500,
-                        display: 'block',
-                        border: 'none',
-                      }}
-                      allow="fullscreen"
-                      title="Agentic Operator — Business Overview"
-                      loading="lazy"
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            ))}
+          </div>
         </motion.div>
       </motion.div>
     </section>
