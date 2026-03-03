@@ -50,12 +50,13 @@ const maxActionsInStatus = 100
 // AgentWorkloadReconciler reconciles a AgentWorkload object
 type AgentWorkloadReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	Validator   *license.Validator       // License validation (optional, can be nil)
-	Evaluator   *evaluation.Evaluator    // Phase 4: Agent Evaluation Pipeline
-	QuotaMgr    *multitenancy.QuotaManager // Phase 7: Per-tenant quotas
-	SLAMonitor  *multitenancy.SLAMonitor   // Phase 7: SLA tracking
-	TenantRes   *multitenancy.Resolver     // Phase 7: Tenant isolation
+	Scheme         *runtime.Scheme
+	Validator      *license.Validator       // License validation (optional, can be nil)
+	Evaluator      *evaluation.Evaluator    // Phase 4: Agent Evaluation Pipeline
+	QuotaMgr       *multitenancy.QuotaManager // Phase 7: Per-tenant quotas
+	SLAMonitor     *multitenancy.SLAMonitor   // Phase 7: SLA tracking
+	TenantRes      *multitenancy.Resolver     // Phase 7: Tenant isolation
+	Metrics        *metrics.RoutingMetrics    // Singleton metrics recorder (initialized once)
 }
 
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads,verbs=get;list;watch;create;update;patch;delete
@@ -608,10 +609,11 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 		"outputTokens", routingInfo.OutputTokens,
 	)
 
-	// Record routing metrics
-	metricsRecorder := metrics.NewRoutingMetrics()
-	metricsRecorder.RecordModelRouting(routingInfo.TaskCategory, routingInfo.ProviderName, routingInfo.ModelName)
-	metricsRecorder.RecordTokenUsage(routingInfo.ProviderName, routingInfo.ModelName, routingInfo.InputTokens, routingInfo.OutputTokens)
+	// Record routing metrics (using singleton instance)
+	if r.Metrics != nil {
+		r.Metrics.RecordModelRouting(routingInfo.TaskCategory, routingInfo.ProviderName, routingInfo.ModelName)
+		r.Metrics.RecordTokenUsage(routingInfo.ProviderName, routingInfo.ModelName, routingInfo.InputTokens, routingInfo.OutputTokens)
+	}
 
 	// Phase 4: Agent Evaluation — score quality of the model response
 	if r.Evaluator != nil {
@@ -640,6 +642,11 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *AgentWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Initialize metrics singleton once during setup (prevents duplicate registration)
+	if r.Metrics == nil {
+		r.Metrics = metrics.NewRoutingMetrics()
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&agenticv1alpha1.AgentWorkload{}).
 		Named("agentworkload").
