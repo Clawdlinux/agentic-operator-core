@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -118,6 +119,127 @@ type TenantList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Tenant `json:"items"`
+}
+
+// DeepCopyObject implements runtime.Object interface
+func (in *Tenant) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+	return nil
+}
+
+// DeepCopy implements deep copy
+func (in *Tenant) DeepCopy() *Tenant {
+	if in == nil {
+		return nil
+	}
+	out := new(Tenant)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyInto implements deep copy into
+func (in *Tenant) DeepCopyInto(out *Tenant) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	in.Spec.DeepCopyInto(&out.Spec)
+	in.Status.DeepCopyInto(&out.Status)
+}
+
+// DeepCopy for TenantSpec
+func (in *TenantSpec) DeepCopy() *TenantSpec {
+	if in == nil {
+		return nil
+	}
+	out := new(TenantSpec)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyInto for TenantSpec
+func (in *TenantSpec) DeepCopyInto(out *TenantSpec) {
+	*out = *in
+	if in.Providers != nil {
+		in, out := &in.Providers, &out.Providers
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	in.Quotas.DeepCopyInto(&out.Quotas)
+}
+
+// DeepCopy for TenantQuotas
+func (in *TenantQuotas) DeepCopy() *TenantQuotas {
+	if in == nil {
+		return nil
+	}
+	out := new(TenantQuotas)
+	*out = *in
+	return out
+}
+
+// DeepCopyInto for TenantQuotas
+func (in *TenantQuotas) DeepCopyInto(out *TenantQuotas) {
+	*out = *in
+}
+
+// DeepCopy for TenantStatus
+func (in *TenantStatus) DeepCopy() *TenantStatus {
+	if in == nil {
+		return nil
+	}
+	out := new(TenantStatus)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyInto for TenantStatus
+func (in *TenantStatus) DeepCopyInto(out *TenantStatus) {
+	*out = *in
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = make([]metav1.Condition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.LastReconciliation != nil {
+		in, out := &in.LastReconciliation, &out.LastReconciliation
+		*out = (*in).DeepCopy()
+	}
+}
+
+// DeepCopyObject implements runtime.Object interface for TenantList
+func (in *TenantList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+	return nil
+}
+
+// DeepCopy for TenantList
+func (in *TenantList) DeepCopy() *TenantList {
+	if in == nil {
+		return nil
+	}
+	out := new(TenantList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyInto for TenantList
+func (in *TenantList) DeepCopyInto(out *TenantList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]Tenant, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 }
 
 func init() {
