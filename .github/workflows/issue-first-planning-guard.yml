@@ -1,0 +1,44 @@
+name: Issue-First Planning Guard
+
+on:
+  pull_request:
+    paths:
+      - "**/*.md"
+      - "scripts/check_issue_first_policy.sh"
+      - ".github/workflows/issue-first-planning-guard.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.md"
+      - "scripts/check_issue_first_policy.sh"
+      - ".github/workflows/issue-first-planning-guard.yml"
+  workflow_dispatch:
+
+jobs:
+  issue-first-guard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate issue-first planning policy
+        shell: bash
+        run: |
+          BASE_SHA=""
+          HEAD_SHA=""
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          BASE_REF="${BASE_SHA}" HEAD_REF="${HEAD_SHA}" bash scripts/check_issue_first_policy.sh
