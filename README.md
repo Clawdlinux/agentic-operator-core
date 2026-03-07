@@ -6,26 +6,22 @@ Kubernetes operator for orchestrating tool-agnostic AI agent workloads via `Agen
 
 - We are building infrastructure for autonomous, policy-aware agent workflows on Kubernetes.
 - This public repo highlights product behavior through live demo videos and concrete use cases.
-- Start with the embedded Operator Demo below, then the Full Walkthrough.
+- Start with the Operator Demo link below, then the Full Walkthrough.
 - Private sales collateral (including the pitch deck) is intentionally not published here.
 
 ## 🎬 Demo
 
 ### Operator Demo
 
-<video src="https://github.com/Clawdlinux/agentic-operator-core/raw/main/agentic-operator-demo.mp4" controls width="960">
-  Your browser does not support embedded videos. View the operator demo video <a href="https://github.com/Clawdlinux/agentic-operator-core/raw/main/agentic-operator-demo.mp4">here</a>.
-</video>
+[▶ Watch Operator Demo in GitHub Player](https://github.com/Clawdlinux/agentic-operator-core/blob/main/agentic-operator-demo.mp4)
 
 ### Full Walkthrough
 
-<video src="https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4" controls width="960">
-  Your browser does not support embedded videos. View the full walkthrough video <a href="https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4">here</a>.
-</video>
+[▶ Watch Full Walkthrough in GitHub Player](https://github.com/Clawdlinux/agentic-operator-core/blob/main/demo-video.mp4)
 
-Fallback links:
-- [agentic-operator-demo.mp4](https://github.com/Clawdlinux/agentic-operator-core/raw/main/agentic-operator-demo.mp4)
-- [demo-video.mp4](https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4)
+Direct file links:
+- [agentic-operator-demo.mp4](https://github.com/Clawdlinux/agentic-operator-core/blob/main/agentic-operator-demo.mp4)
+- [demo-video.mp4](https://github.com/Clawdlinux/agentic-operator-core/blob/main/demo-video.mp4)
 
 ## ✅ Use Cases
 
