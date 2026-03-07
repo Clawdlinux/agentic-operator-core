@@ -13,15 +13,15 @@ Kubernetes operator for orchestrating tool-agnostic AI agent workloads via `Agen
 
 ### Operator Demo
 
-[▶ Watch Operator Demo in GitHub Player](https://github.com/Clawdlinux/agentic-operator-core/blob/main/agentic-operator-demo.mp4)
+[▶ Watch Operator Demo (Streaming)](https://cdn.jsdelivr.net/gh/Clawdlinux/agentic-operator-core@main/agentic-operator-demo.mp4)
 
 ### Full Walkthrough
 
-[▶ Watch Full Walkthrough in GitHub Player](https://github.com/Clawdlinux/agentic-operator-core/blob/main/demo-video.mp4)
+[▶ Watch Full Walkthrough (Streaming)](https://cdn.jsdelivr.net/gh/Clawdlinux/agentic-operator-core@main/demo-video.mp4)
 
 Direct file links:
-- [agentic-operator-demo.mp4](https://github.com/Clawdlinux/agentic-operator-core/blob/main/agentic-operator-demo.mp4)
-- [demo-video.mp4](https://github.com/Clawdlinux/agentic-operator-core/blob/main/demo-video.mp4)
+- [agentic-operator-demo.mp4](https://cdn.jsdelivr.net/gh/Clawdlinux/agentic-operator-core@main/agentic-operator-demo.mp4)
+- [demo-video.mp4](https://cdn.jsdelivr.net/gh/Clawdlinux/agentic-operator-core@main/demo-video.mp4)
 
 ## ✅ Use Cases
 
