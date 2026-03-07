@@ -15,11 +15,15 @@
 
 ### Operator Demo — Live Hedge Fund Pipeline
 
-[Operator demo video](https://github.com/Clawdlinux/agentic-operator-core/raw/main/agentic-operator-demo.mp4)
+<video src="https://github.com/Clawdlinux/agentic-operator-core/raw/main/agentic-operator-demo.mp4" controls width="960">
+  Your browser does not support embedded videos. View the operator demo video <a href="https://github.com/Clawdlinux/agentic-operator-core/raw/main/agentic-operator-demo.mp4">here</a>.
+</video>
 
 ### Full Walkthrough — Architecture & MCP Integration
 
-[Full walkthrough video](https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4)
+<video src="https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4" controls width="960">
+  Your browser does not support embedded videos. View the full walkthrough video <a href="https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4">here</a>.
+</video>
 
 > Also see the public pitch deck: **[Agentic-Operator.pptx](https://github.com/Clawdlinux/agentic-operator-core/raw/main/Agentic-Operator.pptx)**.
 
@@ -348,7 +352,13 @@ python demo.py --mock --fast
 
 ### Demo Video
 
-A pre-recorded 1080p demo video is available here: [demo-video.mp4](https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4).
+A pre-recorded 1080p demo video is embedded below.
+
+<video src="https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4" controls width="960">
+  Your browser does not support embedded videos. View the demo video <a href="https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4">here</a>.
+</video>
+
+Fallback link: [demo-video.mp4](https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4).
 It shows all three use cases running against mock Cloudflare Workers AI responses
 with the Bloomberg Terminal-style terminal UI.
 
