@@ -2,6 +2,13 @@
 
 Kubernetes operator for orchestrating tool-agnostic AI agent workloads via `AgentWorkload` CRDs and MCP-compatible tool backends.
 
+## For Base Batches Reviewers
+
+- We are building infrastructure for autonomous, policy-aware agent workflows on Kubernetes.
+- This public repo highlights product behavior through live demo videos and concrete use cases.
+- Start with the embedded Operator Demo below, then the Full Walkthrough.
+- Private sales collateral (including the pitch deck) is intentionally not published here.
+
 ## 🎬 Demo
 
 ### Operator Demo
