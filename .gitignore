@@ -55,8 +55,8 @@ bin/
 *.mp4
 landing/public/videos/
 landing/dist/videos/
-demo-video.mp4
-agentic-operator-demo.mp4
+!demo-video.mp4
+!agentic-operator-demo.mp4
 
 # Security: never commit local registry/docker auth files
 .dockerconfigjson

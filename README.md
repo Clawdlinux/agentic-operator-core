@@ -15,13 +15,13 @@
 
 ### Operator Demo — Live Hedge Fund Pipeline
 
-https://github.com/shreyanshjain7174/agentic-k8s-operator/raw/main/agentic-operator-demo.mp4
+[Operator demo video](https://github.com/Clawdlinux/agentic-operator-core/raw/main/agentic-operator-demo.mp4)
 
 ### Full Walkthrough — Architecture & MCP Integration
 
-https://github.com/shreyanshjain7174/agentic-k8s-operator/raw/main/demo-video.mp4
+[Full walkthrough video](https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4)
 
-> Also see the **[landing page demo section](https://agentic-k8s-landing.fly.dev/#demo)** for an interactive view with the full pitch deck.
+> Also see the public pitch deck: **[Agentic-Operator.pptx](https://github.com/Clawdlinux/agentic-operator-core/raw/main/Agentic-Operator.pptx)**.
 
 ---
 
@@ -348,7 +348,7 @@ python demo.py --mock --fast
 
 ### Demo Video
 
-A pre-recorded 1080p demo video (`demo-video.mp4`) is included in the repo root.
+A pre-recorded 1080p demo video is available here: [demo-video.mp4](https://github.com/Clawdlinux/agentic-operator-core/raw/main/demo-video.mp4).
 It shows all three use cases running against mock Cloudflare Workers AI responses
 with the Bloomberg Terminal-style terminal UI.
 
