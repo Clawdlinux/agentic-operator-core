@@ -53,11 +53,11 @@ bin/
 
 # Strategic documents (demo videos, pitch decks)
 *.mp4
+*.pptx
 landing/public/videos/
 landing/dist/videos/
 !demo-video.mp4
 !agentic-operator-demo.mp4
-Agentic-Operator.pptx
 
 # Security: never commit local registry/docker auth files
 .dockerconfigjson
