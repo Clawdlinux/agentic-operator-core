@@ -1,0 +1,65 @@
+version: 1
+generated_on: 2026-03-10
+source_repo: agentic-operator-core
+target_repo: agentic-operator-private
+
+modules:
+  - path: pkg/billing
+    concern: billing_monetization
+    status: pending_migration
+    target_path: pkg/billing
+    notes: Cost monetization and account pricing logic.
+
+  - path: pkg/license
+    concern: commercial_licensing
+    status: pending_migration
+    target_path: pkg/license
+    notes: Commercial license token validation and seat enforcement.
+
+  - path: cmd/generate-license
+    concern: license_tooling
+    status: pending_migration
+    target_path: cmd/generate-license
+    notes: License issuance tooling for commercial tiers.
+
+  - path: scripts/generate_license.sh
+    concern: license_tooling
+    status: pending_migration
+    target_path: scripts/generate_license.sh
+    notes: Shell wrapper for commercial license generation.
+
+  - path: internal/controller/agentworkload_controller.go
+    concern: license_enforcement_hooks
+    status: pending_migration
+    target_path: internal/controller/agentworkload_controller.go
+    notes: License-specific branches should be private plug-ins or hooks.
+
+  - path: pkg/autoscaling
+    concern: enterprise_sla_autoscaling
+    status: pending_migration
+    target_path: pkg/autoscaling
+    notes: Enterprise-only SLA/autoscaling differentiation logic.
+
+  - path: pkg/multitenancy/sla.go
+    concern: enterprise_sla_autoscaling
+    status: pending_migration
+    target_path: pkg/multitenancy/sla.go
+    notes: Keep OSS-safe baseline if needed; move paid-tier enforcement private.
+
+  - path: pkg/mcp
+    concern: orchestration_primitives
+    status: oss
+    target_path: pkg/mcp
+    notes: OSS integration abstraction remains in core.
+
+  - path: pkg/opa
+    concern: policy_integration
+    status: oss
+    target_path: pkg/opa
+    notes: OSS policy integration remains in core.
+
+  - path: pkg/argo
+    concern: workflow_orchestration
+    status: oss
+    target_path: pkg/argo
+    notes: OSS workflow orchestration remains in core.

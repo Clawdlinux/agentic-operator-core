@@ -23,6 +23,7 @@ Welcome to the Agentic K8s Operator documentation. This guide covers everything 
 
 ### Development
 - **[Contributing](./12-contributing.md)** - Contribute to the project
+- **[API Compatibility Policy](./API_COMPATIBILITY_POLICY.md)** - Public API versioning, compatibility, and deprecation policy
 
 ---
 

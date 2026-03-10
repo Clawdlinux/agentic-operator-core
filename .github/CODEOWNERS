@@ -1,0 +1,13 @@
+# Default ownership
+* @Clawdlinux
+
+# Core directories
+/api/ @Clawdlinux
+/cmd/ @Clawdlinux
+/internal/ @Clawdlinux
+/pkg/ @Clawdlinux
+/docs/ @Clawdlinux
+/charts/ @Clawdlinux
+/config/ @Clawdlinux
+/scripts/ @Clawdlinux
+/tests/ @Clawdlinux

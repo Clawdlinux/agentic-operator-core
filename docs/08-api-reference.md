@@ -2,6 +2,8 @@
 
 Complete CRD specification.
 
+For versioning guarantees, deprecation windows, and breaking-change governance, see [API Compatibility Policy](./API_COMPATIBILITY_POLICY.md).
+
 ## Tenant CRD
 
 ### Spec

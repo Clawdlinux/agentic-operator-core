@@ -1,0 +1,42 @@
+name: API/CRD Compatibility Gate
+
+on:
+  pull_request:
+    paths:
+      - "api/v1alpha1/**"
+      - "config/crd/**"
+      - "config/samples/**"
+      - "scripts/check_api_crd_compatibility.sh"
+      - "docs/API_COMPATIBILITY_POLICY.md"
+      - ".github/workflows/api-crd-compatibility-gate.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "api/v1alpha1/**"
+      - "config/crd/**"
+      - "config/samples/**"
+      - "scripts/check_api_crd_compatibility.sh"
+      - "docs/API_COMPATIBILITY_POLICY.md"
+      - ".github/workflows/api-crd-compatibility-gate.yml"
+  workflow_dispatch:
+
+jobs:
+  api-crd-compatibility:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run API/CRD compatibility checks
+        run: |
+          chmod +x scripts/check_api_crd_compatibility.sh
+          ./scripts/check_api_crd_compatibility.sh

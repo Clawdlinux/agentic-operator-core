@@ -1,0 +1,7 @@
+# OSS/private boundary allowlist
+#
+# One shell glob pattern per line.
+# Keep entries narrow and temporary, with maintainer review.
+
+# Guardrail script includes policy keywords by design.
+scripts/check_oss_private_boundary.sh

@@ -46,6 +46,11 @@ For full installation and runtime configuration, see the docs in [docs](docs).
 This repository is intentionally open-source friendly and excludes private sales material.
 The pitch deck is maintained in private channels and is not published in this public repo.
 
+For OSS governance boundaries and API stability commitments, see:
+
+- [OSS Scope](docs/OSS_SCOPE.md)
+- [API Compatibility Policy](docs/API_COMPATIBILITY_POLICY.md)
+
 ## Contributing
 
 - Open an issue for bugs or feature proposals
