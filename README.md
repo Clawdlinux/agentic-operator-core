@@ -2,6 +2,8 @@
 
 Kubernetes operator for orchestrating tool-agnostic AI agent workloads via `AgentWorkload` CRDs and MCP-compatible tool backends.
 
+> **NineVigil** is built on this operator. It deploys autonomous competitive intelligence agent swarms on customer-owned Kubernetes — air-gapped, GDPR-compliant, no data leaves your network. See [clawdlinux.org](https://clawdlinux.org).
+
 ## For VCs & Reviewers
 
 - We are building infrastructure for autonomous, policy-aware agent workflows on Kubernetes.

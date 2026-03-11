@@ -43,7 +43,9 @@ Welcome to the Agentic K8s Operator documentation. This guide covers everything 
 
 ## 📋 What is the Agentic Kubernetes Operator?
 
-The Agentic Kubernetes Operator is an enterprise-grade solution for running autonomous AI agents at scale on Kubernetes. It provides:
+The Agentic Kubernetes Operator is the open-source foundation for running autonomous AI agents at scale on Kubernetes. It is the infrastructure layer that powers [NineVigil](https://clawdlinux.org) — an on-premise competitive intelligence platform for hedge funds and research teams that require data sovereignty.
+
+It provides:
 
 ✅ **Multi-tenant isolation** - Complete namespace isolation with RBAC
 ✅ **Cost control** - Real-time token tracking and cost attribution
