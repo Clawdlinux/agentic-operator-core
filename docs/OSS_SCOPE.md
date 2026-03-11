@@ -17,10 +17,9 @@
 - Advanced evaluation pipelines tied to paid tiers
 - Commercial licensing enforcement
 
-## Pending Migration
+## Migration Status
 
-Private-only concerns currently present in core are tracked for phased
-extraction to `agentic-operator-private`.
+The phased extraction of private-only concerns from core into `agentic-operator-private` is complete (merged via PR #31).
 
 - Plan: [OSS_PRIVATE_MIGRATION_PLAN.md](./OSS_PRIVATE_MIGRATION_PLAN.md)
 - Manifest: [private-boundary-manifest.yaml](./private-boundary-manifest.yaml)
