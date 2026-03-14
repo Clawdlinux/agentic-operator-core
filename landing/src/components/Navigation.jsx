@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { Menu, X, Star, ExternalLink, Hexagon } from 'lucide-react';
 
 const NAV_LINKS = [
+  { label: 'Products', href: '#products' },
   { label: 'Features', href: '#features' },
   { label: 'Use Cases', href: '#use-cases' },
   { label: 'GitHub', href: 'https://github.com/Clawdlinux/agentic-operator-core', external: true },

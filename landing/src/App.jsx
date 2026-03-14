@@ -6,6 +6,7 @@ import StatsBar from './components/StatsBar';
 import Offerings from './components/Offerings';
 import Features from './components/Features';
 import UseCases from './components/UseCases';
+import Products from './components/Products';
 import Architecture from './components/Architecture';
 import GammaPresentation from './components/GammaPresentation';
 import OpenSource from './components/OpenSource';
@@ -39,6 +40,8 @@ export default function App() {
         <section id="use-cases">
           <UseCases />
         </section>
+
+        <Products />
 
         <section id="architecture">
           <Architecture />
