@@ -1,32 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ArrowRight } from 'lucide-react';
+import { Eye, ArrowRight } from 'lucide-react';
 import ParticleNetwork from '../utils/particleNetwork';
 
-const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
-
 const USE_CASES = [
-  'Deploy multi-tenant AI agents with automatic SLA-driven scaling.',
-  'Cost-optimized model routing: validate→cheap, analyze→medium, reason→expensive.',
-  'Production-grade resilience: retry logic, circuit breakers, PII scrubbing.',
-  'Enterprise-ready: Ed25519 licensing, per-tenant quotas, audit trails.',
-  'Full observability: OpenTelemetry tracing, Prometheus metrics, Loki logs.',
+  'Daily visual snapshots of every competitor page that matters.',
+  'AI detects pricing changes, new features, and messaging shifts overnight.',
+  'Structured PDF reports delivered to your inbox before standup.',
+  'Track 50+ competitor pages — zero manual effort.',
+  'From screenshot to strategic insight in under 5 minutes.',
 ];
 
 const TERMINAL_LINES = [
-  { prompt: '$ ', text: 'kubectl apply -f agentworkload.yaml', delay: 0 },
-  { prompt: '', text: 'agentworkload.agentic.clawdlinux.org/hedge-fund-analyst created', delay: 1200, dim: true },
-  { prompt: '$ ', text: 'kubectl get agentworkloads', delay: 2400 },
-  {
-    prompt: '',
-    text: 'NAME                    STATUS    PODS   AGE\nhedge-fund-analyst      Running   4/4    12s',
-    delay: 3600,
-    dim: true,
-    multiline: true,
-  },
-  { prompt: '$ ', text: 'kubectl logs hedge-fund-analyst-0 -f', delay: 5200 },
-  { prompt: '', text: '[4m32s] Synthesized 12-page market report · Claude Sonnet 4.6', delay: 6400, teal: true },
-  { prompt: '', text: '[4m33s] PDF written to /reports/hedge-q1-2026.pdf', delay: 7600, teal: true },
+  { prompt: '$ ', text: 'vmi scan --targets competitors.yaml', delay: 0 },
+  { prompt: '', text: 'Scanning 47 competitor pages...', delay: 1200, dim: true },
+  { prompt: '', text: '✓ 47/47 screenshots captured (12.3s)', delay: 2400, teal: true },
+  { prompt: '', text: '✓ 8 visual changes detected across 5 competitors', delay: 3600, teal: true },
+  { prompt: '$ ', text: 'vmi analyze --diff --ai-summary', delay: 5200 },
+  { prompt: '', text: '[AI] Stripe raised Enterprise pricing 18% · New "Scale" tier added', delay: 6400, teal: true },
+  { prompt: '', text: '[AI] Report generated → /reports/competitive-intel-jun-2025.pdf', delay: 7600, teal: true },
 ];
 
 const headingVariants = {
@@ -109,7 +101,7 @@ function TerminalWindow() {
           className="ml-3 text-xs text-slate-500 tracking-widest uppercase"
           style={{ fontFamily: "'IBM Plex Mono', monospace" }}
         >
-          agentic-operator — kubectl
+          vmi — competitive intelligence
         </span>
       </div>
 
@@ -230,7 +222,7 @@ export default function Hero() {
           transition={{ duration: 0.5 }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-[#00d4aa] animate-pulse" />
-          Kubernetes Operator · Apache 2.0 · Open Source
+          Competitive Intelligence · AI-Powered · Automated
         </motion.div>
 
         {/* Animated heading */}
@@ -246,11 +238,11 @@ export default function Hero() {
             style={{ fontFamily: "'Syne', sans-serif" }}
           >
             <div className="flex flex-wrap justify-center gap-x-3 mb-2">
-              {['Deploy', 'AI', 'Agents.'].map((word) => (
+              {['See', 'What', 'Your'].map((word) => (
                 <motion.span
                   key={word}
                   variants={wordVariant}
-                  className={word === 'AI' || word === 'Agents.' ? 'text-gradient' : 'text-white'}
+                  className={word === 'What' || word === 'Your' ? 'text-gradient' : 'text-white'}
                 >
                   {word}
                 </motion.span>
@@ -258,7 +250,7 @@ export default function Hero() {
             </div>
             {/* Line 2 */}
             <div className="flex flex-wrap justify-center gap-x-3">
-              {['Inside', 'Your', 'Cluster.'].map((word) => (
+              {['Competitors', 'Change.'].map((word) => (
                 <motion.span key={word} variants={wordVariant} className="text-white">
                   {word}
                 </motion.span>
@@ -292,14 +284,16 @@ export default function Hero() {
           transition={{ duration: 0.5, delay: 0.7 }}
         >
           <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#architecture"
+            onClick={(e) => {
+              e.preventDefault();
+              document.querySelector('#architecture')?.scrollIntoView({ behavior: 'smooth' });
+            }}
             className="flex items-center gap-2 px-6 py-3 text-sm font-semibold text-[#00d4aa] rounded-xl border border-[#00d4aa]/40 hover:bg-[#00d4aa]/8 hover:border-[#00d4aa]/70 transition-all duration-200 hover:shadow-lg hover:shadow-[#00d4aa]/10 active:scale-95"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
-            <Star className="w-4 h-4" />
-            Star on GitHub
+            <Eye className="w-4 h-4" />
+            Watch Demo
           </a>
 
           <a
@@ -314,7 +308,7 @@ export default function Hero() {
               background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
             }}
           >
-            Join Waitlist
+            Get Early Access
             <ArrowRight className="w-4 h-4" />
           </a>
         </motion.div>
@@ -334,7 +328,7 @@ export default function Hero() {
             className="text-xs text-slate-500"
             style={{ fontFamily: "'IBM Plex Mono', monospace" }}
           >
-            77/77 tests passing · Phases 3-8 complete · Apache 2.0
+            47 competitor pages tracked · 8 changes detected today · Reports in &lt;5 min
           </span>
         </motion.div>
 

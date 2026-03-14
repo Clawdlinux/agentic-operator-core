@@ -1,113 +1,119 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import { ArrowRight, TrendingDown, TrendingUp, Clock, DollarSign } from "lucide-react";
+import { ArrowRight, TrendingDown, DollarSign, Layers, Briefcase } from "lucide-react";
 
-const YAML_COMPETITIVE = `apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: AgentWorkload
-metadata:
-  name: competitive-intel-agent
-  namespace: agents
-spec:
-  model: claude-3-5-sonnet
-  mcpServers:
-    - name: browserless
-      url: http://browserless:3000
-    - name: minio
-      url: http://minio:9000
-  task: |
-    Research top 5 competitors.
-    Generate PDF report with insights.
-  schedule: "0 9 * * MON"
-  outputBucket: reports/competitive`;
+const YAML_PRICING = `# vmi-config: pricing-tracker.yaml
+targets:
+  - name: stripe-pricing
+    url: https://stripe.com/pricing
+    schedule: "0 8 * * *"    # Daily at 8am
+    regions: [us-east, eu-west]
+    
+  - name: competitor-a-plans
+    url: https://competitor-a.com/pricing
+    schedule: "0 8 * * *"
 
-const YAML_REMEDIATION = `apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: AgentWorkload
-metadata:
-  name: k8s-remediation-agent
-  namespace: operators
-spec:
-  model: claude-3-5-sonnet
-  triggers:
-    - type: PodCrashLoop
-    - type: OOMKilled
-    - type: PodPending
-  mcpServers:
-    - name: kubectl-mcp
-      url: http://kubectl-mcp:8080
-  remediation:
-    maxRetries: 3
-    dryRun: false
-  alertChannel: "#ops-alerts"`;
+analysis:
+  engine: claude-sonnet-4
+  detect: [price-changes, new-tiers, removed-features]
+  alert_threshold: any_change
+  
+output:
+  format: pdf
+  deliver_to: [slack:#competitive-intel, email:team@company.com]`;
 
-const YAML_SWARM = `apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: AgentWorkload
-metadata:
-  name: research-swarm
-  namespace: agents
-spec:
-  model: claude-3-5-sonnet
-  orchestration:
-    type: langgraph
-    checkpointer: postgresql
-    parallel: 5
-  agents:
-    - role: market-analyst
-    - role: sentiment-analyst
-    - role: data-aggregator
-    - role: report-writer
-    - role: fact-checker
-  outputFormat: synthesized-report
-  timeout: "120s"`;
+const YAML_FEATURE = `# vmi-config: feature-tracker.yaml
+targets:
+  - name: competitor-product-page  
+    url: https://competitor.com/product
+    capture: [full-page, above-fold]
+    schedule: "*/6 * * * *"  # Every 6 hours
+    
+  - name: competitor-changelog
+    url: https://competitor.com/changelog
+    schedule: "0 */4 * * *"
+
+analysis:
+  engine: claude-sonnet-4
+  detect: [new-features, ui-changes, messaging-shifts]
+  compare_with: previous_7_days
+  
+alerts:
+  channels: [slack, email]
+  urgency: high_for_pricing | medium_for_features`;
+
+const YAML_PORTFOLIO = `# vmi-config: portfolio-monitor.yaml
+portfolio:
+  - company: Series-B Target
+    pages:
+      - url: https://target.com
+      - url: https://target.com/pricing  
+      - url: https://target.com/about
+    schedule: "0 9 * * MON"  # Weekly Monday
+
+  - company: Portfolio Company #3
+    pages:
+      - url: https://portfolio3.com
+      - url: https://portfolio3.com/product
+
+analysis:
+  engine: claude-sonnet-4
+  track: [growth-signals, team-changes, product-velocity]
+  benchmark_against: industry_median
+  
+reports:
+  format: pdf
+  frequency: weekly
+  deliver_to: [email:partners@fund.com]`;
+
+const yamlMap = { YAML_PRICING, YAML_FEATURE, YAML_PORTFOLIO };
 
 const tabs = [
   {
-    id: "competitive",
-    label: "Competitive Intelligence",
+    id: "pricing",
+    label: "Pricing Intelligence",
+    icon: DollarSign,
     problem:
-      "Analysts spending 8 hours on competitor research. $320 per report, delayed insights, and stale data by the time it reaches leadership.",
+      "Competitors change pricing without warning. Your team finds out weeks later from a customer complaint \u2014 after you\u2019ve already lost deals.",
     solution:
-      "Deploy an AgentWorkload, get a full intelligence report in under 4 minutes. Automated, repeatable, and 99.9% cheaper.",
-    metrics: {
-      before: { time: "8 hr", cost: "$320" },
-      after: { time: "4 min", cost: "<$0.01" },
-      savings: "$320 saved per run",
-      savingsColor: "#f59e0b",
-    },
-    yaml: YAML_COMPETITIVE,
+      "VMI monitors competitor pricing pages daily, detects any change within hours, and delivers AI-analyzed reports explaining what changed and what it means for your positioning.",
+    before: { value: "2-3 weeks", label: "Time to detect pricing changes" },
+    after: { value: "<4 hours", label: "Automated detection" },
+    savings: { value: "Revenue protected", color: "#f59e0b" },
+    yamlKey: "YAML_PRICING",
+    configFile: "pricing-tracker.yaml",
   },
   {
-    id: "remediation",
-    label: "Autonomous K8s Remediation",
+    id: "features",
+    label: "Feature Launch Tracking",
+    icon: Layers,
     problem:
-      "Pod failures triggering 22-minute mean time to recovery. Each incident costs $28K in downtime with engineers pulled from feature work.",
+      "Competitors ship new features and you only find out from your sales team asking \u2018did you see what they launched?\u2019 You\u2019re always playing catch-up.",
     solution:
-      "The operator detects issues, launches a remediation agent, and fixes in 47 seconds. Engineers sleep through the night.",
-    metrics: {
-      before: { time: "22 min", cost: "MTTR" },
-      after: { time: "47 sec", cost: "MTTR" },
-      savings: "$28K downtime protected",
-      savingsColor: "#00d4aa",
-    },
-    yaml: YAML_REMEDIATION,
+      "VMI captures competitor product pages every 6 hours, uses AI vision to detect new features, UI changes, and messaging shifts \u2014 then alerts your team instantly.",
+    before: { value: "Days to weeks", label: "Manual discovery of competitor launches" },
+    after: { value: "Same day", label: "Automated alerts with AI analysis" },
+    savings: { value: "Competitive edge maintained", color: "#00d4aa" },
+    yamlKey: "YAML_FEATURE",
+    configFile: "feature-tracker.yaml",
   },
   {
-    id: "swarm",
-    label: "Multi-Agent Research Swarm",
+    id: "portfolio",
+    label: "Portfolio Monitoring",
+    icon: Briefcase,
     problem:
-      "6 hours of analyst time for deep market research. $400 per session with inconsistent quality and no audit trail.",
+      "VC analysts spend 6+ hours per company on manual competitive landscape research. With 20+ portfolio companies, due diligence is perpetually outdated.",
     solution:
-      "Orchestrate 5 parallel agents with LangGraph. Synthesized, cited report in 90 seconds with full execution logs.",
-    metrics: {
-      before: { time: "6 hr", cost: "$400" },
-      after: { time: "90 sec", cost: "$0.05" },
-      savings: "4+ hours saved per run",
-      savingsColor: "#6366f1",
-    },
-    yaml: YAML_SWARM,
+      "VMI continuously monitors portfolio companies and their competitors, delivering weekly structured reports tracking growth signals, product velocity, and market positioning.",
+    before: { value: "6+ hours/company", label: "Manual research per due diligence" },
+    after: { value: "Automated weekly", label: "Always-current intelligence" },
+    savings: { value: "100+ analyst hours saved/month", color: "#6366f1" },
+    yamlKey: "YAML_PORTFOLIO",
+    configFile: "portfolio-monitor.yaml",
   },
 ];
 
-function MetricCard({ label, time, cost, highlight, highlightColor }) {
+function MetricCard({ label, value, sublabel, highlight, highlightColor }) {
   return (
     <div
       className="flex-1 rounded-xl p-5"
@@ -136,7 +142,7 @@ function MetricCard({ label, time, cost, highlight, highlightColor }) {
           color: highlight ? `rgb(${highlightColor})` : "#e2e8f0",
         }}
       >
-        {time}
+        {value}
       </div>
       <div
         className="text-sm"
@@ -145,13 +151,13 @@ function MetricCard({ label, time, cost, highlight, highlightColor }) {
           color: "#94a3b8",
         }}
       >
-        {cost}
+        {sublabel}
       </div>
     </div>
   );
 }
 
-function CodeBlock({ code }) {
+function CodeBlock({ code, title }) {
   return (
     <div
       className="rounded-xl overflow-hidden"
@@ -174,7 +180,7 @@ function CodeBlock({ code }) {
           className="ml-2 text-xs"
           style={{ fontFamily: "'IBM Plex Mono', monospace", color: "#94a3b8" }}
         >
-          agentworkload.yaml
+          {title}
         </span>
       </div>
       <pre
@@ -188,20 +194,17 @@ function CodeBlock({ code }) {
         <code
           dangerouslySetInnerHTML={{
             __html: (() => {
-              // Escape HTML special chars first (but NOT quotes — we need them for step 2)
               const escaped = code
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;');
-              // Apply highlighting with quoted strings FIRST, before any <span> tags
-              // (with style="color:#...") are injected — prevents the quote regex from
-              // accidentally matching hex values inside injected span attributes.
               return escaped
+                .replace(/^(\s*#.*)$/gm, '<span style="color:#64748b">$1</span>')
                 .replace(/"([^"]*)"/g, '<span style="color:#f59e0b">"$1"</span>')
                 .replace(/\b(true|false)\b/g, '<span style="color:#f59e0b">$1</span>')
-                .replace(/(apiVersion:|kind:|metadata:|spec:|name:|namespace:|model:|mcpServers:|task:|schedule:|outputBucket:|triggers:|remediation:|alertChannel:|orchestration:|agents:|outputFormat:|timeout:|type:|url:|maxRetries:|dryRun:|parallel:|role:|checkpointer:|format:)/g,
+                .replace(/(targets:|analysis:|output:|alerts:|portfolio:|reports:|pages:|schedule:|name:|url:|engine:|detect:|alert_threshold:|capture:|compare_with:|channels:|urgency:|company:|track:|benchmark_against:|frequency:|deliver_to:|format:|regions:)/g,
                   '<span style="color:#6366f1">$1</span>')
-                .replace(/(claude-3-5-sonnet|AgentWorkload|agentic\.clawdlinux\.org\/v1alpha1)/g,
+                .replace(/(claude-sonnet-4)/g,
                   '<span style="color:#00d4aa">$1</span>');
             })(),
           }}
@@ -251,7 +254,7 @@ export default function UseCases() {
               color: "#e2e8f0",
             }}
           >
-            Three Use Cases,{" "}
+            Three Ways Teams Use{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #00d4aa, #6366f1)",
@@ -260,7 +263,7 @@ export default function UseCases() {
                 backgroundClip: "text",
               }}
             >
-              Proven in Production
+              VMI
             </span>
           </h2>
         </motion.div>
@@ -370,8 +373,8 @@ export default function UseCases() {
                 <div className="flex gap-4">
                   <MetricCard
                     label="Before"
-                    time={tab.metrics.before.time}
-                    cost={tab.metrics.before.cost}
+                    value={tab.before.value}
+                    sublabel={tab.before.label}
                     highlight={false}
                   />
                   <div className="flex items-center">
@@ -379,8 +382,8 @@ export default function UseCases() {
                   </div>
                   <MetricCard
                     label="After"
-                    time={tab.metrics.after.time}
-                    cost={tab.metrics.after.cost}
+                    value={tab.after.value}
+                    sublabel={tab.after.label}
                     highlight={true}
                     highlightColor="0, 212, 170"
                   />
@@ -389,26 +392,26 @@ export default function UseCases() {
                 <div
                   className="rounded-xl px-5 py-4 flex items-center gap-3"
                   style={{
-                    background: `rgba(${tab.metrics.savingsColor === "#f59e0b" ? "245, 158, 11" : tab.metrics.savingsColor === "#00d4aa" ? "0, 212, 170" : "99, 102, 241"}, 0.08)`,
-                    border: `1px solid rgba(${tab.metrics.savingsColor === "#f59e0b" ? "245, 158, 11" : tab.metrics.savingsColor === "#00d4aa" ? "0, 212, 170" : "99, 102, 241"}, 0.2)`,
+                    background: `rgba(${tab.savings.color === "#f59e0b" ? "245, 158, 11" : tab.savings.color === "#00d4aa" ? "0, 212, 170" : "99, 102, 241"}, 0.08)`,
+                    border: `1px solid rgba(${tab.savings.color === "#f59e0b" ? "245, 158, 11" : tab.savings.color === "#00d4aa" ? "0, 212, 170" : "99, 102, 241"}, 0.2)`,
                   }}
                 >
-                  <TrendingDown size={18} color={tab.metrics.savingsColor} />
+                  <TrendingDown size={18} color={tab.savings.color} />
                   <span
                     className="text-sm font-semibold"
                     style={{
                       fontFamily: "'DM Sans', sans-serif",
-                      color: tab.metrics.savingsColor,
+                      color: tab.savings.color,
                     }}
                   >
-                    {tab.metrics.savings}
+                    {tab.savings.value}
                   </span>
                 </div>
               </div>
 
               {/* Right: Code Snippet */}
               <div>
-                <CodeBlock code={tab.yaml} />
+                <CodeBlock code={yamlMap[tab.yamlKey]} title={tab.configFile} />
               </div>
             </div>
           </motion.div>

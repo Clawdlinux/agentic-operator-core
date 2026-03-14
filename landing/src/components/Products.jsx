@@ -36,16 +36,16 @@ const VMI_BENEFITS = [
 const COMING_SOON = [
   {
     icon: Bot,
-    title: 'Autonomous K8s Remediation',
+    title: 'Automated Battle Cards',
     description:
-      'Self-healing Kubernetes clusters. Detects failures, diagnoses root causes, and executes fixes — no human pager needed.',
+      'AI-generated competitive battle cards updated in real-time. Always-current positioning data for your sales team.',
     color: '#8b5cf6',
   },
   {
     icon: Search,
-    title: 'Multi-Agent Research Swarm',
+    title: 'Sentiment & Review Monitoring',
     description:
-      'Deploy coordinated research agents that synthesise information from dozens of sources into structured reports.',
+      'Track competitor reviews on G2, Capterra, and social media. Identify sentiment shifts and emerging competitive threats.',
     color: '#06b6d4',
   },
 ];
@@ -209,8 +209,8 @@ export default function Products() {
             className="text-base sm:text-lg max-w-2xl mx-auto"
             style={{ fontFamily: "'DM Sans', sans-serif", color: '#94a3b8' }}
           >
-            Production-grade AI products built on the Agentic Operator platform.
-            Skip the build phase — deploy today.
+            AI-powered tools that monitor your competitors, detect changes, and deliver
+            actionable insights — so you never miss a move.
           </p>
         </motion.div>
 

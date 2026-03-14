@@ -9,22 +9,22 @@ const LEGAL = {
     content: `Last updated: March 2026
 
 1. Acceptance of Terms
-By accessing or using Agentic Operator ("the Software"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Software.
+By accessing or using Visual Market Intelligence ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.
 
 2. License
-Agentic Operator is released under the Apache License 2.0. You are free to use, modify, and distribute the Software in accordance with the terms of that license.
+Visual Market Intelligence is a proprietary SaaS product of Nine Rewards Solutions Private Limited. Use of the Service is governed by these Terms and any applicable subscription agreement.
 
 3. Use of Service
-You agree to use the Software only for lawful purposes and in a way that does not infringe the rights of others. You must not use the Software to deploy agents that perform unauthorized actions, access systems without permission, or violate applicable laws.
+You agree to use the Service only for lawful purposes and in a way that does not infringe the rights of others. You must not use the Service to scrape sites in violation of their terms, access systems without permission, or violate applicable laws.
 
 4. No Warranty
-The Software is provided "as is", without warranty of any kind, express or implied. Nine Rewards Solutions Private Limited makes no warranties regarding fitness for a particular purpose, merchantability, or non-infringement.
+The Service is provided "as is", without warranty of any kind, express or implied. Nine Rewards Solutions Private Limited makes no warranties regarding fitness for a particular purpose, merchantability, or non-infringement.
 
 5. Limitation of Liability
-To the maximum extent permitted by law, Nine Rewards Solutions Private Limited shall not be liable for any indirect, incidental, special, exemplary, or consequential damages arising from your use of the Software.
+To the maximum extent permitted by law, Nine Rewards Solutions Private Limited shall not be liable for any indirect, incidental, special, exemplary, or consequential damages arising from your use of the Service.
 
 6. Changes
-We reserve the right to update these terms at any time. Continued use of the Software after changes constitutes acceptance of the new terms.
+We reserve the right to update these terms at any time. Continued use of the Service after changes constitutes acceptance of the new terms.
 
 7. Contact
 For questions about these terms, contact: shreyanshsancheti09@gmail.com`,
@@ -38,7 +38,7 @@ When you join our waitlist, we collect your email address and optionally your co
 
 2. How We Use Your Information
 We use your email solely to:
-• Send updates about Agentic Operator releases and early access invitations
+• Send updates about Visual Market Intelligence releases and early access invitations
 • Respond to your inquiries
 
 3. Data Storage
@@ -47,8 +47,8 @@ Waitlist submissions are stored in Google Sheets, accessible only to Nine Reward
 4. No Third-Party Sharing
 We do not sell, trade, or transfer your personal information to third parties. We do not use your data for advertising purposes.
 
-5. Open Source Telemetry
-The Agentic Operator software itself does not collect any telemetry or send data to our servers. All agent workloads run entirely within your Kubernetes cluster.
+5. Telemetry
+Visual Market Intelligence does not collect personal telemetry beyond what is described above. Monitoring jobs run on our infrastructure and do not access your internal systems.
 
 6. Your Rights
 You may request deletion of your data at any time by emailing: shreyanshsancheti09@gmail.com
@@ -208,14 +208,14 @@ export default function Footer() {
               <div className="flex items-center gap-3 mb-4">
                 <HexLogo />
                 <span className="text-lg font-bold text-white" style={{ fontFamily: "'Syne', sans-serif" }}>
-                  Agentic Operator
+                  Visual Market Intelligence
                 </span>
               </div>
               <p
                 className="text-sm leading-relaxed max-w-xs mb-2"
                 style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'DM Sans', sans-serif" }}
               >
-                Deploy AI agents in your Kubernetes cluster. Production-grade orchestration for the agentic era.
+                AI-powered competitive intelligence. Monitor competitors, detect changes, deliver insights — on autopilot.
               </p>
               <p
                 className="text-xs"
@@ -227,7 +227,7 @@ export default function Footer() {
               {/* GitHub only */}
               <div className="flex items-center gap-3 mt-6">
                 <a
-                  href="https://github.com/Clawdlinux/agentic-operator-core"
+                  href="https://github.com/Clawdlinux/visual-market-intelligence"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="GitHub"
@@ -284,8 +284,8 @@ export default function Footer() {
               </h4>
               <ul className="space-y-3">
                 {[
-                  { label: 'GitHub', href: 'https://github.com/Clawdlinux/agentic-operator-core', external: true },
-                  { label: 'Helm Chart', href: 'https://registry.digitalocean.com/agentic-operator/charts/agentic-operator', external: true },
+                  { label: 'GitHub', href: 'https://github.com/Clawdlinux/visual-market-intelligence', external: true },
+                  { label: 'Documentation', href: 'https://github.com/Clawdlinux/visual-market-intelligence#readme', external: true },
                 ].map(({ label, href, external }) => (
                   <li key={label}><FooterLink href={href} external={external}>{label}</FooterLink></li>
                 ))}
@@ -330,7 +330,7 @@ export default function Footer() {
               className="text-xs text-center sm:text-left"
               style={{ color: 'rgba(255,255,255,0.25)', fontFamily: "'DM Sans', sans-serif" }}
             >
-              &copy; {new Date().getFullYear()} Nine Rewards Solutions Private Limited &middot; Apache 2.0 License
+              &copy; {new Date().getFullYear()} Nine Rewards Solutions Private Limited &middot; All rights reserved
             </p>
             <div className="flex items-center gap-5">
               {[

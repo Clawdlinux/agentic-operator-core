@@ -1,61 +1,59 @@
 import { motion } from 'framer-motion';
 import {
-  Zap,
-  Cpu,
+  Building2,
+  Users,
   Shield,
   TrendingUp,
-  Lock,
-  AlertCircle,
-  BarChart3,
-  Users,
+  LineChart,
+  Briefcase,
 } from 'lucide-react';
 
-const PHASES = [
+const AUDIENCES = [
   {
     id: 1,
-    phase: 'Phase 3',
-    title: 'Cost-Aware Model Routing',
-    description: 'Automatically select models based on task complexity. Validation → cheap, analysis → medium, reasoning → expensive. 70-80% cost reduction.',
-    icon: Zap,
+    phase: 'Product Teams',
+    title: 'Competitive Feature Tracking',
+    description: 'Know the moment competitors ship new features, change their UI, or update messaging. Stay ahead instead of reacting.',
+    icon: Building2,
     color: '#00d4aa',
   },
   {
     id: 2,
-    phase: 'Phase 4',
-    title: 'Agent Quality Evaluation',
-    description: 'Real-time quality scoring (0-100) of every LLM response. Measures relevance, hallucination risk, completeness, clarity.',
-    icon: BarChart3,
+    phase: 'Growth Teams',
+    title: 'Pricing Intelligence',
+    description: 'Monitor competitor pricing pages daily. Detect tier changes, new plans, and positioning shifts before they impact your pipeline.',
+    icon: LineChart,
     color: '#06b6d4',
   },
   {
     id: 3,
-    phase: 'Phase 5',
-    title: 'Production Hardening',
-    description: 'Exponential backoff retry, circuit breaker for providers, automatic PII/secret scrubbing in logs.',
+    phase: 'Sales Teams',
+    title: 'Battle Card Automation',
+    description: 'Auto-generated competitive battle cards with the latest pricing, features, and positioning differences — always current, never stale.',
     icon: Shield,
     color: '#8b5cf6',
   },
   {
     id: 4,
-    phase: 'Phase 6',
-    title: 'Customer Onboarding',
-    description: '5-minute quick-start guide. Helm charts, examples for 3 provider patterns. Production-ready for day 1.',
+    phase: 'Executives',
+    title: 'Market Landscape Reports',
+    description: 'Weekly AI-synthesized market landscape reports covering all tracked competitors. Strategic insights delivered to your inbox.',
     icon: Users,
     color: '#ec4899',
   },
   {
     id: 5,
-    phase: 'Phase 7',
-    title: 'Multi-Tenant + SLA',
-    description: 'Namespace isolation, per-tenant quotas (daily limits), cost budgets, SLA success rate tracking with breach detection.',
-    icon: Lock,
+    phase: 'VC & PE Firms',
+    title: 'Portfolio Due Diligence',
+    description: 'Continuously monitor portfolio companies and their competitors. Track product velocity, market positioning, and growth signals.',
+    icon: Briefcase,
     color: '#f59e0b',
   },
   {
     id: 6,
-    phase: 'Phase 8',
-    title: 'Auto-Scaling by SLA',
-    description: 'Dynamic scaling based on success rate. Critical (<50%) → +2 replicas + model downgrade. Healthy (>95%) → -1 replica.',
+    phase: 'Agencies',
+    title: 'Multi-Client Intelligence',
+    description: 'Manage competitive intelligence across multiple clients from one dashboard. White-label reports with your branding.',
     icon: TrendingUp,
     color: '#10b981',
   },
@@ -63,7 +61,7 @@ const PHASES = [
 
 export default function Features() {
   return (
-    <section id="features" className="relative py-24 px-4 sm:px-6 lg:px-8" style={{ background: '#05080f' }}>
+    <section className="relative py-24 px-4 sm:px-6 lg:px-8" style={{ background: '#05080f' }}>
       {/* Background gradient */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -86,17 +84,17 @@ export default function Features() {
               className="text-4xl sm:text-5xl font-bold mb-4 text-white"
               style={{ fontFamily: "'Syne', sans-serif" }}
             >
-              Enterprise Features
+              Who Uses VMI
             </h2>
             <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-              6 production-ready phases delivering complete autonomous agent infrastructure: from cost optimization to multi-tenant SLA enforcement.
+              From product teams to VC firms — Visual Market Intelligence serves anyone who needs to know what competitors are doing.
             </p>
           </motion.div>
         </div>
 
         {/* Features grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {PHASES.map((feature, idx) => {
+          {AUDIENCES.map((feature, idx) => {
             const Icon = feature.icon;
             return (
               <motion.div
@@ -136,7 +134,7 @@ export default function Features() {
                   {/* Checkmark footer */}
                   <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full" style={{ background: feature.color }} />
-                    <span className="text-xs text-slate-500">Production ready</span>
+                    <span className="text-xs text-slate-500">Early access</span>
                   </div>
                 </div>
               </motion.div>
@@ -153,7 +151,7 @@ export default function Features() {
           className="mt-16 text-center"
         >
           <p className="text-slate-400 mb-6">
-            All phases tested with 77/77 unit + integration tests passing. Ready for enterprise deployment.
+            Join leading teams who use VMI to stay ahead of the competition.
           </p>
           <a
             href="#waitlist"

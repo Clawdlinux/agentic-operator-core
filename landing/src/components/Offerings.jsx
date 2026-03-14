@@ -1,49 +1,49 @@
 import { motion } from "framer-motion";
 import {
-  Layers,
-  Plug,
-  GitBranch,
-  Shield,
-  Package,
-  BarChart2,
+  Camera,
+  Eye,
+  Brain,
+  Bell,
+  FileText,
+  Globe,
 } from "lucide-react";
 
 const features = [
   {
-    icon: Layers,
-    title: "AgentWorkload CRD",
+    icon: Camera,
+    title: "Automated Screenshots",
     description:
-      "Define AI agents as native Kubernetes resources. Apply YAML, get autonomous agents.",
+      "Pixel-perfect captures of competitor pages on your schedule — daily, hourly, or custom.",
   },
   {
-    icon: Plug,
-    title: "MCP Tool Integration",
+    icon: Eye,
+    title: "Visual Diff Detection",
     description:
-      "Connect any MCP server. Browserless, LiteLLM, PostgreSQL — zero lock-in.",
+      "AI-powered comparison against baselines. Detects layout, pricing, and content changes.",
   },
   {
-    icon: GitBranch,
-    title: "LangGraph Orchestration",
+    icon: Brain,
+    title: "AI-Powered Analysis",
     description:
-      "Multi-agent state machines with PostgreSQL checkpointing. Survives pod evictions.",
+      "Advanced AI classifies changes by type and severity, then explains what they mean.",
   },
   {
-    icon: Shield,
-    title: "OPA Policy Governance",
+    icon: Bell,
+    title: "Smart Alerts",
     description:
-      "Enforce strict agent action boundaries. SSRF protection, allowlist validation.",
+      "Get notified via Slack or email the moment competitors change pricing, features, or messaging.",
   },
   {
-    icon: Package,
-    title: "Helm Umbrella Chart",
+    icon: FileText,
+    title: "Structured PDF Reports",
     description:
-      "One command deploys the full stack: operator, Argo, MinIO, PostgreSQL, monitoring.",
+      "Daily or weekly competitor briefs with AI summaries, ready for stakeholder sharing.",
   },
   {
-    icon: BarChart2,
-    title: "Full Observability",
+    icon: Globe,
+    title: "Multi-Region Capture",
     description:
-      "Prometheus metrics, Grafana dashboards, Loki logs, AlertManager — batteries included.",
+      "Capture pages from multiple geographies. See region-specific pricing and feature differences.",
   },
 ];
 
@@ -141,7 +141,7 @@ export default function Offerings() {
               fontFamily: "'DM Sans', sans-serif",
             }}
           >
-            Platform Features
+            Platform Capabilities
           </div>
           <h2
             className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight"
@@ -150,7 +150,7 @@ export default function Offerings() {
               color: "#e2e8f0",
             }}
           >
-            Everything You Need to Run{" "}
+            Everything You Need for{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #00d4aa, #6366f1)",
@@ -159,9 +159,8 @@ export default function Offerings() {
                 backgroundClip: "text",
               }}
             >
-              AI Agents
-            </span>{" "}
-            in Production
+              Competitive Intelligence
+            </span>
           </h2>
         </motion.div>
 

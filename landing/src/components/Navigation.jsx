@@ -3,14 +3,14 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { Menu, X, Star, ExternalLink, Hexagon } from 'lucide-react';
 
 const NAV_LINKS = [
-  { label: 'Products', href: '#products' },
   { label: 'Features', href: '#features' },
   { label: 'Use Cases', href: '#use-cases' },
-  { label: 'GitHub', href: 'https://github.com/Clawdlinux/agentic-operator-core', external: true },
-  { label: 'Docs', href: 'https://github.com/Clawdlinux/agentic-operator-core#readme', external: true },
+  { label: 'How It Works', href: '#architecture' },
+  { label: 'Products', href: '#products' },
+  { label: 'GitHub', href: 'https://github.com/Clawdlinux/visual-market-intelligence', external: true },
 ];
 
-const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
+const GITHUB_URL = 'https://github.com/Clawdlinux/visual-market-intelligence';
 
 export default function Navigation() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -77,7 +77,7 @@ export default function Navigation() {
               className="text-white font-semibold text-lg tracking-tight"
               style={{ fontFamily: "'Syne', sans-serif" }}
             >
-              Agentic<span className="text-[#00d4aa]">Operator</span>
+              Visual<span className="text-[#00d4aa]">MI</span>
             </span>
           </motion.a>
 

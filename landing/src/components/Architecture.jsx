@@ -1,48 +1,48 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { FileCode, RefreshCw, Zap, CheckCircle } from "lucide-react";
+import { Target, Camera, Sparkles, Send } from "lucide-react";
 
 const steps = [
   {
     number: "01",
-    icon: FileCode,
-    title: "Apply YAML",
+    icon: Target,
+    title: "Configure Your Targets",
     description:
-      "kubectl apply your AgentWorkload manifest. The Kubernetes API server stores it in etcd.",
-    command: "kubectl apply -f agent.yaml",
+      "Define which competitor pages to monitor — pricing, product, about, changelog. Set schedules and alert preferences.",
+    details: ["Point-and-click target setup", "Custom monitoring schedules", "Multi-region capture support", "YAML or dashboard configuration"],
     color: "#00d4aa",
     colorAlpha: "rgba(0, 212, 170, 0.12)",
     colorBorder: "rgba(0, 212, 170, 0.25)",
   },
   {
     number: "02",
-    icon: RefreshCw,
-    title: "Operator Reconciles",
+    icon: Camera,
+    title: "Automated Screenshot Capture",
     description:
-      "The Go controller watches for AgentWorkload events, validates policy with OPA, and creates an Argo Workflow.",
-    command: "// controller-runtime reconcile loop",
+      "VMI captures pixel-perfect screenshots of every target page on your schedule — daily, hourly, or custom intervals.",
+    details: ["Full-page & above-fold capture", "Mobile and desktop viewports", "JavaScript-rendered pages supported", "Geo-distributed capture nodes"],
     color: "#6366f1",
     colorAlpha: "rgba(99, 102, 241, 0.12)",
     colorBorder: "rgba(99, 102, 241, 0.25)",
   },
   {
     number: "03",
-    icon: Zap,
-    title: "Agent Launches",
+    icon: Sparkles,
+    title: "AI-Powered Change Detection",
     description:
-      "Argo Workflow spins up a pod running your LangGraph agent with all MCP tools mounted and ready.",
-    command: "argo submit --from=wftmpl/agent",
+      "Our AI compares screenshots against baselines, identifies visual changes, and analyzes what they mean — pricing updates, new features, messaging shifts.",
+    details: ["Visual diff with pixel precision", "AI classifies change type & severity", "Natural language change summaries", "Historical trend analysis"],
     color: "#f59e0b",
     colorAlpha: "rgba(245, 158, 11, 0.12)",
     colorBorder: "rgba(245, 158, 11, 0.25)",
   },
   {
     number: "04",
-    icon: CheckCircle,
-    title: "Report Delivered",
+    icon: Send,
+    title: "Insights Delivered to You",
     description:
-      "Agent completes its task, uploads artifacts to MinIO, and updates the AgentWorkload status with results.",
-    command: "status: phase: Succeeded",
+      "Receive structured reports via Slack, email, or dashboard — with AI analysis explaining what changed and recommended actions.",
+    details: ["PDF and dashboard reports", "Slack and email delivery", "AI-generated action recommendations", "Team sharing & collaboration"],
     color: "#22c55e",
     colorAlpha: "rgba(34, 197, 94, 0.12)",
     colorBorder: "rgba(34, 197, 94, 0.25)",
@@ -176,24 +176,15 @@ function StepCard({ step, index }) {
           </p>
         </div>
 
-        {/* Command snippet */}
-        <div
-          className="rounded-lg px-4 py-3 mt-auto"
-          style={{
-            background: "rgba(5, 8, 15, 0.8)",
-            border: "1px solid rgba(255,255,255,0.06)",
-          }}
-        >
-          <span
-            className="text-xs"
-            style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              color: step.color,
-            }}
-          >
-            $ {step.command}
-          </span>
-        </div>
+        {/* Details list */}
+        <ul className="mt-auto space-y-1.5">
+          {step.details.map((detail, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs" style={{ color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}>
+              <span className="mt-0.5 block w-1 h-1 rounded-full flex-shrink-0" style={{ background: step.color }} />
+              {detail}
+            </li>
+          ))}
+        </ul>
       </div>
     </motion.div>
   );
@@ -238,7 +229,7 @@ export default function Architecture() {
               fontFamily: "'DM Sans', sans-serif",
             }}
           >
-            Architecture
+            How It Works
           </div>
           <h2
             className="text-3xl sm:text-4xl lg:text-5xl font-bold"
@@ -247,7 +238,7 @@ export default function Architecture() {
               color: "#e2e8f0",
             }}
           >
-            How It{" "}
+            From Target to{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #00d4aa, #6366f1)",
@@ -256,8 +247,9 @@ export default function Architecture() {
                 backgroundClip: "text",
               }}
             >
-              Works
+              Insight
             </span>
+            {" "}in Minutes
           </h2>
           <p
             className="mt-4 text-base max-w-xl mx-auto"
@@ -266,7 +258,7 @@ export default function Architecture() {
               color: "#94a3b8",
             }}
           >
-            From a single kubectl command to a running AI agent — four steps, fully automated.
+            Four automated steps turn competitor pages into actionable intelligence — no manual work required.
           </p>
         </motion.div>
 
@@ -322,7 +314,7 @@ export default function Architecture() {
                 color: "#94a3b8",
               }}
             >
-              Total time from apply to output:
+              Total time from target to insight:
             </span>
             <span
               className="text-sm font-bold"
@@ -331,7 +323,7 @@ export default function Architecture() {
                 color: "#00d4aa",
               }}
             >
-              under 4 minutes
+              under 5 minutes
             </span>
           </div>
         </motion.div>

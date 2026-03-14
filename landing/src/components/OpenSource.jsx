@@ -16,20 +16,18 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
 };
 
-const helmCommand = `helm install agentic \\
-  oci://registry.digitalocean.com/agentic-operator/charts/agentic-operator \\
-  --namespace agentic-system --create-namespace`;
+const helmCommand = `pip install vmi-client && vmi init`;
 
 const badges = [
-  { label: 'Apache 2.0', color: '#00d4aa', bg: 'rgba(0,212,170,0.1)', border: 'rgba(0,212,170,0.25)' },
-  { label: 'Go 1.25', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.25)' },
-  { label: 'Kubebuilder v4', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' },
+  { label: 'MIT License', color: '#00d4aa', bg: 'rgba(0,212,170,0.1)', border: 'rgba(0,212,170,0.25)' },
+  { label: 'Python 3.11+', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.25)' },
+  { label: 'React + Vite', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' },
 ];
 
 const contributionStats = [
-  { value: '47', label: 'Go Tests' },
-  { value: '7', label: 'Python Tests' },
-  { value: '5 Weeks', label: 'to Production' },
+  { value: '200+', label: 'Pages Monitored' },
+  { value: '4', label: 'AI Models' },
+  { value: '12', label: 'Integrations' },
 ];
 
 export default function OpenSource() {
@@ -103,7 +101,7 @@ export default function OpenSource() {
             className="text-4xl md:text-5xl font-bold text-white"
             style={{ fontFamily: "'Syne', sans-serif" }}
           >
-            Built in the Open
+            Powered by Open Source
           </h2>
         </motion.div>
 
@@ -112,7 +110,7 @@ export default function OpenSource() {
           className="text-center text-lg mb-12"
           style={{ color: 'rgba(255,255,255,0.55)', fontFamily: "'DM Sans', sans-serif" }}
         >
-          Apache 2.0 licensed. Star it, fork it, contribute.
+          VMI's core engine is open source. Inspect, extend, and self-host.
         </motion.p>
 
         {/* Repo card */}
@@ -132,7 +130,7 @@ export default function OpenSource() {
               <div className="flex items-center gap-2 mb-1">
                 <Github size={18} style={{ color: 'rgba(255,255,255,0.5)' }} />
                 <a
-                  href="https://github.com/Clawdlinux/agentic-operator-core"
+                  href="https://github.com/Clawdlinux/visual-market-intelligence"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-lg hover:underline"
@@ -142,7 +140,7 @@ export default function OpenSource() {
                     textDecoration: 'none',
                   }}
                 >
-                  Clawdlinux/agentic-operator-core
+                  Clawdlinux/visual-market-intelligence
                 </a>
               </div>
               <p
@@ -152,14 +150,14 @@ export default function OpenSource() {
                   fontFamily: "'DM Sans', sans-serif",
                 }}
               >
-                Production-grade Kubernetes operator for orchestrating AI agent workloads
+                Open-source competitive intelligence platform — monitor, detect, deliver insights
               </p>
             </div>
 
             {/* CTA buttons */}
             <div className="flex items-center gap-3 flex-wrap">
               <a
-                href="https://github.com/Clawdlinux/agentic-operator-core"
+                href="https://github.com/Clawdlinux/visual-market-intelligence"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105"
@@ -175,7 +173,7 @@ export default function OpenSource() {
                 Star on GitHub
               </a>
               <a
-                href="https://github.com/Clawdlinux/agentic-operator-core/fork"
+                href="https://github.com/Clawdlinux/visual-market-intelligence/fork"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105"
@@ -223,7 +221,7 @@ export default function OpenSource() {
               textTransform: 'uppercase',
             }}
           >
-            Install via Helm
+            Quick Start
           </p>
           <div
             className="relative rounded-xl p-5"
@@ -251,9 +249,7 @@ export default function OpenSource() {
               }}
             >
               <span style={{ color: '#00d4aa' }}>$</span>{' '}
-              {`helm install agentic \\
-  oci://registry.digitalocean.com/agentic-operator/charts/agentic-operator \\
-  --namespace agentic-system --create-namespace`}
+              {`pip install vmi-client && vmi init`}
             </pre>
 
             {/* Copy button */}

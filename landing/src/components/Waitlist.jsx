@@ -17,10 +17,12 @@ const itemVariants = {
 };
 
 const roles = [
-  'Platform Engineer',
-  'DevOps Lead',
-  'CTO/Founder',
-  'Quant Developer',
+  'Product Manager',
+  'Growth / Marketing',
+  'Sales / Revenue',
+  'CTO / Founder',
+  'VC / Investor',
+  'Agency',
   'Other',
 ];
 
@@ -213,7 +215,7 @@ export default function Waitlist() {
           className="text-center text-lg mb-10"
           style={{ color: 'rgba(255,255,255,0.55)', fontFamily: "'DM Sans', sans-serif" }}
         >
-          Get early access to deploy AI agents in your Kubernetes cluster.
+          Get early access to automated competitive intelligence powered by AI.
         </motion.p>
 
         {/* Form card */}
