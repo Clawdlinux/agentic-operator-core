@@ -84,7 +84,7 @@ export default function Features() {
               className="text-4xl sm:text-5xl font-bold mb-4 text-white"
               style={{ fontFamily: "'Syne', sans-serif" }}
             >
-              Who Uses VMI
+              Who Uses Visual Market Intelligence (VMI)
             </h2>
             <p className="text-lg text-slate-400 max-w-2xl mx-auto">
               From product teams to VC firms — Visual Market Intelligence serves anyone who needs to know what competitors are doing.
@@ -151,7 +151,7 @@ export default function Features() {
           className="mt-16 text-center"
         >
           <p className="text-slate-400 mb-6">
-            Join leading teams who use VMI to stay ahead of the competition.
+            Join leading teams who use Visual Market Intelligence (VMI) to stay ahead of the competition.
           </p>
           <a
             href="#waitlist"

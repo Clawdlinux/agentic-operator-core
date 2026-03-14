@@ -187,13 +187,13 @@ export default function Products() {
             }}
           >
             <Sparkles size={14} />
-            Current Products
+            In Progress
           </div>
           <h2
             className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight mb-4"
             style={{ fontFamily: "'Syne', sans-serif", color: '#e2e8f0' }}
           >
-            Ready-to-Deploy{' '}
+            In-Progress{' '}
             <span
               style={{
                 background: 'linear-gradient(135deg, #00d4aa, #6366f1)',
@@ -250,13 +250,13 @@ export default function Products() {
                         className="text-xl sm:text-2xl font-bold"
                         style={{ fontFamily: "'Syne', sans-serif", color: '#e2e8f0' }}
                       >
-                        Visual Market Intelligence
+                        Visual Market Intelligence (VMI)
                       </h3>
                       <span
                         className="text-xs font-semibold uppercase tracking-wider"
                         style={{ color: '#00d4aa', fontFamily: "'IBM Plex Mono', monospace" }}
                       >
-                        Available Now
+                        In Progress
                       </span>
                     </div>
                   </div>
@@ -265,61 +265,36 @@ export default function Products() {
                     className="text-base sm:text-lg mb-6 leading-relaxed"
                     style={{ fontFamily: "'DM Sans', sans-serif", color: '#94a3b8' }}
                   >
-                    Your competitor analysis, on autopilot. AI-powered competitive intelligence
-                    that monitors your competitors&apos; websites, pricing, features, and messaging
-                    changes — delivered as structured daily reports.
+                    Visual Market Intelligence (VMI) puts competitor analysis on autopilot. It
+                    monitors competitors&apos; websites, pricing, features, and messaging changes,
+                    then delivers structured reports your team can act on quickly.
                   </p>
 
-                  {/* Pricing */}
-                  <div
-                    className="inline-flex items-baseline gap-2 px-4 py-2.5 rounded-xl mb-6"
-                    style={{
-                      background: 'rgba(0, 212, 170, 0.06)',
-                      border: '1px solid rgba(0, 212, 170, 0.15)',
-                    }}
-                  >
-                    <span
-                      className="text-xs uppercase tracking-wider font-medium"
-                      style={{ color: '#94a3b8', fontFamily: "'DM Sans', sans-serif" }}
-                    >
-                      Starting at
-                    </span>
-                    <span
-                      className="text-2xl font-bold"
-                      style={{ fontFamily: "'Syne', sans-serif", color: '#00d4aa' }}
-                    >
-                      $499
-                    </span>
-                    <span
-                      className="text-sm"
-                      style={{ color: '#94a3b8', fontFamily: "'DM Sans', sans-serif" }}
-                    >
-                      /mo
-                    </span>
-                  </div>
-
-                  {/* Early access callout */}
                   <p
-                    className="text-xs mb-6"
-                    style={{ color: '#6366f1', fontFamily: "'DM Sans', sans-serif" }}
+                    className="text-sm mb-6"
+                    style={{ color: '#94a3b8', fontFamily: "'DM Sans', sans-serif" }}
                   >
-                    Early access: First 10 customers get 50% off for 6 months.
+                    For pricing, rollout details, and a live demo, reach out at{' '}
+                    <a
+                      href="mailto:shreyanshsancheti09@gmail.com?subject=VMI%20Demo%20Request"
+                      className="underline"
+                      style={{ color: '#00d4aa' }}
+                    >
+                      shreyanshsancheti09@gmail.com
+                    </a>
+                    .
                   </p>
 
                   {/* CTA */}
                   <a
-                    href="#waitlist"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      document.querySelector('#waitlist')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
+                    href="mailto:shreyanshsancheti09@gmail.com?subject=VMI%20Demo%20Request"
                     className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-[0.97]"
                     style={{
                       background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
                       color: '#05080f',
                     }}
                   >
-                    Get Early Access
+                    Request Demo & Pricing Info
                     <ArrowRight size={16} />
                   </a>
                 </div>
