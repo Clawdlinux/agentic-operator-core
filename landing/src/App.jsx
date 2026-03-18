@@ -8,9 +8,7 @@ import Features from './components/Features';
 import UseCases from './components/UseCases';
 import Products from './components/Products';
 import Architecture from './components/Architecture';
-// GammaPresentation removed for VMI pivot
 import OpenSource from './components/OpenSource';
-import Waitlist from './components/Waitlist';
 import Footer from './components/Footer';
 
 export default function App() {
@@ -48,8 +46,6 @@ export default function App() {
         </section>
 
         <OpenSource />
-
-        <Waitlist />
       </main>
 
       <Footer />

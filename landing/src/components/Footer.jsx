@@ -9,56 +9,54 @@ const LEGAL = {
     content: `Last updated: March 2026
 
 1. Acceptance of Terms
-By accessing or using Visual Market Intelligence ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.
+By accessing clawdlinux.org or the Agentic Operator project materials, you agree to these terms. If you do not agree, do not use the site or distributed materials.
 
-2. License
-Visual Market Intelligence is a proprietary SaaS product of Nine Rewards Solutions Private Limited. Use of the Service is governed by these Terms and any applicable subscription agreement.
+2. Open Source License
+Agentic Operator core source code is licensed under the Apache License 2.0. Your use of the repository source code is governed by that license and the notices included in the project.
 
-3. Use of Service
-You agree to use the Service only for lawful purposes and in a way that does not infringe the rights of others. You must not use the Service to scrape sites in violation of their terms, access systems without permission, or violate applicable laws.
+3. Website Content
+Documentation, manifests, examples, and release notes are provided for informational purposes. Separate commercial offerings and managed support may be subject to separate agreements.
 
-4. No Warranty
-The Service is provided "as is", without warranty of any kind, express or implied. Nine Rewards Solutions Private Limited makes no warranties regarding fitness for a particular purpose, merchantability, or non-infringement.
+4. Acceptable Use
+Do not use the project, examples, or website materials to violate law, abuse third-party services, or operate outside your organisation's authorization boundaries.
 
-5. Limitation of Liability
-To the maximum extent permitted by law, Nine Rewards Solutions Private Limited shall not be liable for any indirect, incidental, special, exemplary, or consequential damages arising from your use of the Service.
+5. No Warranty
+The project and site content are provided "as is", without warranty of any kind, express or implied, including merchantability, fitness for a particular purpose, or non-infringement.
 
-6. Changes
-We reserve the right to update these terms at any time. Continued use of the Service after changes constitutes acceptance of the new terms.
+6. Limitation of Liability
+To the maximum extent permitted by law, Nine Rewards Solutions Pvt. Ltd. shall not be liable for any indirect, incidental, special, exemplary, or consequential damages arising from use of the site, project, or related materials.
 
-7. Contact
-For questions about these terms, contact: shreyanshsancheti09@gmail.com`,
+7. Changes
+We may update these terms from time to time. Continued use after publication of changes constitutes acceptance of the revised terms.
+
+8. Contact
+For questions about these terms, contact: oss@clawdlinux.org`,
   },
   privacy: {
     title: 'Privacy Policy',
     content: `Last updated: March 2026
 
 1. Information We Collect
-When you join our waitlist, we collect your email address and optionally your company name and role. We do not collect any other personal information automatically.
+This website does not run a waitlist or marketing signup form. If you email us, we receive the information you include in that message.
 
-2. How We Use Your Information
-We use your email solely to:
-• Send updates about Visual Market Intelligence releases and early access invitations
-• Respond to your inquiries
+2. How We Use Information
+We use inbound email and support requests to:
+• Respond to OSS and documentation questions
+• Coordinate enterprise follow-up when requested
+• Improve project guidance and support materials
 
-3. Data Storage
-Waitlist submissions are stored in Google Sheets, accessible only to Nine Rewards Solutions Private Limited team members.
+3. Telemetry
+This website does not knowingly collect personal telemetry from your cluster workloads. Project observability is configured by users inside their own environments.
 
-4. No Third-Party Sharing
-We do not sell, trade, or transfer your personal information to third parties. We do not use your data for advertising purposes.
+4. Third-Party Services
+Links to GitHub and other external services are governed by those services' own privacy policies.
 
-5. Telemetry
-Visual Market Intelligence does not collect personal telemetry beyond what is described above. Monitoring jobs run on our infrastructure and do not access your internal systems.
+5. Data Requests
+You may request deletion of support correspondence by emailing: oss@clawdlinux.org
 
-6. Your Rights
-You may request deletion of your data at any time by emailing: shreyanshsancheti09@gmail.com
-
-7. Cookies
-This website does not use cookies beyond what is strictly necessary for functionality.
-
-8. Contact
-Nine Rewards Solutions Private Limited
-Email: shreyanshsancheti09@gmail.com`,
+6. Contact
+Nine Rewards Solutions Pvt. Ltd.
+Email: oss@clawdlinux.org`,
   },
   conduct: {
     title: 'Code of Conduct',
@@ -82,7 +80,7 @@ Enforcement
 Violations may result in a warning, temporary ban, or permanent exclusion from community spaces, at the discretion of the maintainers.
 
 Reporting
-If you experience or witness unacceptable behaviour, please report it to: shreyanshsancheti09@gmail.com. All reports will be reviewed and investigated promptly and confidentially.
+If you experience or witness unacceptable behaviour, please report it to: oss@clawdlinux.org. All reports will be reviewed and investigated promptly and confidentially.
 
 This Code of Conduct is adapted from the Contributor Covenant, version 2.1.`,
   },
@@ -208,20 +206,26 @@ export default function Footer() {
               <div className="flex items-center gap-3 mb-4">
                 <HexLogo />
                 <span className="text-lg font-bold text-white" style={{ fontFamily: "'Syne', sans-serif" }}>
-                  NineVigil
+                  Agentic Operator
                 </span>
               </div>
               <p
                 className="text-sm leading-relaxed max-w-xs mb-2"
                 style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'DM Sans', sans-serif" }}
               >
-                Visual Market Intelligence is an AI-powered competitive intelligence system. Monitor competitors, detect changes, and deliver actionable insights.
+                Open-source Kubernetes operator for policy-aware AI agent workloads. Apache 2.0 licensed.
               </p>
               <p
                 className="text-xs"
                 style={{ color: 'rgba(255,255,255,0.22)', fontFamily: "'DM Sans', sans-serif" }}
               >
-                A product of Nine Rewards Solutions Private Limited
+                Nine Rewards Solutions Pvt. Ltd. · Bangalore
+              </p>
+              <p
+                className="text-xs mt-1"
+                style={{ color: 'rgba(255,255,255,0.22)', fontFamily: "'DM Sans', sans-serif" }}
+              >
+                Agentic Operator · Apache 2.0 · Clawdlinux
               </p>
 
               {/* GitHub only */}
@@ -267,7 +271,7 @@ export default function Footer() {
                   { label: 'Features', href: '#features' },
                   { label: 'Use Cases', href: '#use-cases' },
                   { label: 'Architecture', href: '#architecture' },
-                  { label: 'Join Waitlist', href: '#waitlist' },
+                  { label: 'Enterprise', href: '#products' },
                 ].map(({ label, href }) => (
                   <li key={label}><FooterLink href={href}>{label}</FooterLink></li>
                 ))}
@@ -306,7 +310,7 @@ export default function Footer() {
                 <li><FooterLink onClick={() => openModal('conduct')}>Code of Conduct</FooterLink></li>
                 <li>
                   <a
-                    href="mailto:shreyanshsancheti09@gmail.com"
+                    href="mailto:oss@clawdlinux.org"
                     className="text-sm transition-colors duration-200"
                     style={{ color: 'rgba(255,255,255,0.45)', fontFamily: "'DM Sans', sans-serif", textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onMouseEnter={(e) => { e.currentTarget.style.color = '#00d4aa'; }}
@@ -330,7 +334,7 @@ export default function Footer() {
               className="text-xs text-center sm:text-left"
               style={{ color: 'rgba(255,255,255,0.25)', fontFamily: "'DM Sans', sans-serif" }}
             >
-              &copy; {new Date().getFullYear()} Nine Rewards Solutions Private Limited &middot; All rights reserved
+              &copy; {new Date().getFullYear()} Nine Rewards Solutions Pvt. Ltd. · Bangalore · Apache 2.0
             </p>
             <div className="flex items-center gap-5">
               {[

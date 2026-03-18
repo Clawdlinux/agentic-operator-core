@@ -1,49 +1,49 @@
 import { motion } from "framer-motion";
 import {
-  Camera,
-  Eye,
-  Brain,
-  Bell,
-  FileText,
-  Globe,
+  Shield,
+  Network,
+  Cpu,
+  Lock,
+  GitBranch,
+  Layers,
 } from "lucide-react";
 
 const features = [
   {
-    icon: Camera,
-    title: "Automated Screenshots",
+    icon: Shield,
+    title: "Policy-Aware Isolation",
     description:
-      "Pixel-perfect captures of competitor pages on your schedule — daily, hourly, or custom.",
+      "Every AgentWorkload gets namespace, identity, and storage boundaries without hand-written cluster glue.",
   },
   {
-    icon: Eye,
-    title: "Visual Diff Detection",
+    icon: Network,
+    title: "Cilium FQDN Egress",
     description:
-      "AI-powered comparison against baselines. Detects layout, pricing, and content changes.",
+      "Restrict outbound agent traffic to approved destinations and keep runtime access inside policy guardrails.",
   },
   {
-    icon: Brain,
-    title: "AI-Powered Analysis",
+    icon: Cpu,
+    title: "Pluggable Agent Runtimes",
     description:
-      "Advanced AI classifies changes by type and severity, then explains what they mean.",
+      "Run browser automation, LLM workers, or custom containers through the same operator reconciliation flow.",
   },
   {
-    icon: Bell,
-    title: "Smart Alerts",
+    icon: Lock,
+    title: "Scoped Secrets & Identity",
     description:
-      "Get notified via Slack or email the moment competitors change pricing, features, or messaging.",
+      "Bind secrets, service accounts, and access controls to the workload instead of sharing cluster-wide credentials.",
   },
   {
-    icon: FileText,
-    title: "Structured PDF Reports",
+    icon: GitBranch,
+    title: "Argo DAG Orchestration",
     description:
-      "Daily or weekly competitor briefs with AI summaries, ready for stakeholder sharing.",
+      "Translate multi-step agent jobs into Argo Workflows with retries, status transitions, and step-level visibility.",
   },
   {
-    icon: Globe,
-    title: "Multi-Region Capture",
+    icon: Layers,
+    title: "Artifacts & State Layers",
     description:
-      "Capture pages from multiple geographies. See region-specific pricing and feature differences.",
+      "Persist prompts, outputs, and workflow artifacts to MinIO so operators can inspect every run after completion.",
   },
 ];
 
@@ -141,7 +141,7 @@ export default function Offerings() {
               fontFamily: "'DM Sans', sans-serif",
             }}
           >
-            Platform Capabilities
+            Operator Capabilities
           </div>
           <h2
             className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight"
@@ -159,7 +159,7 @@ export default function Offerings() {
                 backgroundClip: "text",
               }}
             >
-              Competitive Intelligence
+              Agent Isolation on Kubernetes
             </span>
           </h2>
         </motion.div>

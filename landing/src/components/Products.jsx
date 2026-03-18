@@ -1,51 +1,51 @@
 import { motion } from 'framer-motion';
 import {
-  Eye,
-  TrendingUp,
-  Bell,
-  FileText,
+  Shield,
+  Network,
+  FileCode,
+  LifeBuoy,
   ArrowRight,
   Sparkles,
-  Bot,
-  Search,
+  Building2,
+  Lock,
 } from 'lucide-react';
 
-const VMI_BENEFITS = [
+const ENTERPRISE_BENEFITS = [
   {
-    icon: Eye,
-    title: 'Daily Competitor Monitoring',
-    description: 'Track competitor websites, pricing pages, and feature lists automatically.',
+    icon: Shield,
+    title: 'Managed Upgrades',
+    description: 'Coordinate operator releases, CRD migrations, and rollback planning across production clusters.',
   },
   {
-    icon: Bell,
-    title: 'Change Detection Alerts',
-    description: 'Get notified the moment competitors change pricing, features, or messaging.',
+    icon: Network,
+    title: 'Cluster Onboarding',
+    description: 'Set baseline namespace, egress, identity, and storage policies with rollout support from the maintainers.',
   },
   {
-    icon: TrendingUp,
-    title: 'AI-Generated Insights',
-    description: 'Strategic analysis distilled from raw data — not just scrapes, but actionable intelligence.',
+    icon: FileCode,
+    title: 'Workflow Design',
+    description: 'Model agent runtimes, DAG steps, quotas, and artifact retention for your internal workload patterns.',
   },
   {
-    icon: FileText,
-    title: 'Structured Reports',
-    description: 'Competitor briefs delivered daily via email or API. Ready for stakeholder sharing.',
+    icon: LifeBuoy,
+    title: 'Runbook Support',
+    description: 'Get help with incident response, audit retention, and day-two operations for regulated environments.',
   },
 ];
 
-const COMING_SOON = [
+const ENTERPRISE_ADD_ONS = [
   {
-    icon: Bot,
-    title: 'Automated Battle Cards',
+    icon: Building2,
+    title: 'Dedicated Control Planes',
     description:
-      'AI-generated competitive battle cards updated in real-time. Always-current positioning data for your sales team.',
+      'Dedicated operator management for teams standardizing AI workloads across multiple clusters or business units.',
     color: '#8b5cf6',
   },
   {
-    icon: Search,
-    title: 'Sentiment & Review Monitoring',
+    icon: Lock,
+    title: 'Private Registry & SSO',
     description:
-      'Track competitor reviews on G2, Capterra, and social media. Identify sentiment shifts and emerging competitive threats.',
+      'Private images, enterprise identity integration, and hardened delivery workflows for internal agent platforms.',
     color: '#06b6d4',
   },
 ];
@@ -125,7 +125,7 @@ function ComingSoonCard({ product }) {
               fontFamily: "'IBM Plex Mono', monospace",
             }}
           >
-            Coming Soon
+            Enterprise Add-on
           </span>
         </div>
         <h4
@@ -186,14 +186,13 @@ export default function Products() {
               fontFamily: "'IBM Plex Mono', monospace",
             }}
           >
+            Managed Offering
             <Sparkles size={14} />
-            In Progress
           </div>
           <h2
             className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight mb-4"
             style={{ fontFamily: "'Syne', sans-serif", color: '#e2e8f0' }}
           >
-            In-Progress{' '}
             <span
               style={{
                 background: 'linear-gradient(135deg, #00d4aa, #6366f1)',
@@ -202,19 +201,18 @@ export default function Products() {
                 backgroundClip: 'text',
               }}
             >
-              AI Solutions
+              Enterprise Support
             </span>
           </h2>
           <p
             className="text-base sm:text-lg max-w-2xl mx-auto"
             style={{ fontFamily: "'DM Sans', sans-serif", color: '#94a3b8' }}
           >
-            AI-powered tools that monitor your competitors, detect changes, and deliver
-            actionable insights — so you never miss a move.
+            For teams deploying Agentic Operator in production with managed support and hardened cluster coordination.
           </p>
         </motion.div>
 
-        {/* Featured product: Visual Market Intelligence */}
+          {/* Enterprise managed support offering */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -243,20 +241,20 @@ export default function Products() {
                         border: '1px solid rgba(0, 212, 170, 0.25)',
                       }}
                     >
-                      <Eye size={24} color="#00d4aa" strokeWidth={1.5} />
+                      <Shield size={24} color="#00d4aa" strokeWidth={1.5} />
                     </div>
                     <div>
                       <h3
                         className="text-xl sm:text-2xl font-bold"
                         style={{ fontFamily: "'Syne', sans-serif", color: '#e2e8f0' }}
                       >
-                        Visual Market Intelligence
+                        Managed Support
                       </h3>
                       <span
                         className="text-xs font-semibold uppercase tracking-wider"
                         style={{ color: '#00d4aa', fontFamily: "'IBM Plex Mono', monospace" }}
                       >
-                        In Progress
+                        Enterprise
                       </span>
                     </div>
                   </div>
@@ -265,18 +263,16 @@ export default function Products() {
                     className="text-base sm:text-lg mb-6 leading-relaxed"
                     style={{ fontFamily: "'DM Sans', sans-serif", color: '#94a3b8' }}
                   >
-                    Visual Market Intelligence puts competitor analysis on autopilot. It
-                    monitors competitors&apos; websites, pricing, features, and messaging changes,
-                    then delivers structured reports your team can act on quickly.
+                    Platform teams can get expert support for deploying Agentic Operator in production with managed upgrades, workload design guidance, incident response, and hardened cluster coordination.
                   </p>
 
                   <p
                     className="text-sm mb-6"
                     style={{ color: '#94a3b8', fontFamily: "'DM Sans', sans-serif" }}
                   >
-                    For pricing, rollout details, and a live demo, reach out at{' '}
+                    For enterprise support inquiries, reach out at{' '}
                     <a
-                      href="mailto:shreyanshsancheti09@gmail.com?subject=Visual%20Market%20Intelligence%20Demo%20Request"
+                      href="mailto:shreyanshsancheti09@gmail.com?subject=Enterprise%20Support%20Inquiry"
                       className="underline"
                       style={{ color: '#00d4aa' }}
                     >
@@ -287,21 +283,21 @@ export default function Products() {
 
                   {/* CTA */}
                   <a
-                    href="mailto:shreyanshsancheti09@gmail.com?subject=Visual%20Market%20Intelligence%20Demo%20Request"
+                    href="mailto:shreyanshsancheti09@gmail.com?subject=Enterprise%20Support%20Inquiry"
                     className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-[0.97]"
                     style={{
                       background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
                       color: '#05080f',
                     }}
                   >
-                    Request Demo & Pricing Info
+                    Get in Touch
                     <ArrowRight size={16} />
                   </a>
                 </div>
 
                 {/* Right: benefits list */}
                 <div className="flex flex-col gap-5">
-                  {VMI_BENEFITS.map((benefit) => (
+                  {ENTERPRISE_BENEFITS.map((benefit) => (
                     <BenefitRow key={benefit.title} benefit={benefit} />
                   ))}
                 </div>
@@ -309,7 +305,7 @@ export default function Products() {
             </div>
           </motion.div>
 
-          {/* Coming soon products */}
+          {/* Additional enterprise services */}
           <motion.div
             variants={itemVariants}
             className="mb-4"
@@ -318,11 +314,11 @@ export default function Products() {
               className="text-xs font-semibold uppercase tracking-widest text-center mb-5"
               style={{ color: '#64748b', fontFamily: "'IBM Plex Mono', monospace" }}
             >
-              On the Roadmap
+              Additional Services
             </p>
           </motion.div>
           <div className="grid sm:grid-cols-2 gap-5">
-            {COMING_SOON.map((product) => (
+            {ENTERPRISE_ADD_ONS.map((product) => (
               <ComingSoonCard key={product.title} product={product} />
             ))}
           </div>

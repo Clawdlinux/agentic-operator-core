@@ -1,40 +1,40 @@
-import { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 
 const stats = [
   {
-    value: 50,
-    prefix: "",
-    suffix: "+",
-    label: "Pages Monitored",
-    sublabel: "per customer",
+    value: 1,
+    prefix: "v0.",
+    suffix: ".0",
+    label: "Latest Release",
+    sublabel: "stable tag",
     color: "#00d4aa",
     colorClass: "text-teal-400",
   },
   {
-    value: 5,
-    prefix: "<",
-    suffix: " min",
-    label: "Report Delivery",
-    sublabel: "scan to insight",
+    value: 25,
+    prefix: "K8s 1.",
+    suffix: "+",
+    label: "Kubernetes",
+    sublabel: "minimum cluster version",
     color: "#6366f1",
     colorClass: "text-violet-400",
   },
   {
-    value: 8,
-    prefix: "",
-    suffix: " hrs",
-    label: "Time Saved",
-    sublabel: "per analysis cycle",
+    value: 22,
+    prefix: "Go 1.",
+    suffix: "",
+    label: "Go Runtime",
+    sublabel: "required build version",
     color: "#f59e0b",
     colorClass: "text-amber-400",
   },
   {
-    value: 320,
-    prefix: "$",
-    suffix: "+",
-    label: "Cost Saved",
-    sublabel: "per report vs manual",
+    value: 2,
+    prefix: "Apache ",
+    suffix: ".0",
+    label: "License",
+    sublabel: "open source",
     color: "#22c55e",
     colorClass: "text-green-400",
   },
@@ -113,12 +113,10 @@ function StatItem({ stat, active, index }) {
 }
 
 export default function StatsBar() {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
+  const isInView = true;
 
   return (
     <motion.section
-      ref={ref}
       initial={{ opacity: 0, y: 24 }}
       animate={isInView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.6, ease: "easeOut" }}

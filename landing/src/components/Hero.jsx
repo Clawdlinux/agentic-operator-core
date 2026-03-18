@@ -1,24 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, ArrowRight } from 'lucide-react';
+import { Github, ArrowRight } from 'lucide-react';
 import ParticleNetwork from '../utils/particleNetwork';
 
 const USE_CASES = [
-  'Daily visual snapshots of every competitor page that matters.',
-  'AI detects pricing changes, new features, and messaging shifts overnight.',
-  'Structured PDF reports delivered to your inbox before standup.',
-  'Track 50+ competitor pages — zero manual effort.',
-  'From screenshot to strategic insight in under 5 minutes.',
+  'Run autonomous agents in isolated namespaces from a single AgentWorkload manifest.',
+  'Cilium FQDN policies lock outbound traffic to approved destinations.',
+  'Argo Workflows executes agent steps as observable DAGs with retries.',
+  'MinIO stores artifacts, prompts, logs, and outputs per workload.',
+  'Built for platform teams standardizing AI workloads on Kubernetes.',
 ];
 
 const TERMINAL_LINES = [
-  { prompt: '$ ', text: 'visual-market-intelligence scan --targets competitors.yaml', delay: 0 },
-  { prompt: '', text: 'Scanning 47 competitor pages...', delay: 1200, dim: true },
-  { prompt: '', text: '✓ 47/47 screenshots captured (12.3s)', delay: 2400, teal: true },
-  { prompt: '', text: '✓ 8 visual changes detected across 5 competitors', delay: 3600, teal: true },
-  { prompt: '$ ', text: 'visual-market-intelligence analyze --diff --ai-summary', delay: 5200 },
-  { prompt: '', text: '[AI] Stripe raised Enterprise pricing 18% · New "Scale" tier added', delay: 6400, teal: true },
-  { prompt: '', text: '[AI] Report generated → /reports/competitive-intel-jun-2025.pdf', delay: 7600, teal: true },
+  { prompt: '$ ', text: 'kubectl apply -f agentworkload.yaml', delay: 0 },
+  { prompt: '', text: 'agentworkload.agentic.clawdlinux.io/research-run created', delay: 1200, teal: true },
+  { prompt: '', text: '✓ namespace aw-research-run provisioned', delay: 2600, teal: true },
+  { prompt: '', text: '✓ cilium policy restricted egress to github.com and api.openai.com', delay: 4100, teal: true },
+  { prompt: '$ ', text: 'kubectl get agentworkload research-run -w', delay: 5600 },
+  { prompt: '', text: '[reconcile] argo workflow started · minio bucket mounted', delay: 7100, teal: true },
+  { prompt: '', text: '[ready] run complete · logs and artifacts retained for audit', delay: 8600, teal: true },
 ];
 
 const headingVariants = {
@@ -101,7 +101,7 @@ function TerminalWindow() {
           className="ml-3 text-xs text-slate-500 tracking-widest uppercase"
           style={{ fontFamily: "'IBM Plex Mono', monospace" }}
         >
-          visual market intelligence — competitive intelligence
+          agentic-operator-core — kubernetes operator
         </span>
       </div>
 
@@ -222,7 +222,7 @@ export default function Hero() {
           transition={{ duration: 0.5 }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-[#00d4aa] animate-pulse" />
-          Competitive Intelligence · AI-Powered · Automated
+          Kubernetes Operator · Open Source · Apache 2.0
         </motion.div>
 
         {/* Animated heading */}
@@ -238,11 +238,11 @@ export default function Hero() {
             style={{ fontFamily: "'Syne', sans-serif" }}
           >
             <div className="flex flex-wrap justify-center gap-x-3 mb-2">
-              {['See', 'What', 'Your'].map((word) => (
+              {['Policy-Aware', 'Agent'].map((word) => (
                 <motion.span
                   key={word}
                   variants={wordVariant}
-                  className={word === 'What' || word === 'Your' ? 'text-gradient' : 'text-white'}
+                  className={word === 'Policy-Aware' ? 'text-gradient' : 'text-white'}
                 >
                   {word}
                 </motion.span>
@@ -250,7 +250,7 @@ export default function Hero() {
             </div>
             {/* Line 2 */}
             <div className="flex flex-wrap justify-center gap-x-3">
-              {['Competitors', 'Change.'].map((word) => (
+              {['Isolation', 'for', 'Kubernetes.'].map((word) => (
                 <motion.span key={word} variants={wordVariant} className="text-white">
                   {word}
                 </motion.span>
@@ -276,7 +276,7 @@ export default function Hero() {
           </AnimatePresence>
         </div>
 
-        {/* CTA buttons */}
+        {/* CTA button */}
         <motion.div
           className="flex flex-wrap items-center justify-center gap-4 mb-8"
           initial={{ opacity: 0, y: 20 }}
@@ -284,32 +284,22 @@ export default function Hero() {
           transition={{ duration: 0.5, delay: 0.7 }}
         >
           <a
-            href="mailto:shreyanshsancheti09@gmail.com?subject=Visual%20Market%20Intelligence%20Demo%20Request"
-            className="flex items-center gap-2 px-6 py-3 text-sm font-semibold text-[#00d4aa] rounded-xl border border-[#00d4aa]/40 hover:bg-[#00d4aa]/8 hover:border-[#00d4aa]/70 transition-all duration-200 hover:shadow-lg hover:shadow-[#00d4aa]/10 active:scale-95"
-            style={{ fontFamily: "'DM Sans', sans-serif" }}
-          >
-            <Eye className="w-4 h-4" />
-            Contact for Demo
-          </a>
-
-          <a
-            href="#waitlist"
-            onClick={(e) => {
-              e.preventDefault();
-              document.querySelector('#waitlist')?.scrollIntoView({ behavior: 'smooth' });
-            }}
+            href="https://github.com/Clawdlinux/agentic-operator-core"
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 px-6 py-3 text-sm font-semibold text-[#05080f] rounded-xl transition-all duration-200 hover:brightness-110 hover:shadow-xl hover:shadow-[#00d4aa]/25 active:scale-95"
             style={{
               fontFamily: "'DM Sans', sans-serif",
               background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
             }}
           >
-            Get Early Access
+            <Github className="w-4 h-4" />
+            View on GitHub
             <ArrowRight className="w-4 h-4" />
           </a>
         </motion.div>
 
-        {/* Production stats ticker */}
+        {/* Technical capability ticker */}
         <motion.div
           className="flex items-center justify-center gap-2 mb-14"
           initial={{ opacity: 0 }}
@@ -324,7 +314,7 @@ export default function Hero() {
             className="text-xs text-slate-500"
             style={{ fontFamily: "'IBM Plex Mono', monospace" }}
           >
-            47 competitor pages tracked · 8 changes detected today · Reports in &lt;5 min
+            Apache 2.0 licensed · Argo DAG orchestration · Cilium egress guardrails
           </span>
         </motion.div>
 

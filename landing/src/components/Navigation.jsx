@@ -103,7 +103,7 @@ export default function Navigation() {
               className="text-white font-semibold text-lg tracking-tight"
               style={{ fontFamily: "'Syne', sans-serif" }}
             >
-              Nine<span className="text-[#00d4aa]">Vigil</span>
+              Agentic <span className="text-[#00d4aa]">Operator</span>
             </span>
           </motion.a>
 
@@ -147,19 +147,6 @@ export default function Navigation() {
             >
               <Star className="w-3.5 h-3.5" />
               <span>Star</span>
-            </a>
-
-            {/* Get Early Access CTA */}
-            <a
-              href="#waitlist"
-              onClick={(e) => handleSmoothScroll(e, '#waitlist')}
-              className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-[#05080f] rounded-lg transition-all duration-200 hover:brightness-110 hover:shadow-lg hover:shadow-[#00d4aa]/20 active:scale-95"
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
-              }}
-            >
-              Get Early Access
             </a>
           </motion.div>
 
@@ -212,17 +199,6 @@ export default function Navigation() {
             >
               <Star className="w-4 h-4" />
               <span>Star on GitHub</span>
-            </a>
-            <a
-              href="#waitlist"
-              onClick={(e) => handleSmoothScroll(e, '#waitlist')}
-              className="flex items-center justify-center px-4 py-3 text-sm font-semibold text-[#05080f] rounded-lg"
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
-              }}
-            >
-              Get Early Access
             </a>
           </div>
         </div>

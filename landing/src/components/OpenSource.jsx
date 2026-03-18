@@ -19,7 +19,7 @@ const itemVariants = {
 const helmCommand = `git clone https://github.com/Clawdlinux/agentic-operator-core.git`;
 
 const badges = [
-  { label: 'MIT License', color: '#00d4aa', bg: 'rgba(0,212,170,0.1)', border: 'rgba(0,212,170,0.25)' },
+  { label: 'Apache 2.0 License', color: '#00d4aa', bg: 'rgba(0,212,170,0.1)', border: 'rgba(0,212,170,0.25)' },
   { label: 'Go + Kubernetes', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.25)' },
   { label: 'Controller Runtime', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' },
 ];
@@ -27,7 +27,7 @@ const badges = [
 const contributionStats = [
   { value: 'Open', label: 'Source Repository' },
   { value: 'K8s', label: 'Operator-Native' },
-  { value: 'MIT', label: 'License' },
+  { value: 'Apache', label: '2.0 License' },
 ];
 
 export default function OpenSource() {
@@ -110,7 +110,7 @@ export default function OpenSource() {
           className="text-center text-lg mb-12"
           style={{ color: 'rgba(255,255,255,0.55)', fontFamily: "'DM Sans', sans-serif" }}
         >
-          Agentic Operator is open source and powers Visual Market Intelligence. Inspect, extend, and self-host.
+          Agentic Operator is open source for policy-aware AI workloads on Kubernetes. Inspect, extend, and self-host.
         </motion.p>
 
         {/* Repo card */}

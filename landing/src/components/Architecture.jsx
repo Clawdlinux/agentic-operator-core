@@ -1,48 +1,48 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { Target, Camera, Sparkles, Send } from "lucide-react";
+import { FileCode, Package, Shield, Activity } from "lucide-react";
 
 const steps = [
   {
     number: "01",
-    icon: Target,
-    title: "Configure Your Targets",
+    icon: FileCode,
+    title: "Apply the Manifest",
     description:
-      "Define which competitor pages to monitor — pricing, product, about, changelog. Set schedules and alert preferences.",
-    details: ["Point-and-click target setup", "Custom monitoring schedules", "Multi-region capture support", "YAML or dashboard configuration"],
+      "Write an AgentWorkload YAML and apply it. The operator picks up desired state immediately.",
+    details: ["Declarative workload spec", "Namespace template binding", "Identity and storage inputs", "GitOps-friendly rollout"],
     color: "#00d4aa",
     colorAlpha: "rgba(0, 212, 170, 0.12)",
     colorBorder: "rgba(0, 212, 170, 0.25)",
   },
   {
     number: "02",
-    icon: Camera,
-    title: "Automated Screenshot Capture",
+    icon: Package,
+    title: "Controller Reconciles",
     description:
-      "Visual Market Intelligence captures pixel-perfect screenshots of every target page on your schedule — daily, hourly, or custom intervals.",
-    details: ["Full-page & above-fold capture", "Mobile and desktop viewports", "JavaScript-rendered pages supported", "Geo-distributed capture nodes"],
+      "The operator provisions namespaces, RBAC, policies, and runtime wiring to match the workload contract.",
+    details: ["Namespace creation", "RBAC and service accounts", "Policy objects applied", "Secrets and storage mounted"],
     color: "#6366f1",
     colorAlpha: "rgba(99, 102, 241, 0.12)",
     colorBorder: "rgba(99, 102, 241, 0.25)",
   },
   {
     number: "03",
-    icon: Sparkles,
-    title: "AI-Powered Change Detection",
+    icon: Shield,
+    title: "Argo DAG Executes",
     description:
-      "Our AI compares screenshots against baselines, identifies visual changes, and analyzes what they mean — pricing updates, new features, messaging shifts.",
-    details: ["Visual diff with pixel precision", "AI classifies change type & severity", "Natural language change summaries", "Historical trend analysis"],
+      "Argo Workflows converts the workload graph into a DAG so every step executes with retries and status visibility.",
+    details: ["Step dependency graph", "Retry semantics", "Pod-level observability", "Deterministic workflow history"],
     color: "#f59e0b",
     colorAlpha: "rgba(245, 158, 11, 0.12)",
     colorBorder: "rgba(245, 158, 11, 0.25)",
   },
   {
     number: "04",
-    icon: Send,
-    title: "Insights Delivered to You",
+    icon: Activity,
+    title: "Artifacts & Audit Trail",
     description:
-      "Receive structured reports via Slack, email, or dashboard — with AI analysis explaining what changed and recommended actions.",
-    details: ["PDF and dashboard reports", "Slack and email delivery", "AI-generated action recommendations", "Team sharing & collaboration"],
+      "Outputs land in MinIO and logs stay attached to the run, giving operators an auditable record of each agent execution.",
+    details: ["Artifact retention", "Prompt and output capture", "Log export hooks", "Post-run inspection"],
     color: "#22c55e",
     colorAlpha: "rgba(34, 197, 94, 0.12)",
     colorBorder: "rgba(34, 197, 94, 0.25)",
@@ -247,9 +247,9 @@ export default function Architecture() {
                 backgroundClip: "text",
               }}
             >
-              Insight
+              Running Agent
             </span>
-            {" "}in Minutes
+            {" "}in Seconds
           </h2>
           <p
             className="mt-4 text-base max-w-xl mx-auto"
@@ -258,7 +258,7 @@ export default function Architecture() {
               color: "#94a3b8",
             }}
           >
-            Four automated steps turn competitor pages into actionable intelligence — no manual work required.
+            Four reconciliation stages turn a declarative manifest into an isolated, observable AI workload on Kubernetes.
           </p>
         </motion.div>
 
@@ -314,7 +314,7 @@ export default function Architecture() {
                 color: "#94a3b8",
               }}
             >
-              Total time from target to insight:
+              From kubectl apply to running agent:
             </span>
             <span
               className="text-sm font-bold"
@@ -323,7 +323,7 @@ export default function Architecture() {
                 color: "#00d4aa",
               }}
             >
-              under 5 minutes
+              one manifest, zero custom glue
             </span>
           </div>
         </motion.div>

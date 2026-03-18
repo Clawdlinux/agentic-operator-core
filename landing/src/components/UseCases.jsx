@@ -1,115 +1,106 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import { ArrowRight, TrendingDown, DollarSign, Layers, Briefcase } from "lucide-react";
+import { ArrowRight, TrendingDown, Shield, Network, ClipboardList } from "lucide-react";
 
-const YAML_PRICING = `# visual-market-intelligence-config: pricing-tracker.yaml
-targets:
-  - name: stripe-pricing
-    url: https://stripe.com/pricing
-    schedule: "0 8 * * *"    # Daily at 8am
-    regions: [us-east, eu-west]
-    
-  - name: competitor-a-plans
-    url: https://competitor-a.com/pricing
-    schedule: "0 8 * * *"
+const YAML_AGENT_ISOLATION = `apiVersion: agentic.clawdlinux.io/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: research-run
+spec:
+  runtime:
+    image: ghcr.io/clawdlinux/agents/browser:latest
+  isolation:
+    namespaceTemplate: aw-{{name}}
+    serviceAccountName: research-runner
+  network:
+    allowFqdns:
+      - github.com
+      - api.openai.com
+  workflow:
+    steps:
+      - name: crawl
+        command: ["python", "entrypoint.py"]`;
 
-analysis:
-  engine: claude-sonnet-4
-  detect: [price-changes, new-tiers, removed-features]
-  alert_threshold: any_change
-  
-output:
-  format: pdf
-  deliver_to: [slack:#competitive-intel, email:team@company.com]`;
+const YAML_MULTI_TENANT = `apiVersion: agentic.clawdlinux.io/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: acme-research-agent
+spec:
+  tenant: acme
+  isolation:
+    namespaceTemplate: tenant-acme
+  quota:
+    cpu: "4"
+    memory: 8Gi
+  network:
+    allowFqdns:
+      - s3.amazonaws.com
+      - api.anthropic.com
+  artifacts:
+    bucket: acme-agent-runs`;
 
-const YAML_FEATURE = `# visual-market-intelligence-config: feature-tracker.yaml
-targets:
-  - name: competitor-product-page  
-    url: https://competitor.com/product
-    capture: [full-page, above-fold]
-    schedule: "*/6 * * * *"  # Every 6 hours
-    
-  - name: competitor-changelog
-    url: https://competitor.com/changelog
-    schedule: "0 */4 * * *"
+const YAML_AUDIT = `apiVersion: agentic.clawdlinux.io/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: audited-run
+spec:
+  workflow:
+    retentionDays: 30
+    steps:
+      - name: ingest
+        command: ["python", "ingest.py"]
+      - name: summarize
+        command: ["python", "summarize.py"]
+  audit:
+    exportLogs: true
+    exportPrompts: true
+  artifacts:
+    bucket: audit-trail`;
 
-analysis:
-  engine: claude-sonnet-4
-  detect: [new-features, ui-changes, messaging-shifts]
-  compare_with: previous_7_days
-  
-alerts:
-  channels: [slack, email]
-  urgency: high_for_pricing | medium_for_features`;
-
-const YAML_PORTFOLIO = `# visual-market-intelligence-config: portfolio-monitor.yaml
-portfolio:
-  - company: Series-B Target
-    pages:
-      - url: https://target.com
-      - url: https://target.com/pricing  
-      - url: https://target.com/about
-    schedule: "0 9 * * MON"  # Weekly Monday
-
-  - company: Portfolio Company #3
-    pages:
-      - url: https://portfolio3.com
-      - url: https://portfolio3.com/product
-
-analysis:
-  engine: claude-sonnet-4
-  track: [growth-signals, team-changes, product-velocity]
-  benchmark_against: industry_median
-  
-reports:
-  format: pdf
-  frequency: weekly
-  deliver_to: [email:partners@fund.com]`;
-
-const yamlMap = { YAML_PRICING, YAML_FEATURE, YAML_PORTFOLIO };
+const yamlMap = { YAML_AGENT_ISOLATION, YAML_MULTI_TENANT, YAML_AUDIT };
 
 const tabs = [
   {
-    id: "pricing",
-    label: "Pricing Intelligence",
-    icon: DollarSign,
+    id: "isolation",
+    label: "Agent Isolation",
+    icon: Shield,
     problem:
-      "Competitors change pricing without warning. Your team finds out weeks later from a customer complaint \u2014 after you\u2019ve already lost deals.",
+      "Teams wire namespaces, RBAC, network policies, and storage by hand. Every new agent run becomes another copy-pasted cluster bootstrap task.",
     solution:
-      "Visual Market Intelligence monitors competitor pricing pages daily, detects any change within hours, and delivers AI-analyzed reports explaining what changed and what it means for your positioning.",
-    before: { value: "2-3 weeks", label: "Time to detect pricing changes" },
-    after: { value: "<4 hours", label: "Automated detection" },
-    savings: { value: "Revenue protected", color: "#f59e0b" },
-    yamlKey: "YAML_PRICING",
-    configFile: "pricing-tracker.yaml",
+      "Apply one AgentWorkload manifest and let the operator provision namespace boundaries, identities, egress rules, and workflow execution automatically.",
+    before: { value: "4 handoffs", label: "Namespace, RBAC, network, storage" },
+    after: { value: "1 manifest", label: "Operator-managed isolation" },
+    savings: { value: "Safer by default", color: "#00d4aa" },
+    yamlKey: "YAML_AGENT_ISOLATION",
+    configFile: "agent-isolation.yaml",
   },
   {
-    id: "features",
-    label: "Feature Launch Tracking",
-    icon: Layers,
+    id: "multi-tenant",
+    label: "Multi-Tenant Clusters",
+    icon: Network,
     problem:
-      "Competitors ship new features and you only find out from your sales team asking \u2018did you see what they launched?\u2019 You\u2019re always playing catch-up.",
+      "Shared clusters drift fast when every tenant needs a different mix of quota, egress, artifacts, and identity rules.",
     solution:
-      "Visual Market Intelligence captures competitor product pages every 6 hours, uses AI vision to detect new features, UI changes, and messaging shifts \u2014 then alerts your team instantly.",
-    before: { value: "Days to weeks", label: "Manual discovery of competitor launches" },
-    after: { value: "Same day", label: "Automated alerts with AI analysis" },
-    savings: { value: "Competitive edge maintained", color: "#00d4aa" },
-    yamlKey: "YAML_FEATURE",
-    configFile: "feature-tracker.yaml",
+      "Encode tenant-specific constraints in the workload spec so the controller reconciles quotas, network boundaries, and artifact storage predictably.",
+    before: { value: "Ad hoc quotas", label: "Manual tenant-by-tenant setup" },
+    after: { value: "Tenant profile", label: "Repeatable workload template" },
+    savings: { value: "Blast radius reduced", color: "#6366f1" },
+    yamlKey: "YAML_MULTI_TENANT",
+    configFile: "multi-tenant.yaml",
   },
   {
-    id: "portfolio",
-    label: "Portfolio Monitoring",
-    icon: Briefcase,
+    id: "audit",
+    label: "Audit & Compliance",
+    icon: ClipboardList,
     problem:
-      "VC analysts spend 6+ hours per company on manual competitive landscape research. With 20+ portfolio companies, due diligence is perpetually outdated.",
+      "Agent logs, prompts, and outputs often disappear across pods and scripts, leaving platform teams without a trustworthy run record.",
     solution:
-      "Visual Market Intelligence continuously monitors portfolio companies and their competitors, delivering weekly structured reports tracking growth signals, product velocity, and market positioning.",
-    before: { value: "6+ hours/company", label: "Manual research per due diligence" },
-    after: { value: "Automated weekly", label: "Always-current intelligence" },
-    savings: { value: "100+ analyst hours saved/month", color: "#6366f1" },
-    yamlKey: "YAML_PORTFOLIO",
-    configFile: "portfolio-monitor.yaml",
+      "Run each workload through Argo, retain artifacts in MinIO, and export logs plus prompts as part of the workload's declared audit policy.",
+    before: { value: "Fragmented logs", label: "Pods, scripts, and object storage" },
+    after: { value: "Single run record", label: "Workflow, artifacts, and audit export" },
+    savings: { value: "Traceability restored", color: "#f59e0b" },
+    yamlKey: "YAML_AUDIT",
+    configFile: "audit-trail.yaml",
   },
 ];
 
@@ -202,9 +193,9 @@ function CodeBlock({ code, title }) {
                 .replace(/^(\s*#.*)$/gm, '<span style="color:#64748b">$1</span>')
                 .replace(/"([^"]*)"/g, '<span style="color:#f59e0b">"$1"</span>')
                 .replace(/\b(true|false)\b/g, '<span style="color:#f59e0b">$1</span>')
-                .replace(/(targets:|analysis:|output:|alerts:|portfolio:|reports:|pages:|schedule:|name:|url:|engine:|detect:|alert_threshold:|capture:|compare_with:|channels:|urgency:|company:|track:|benchmark_against:|frequency:|deliver_to:|format:|regions:)/g,
+                .replace(/(apiVersion:|kind:|metadata:|name:|spec:|runtime:|image:|isolation:|namespaceTemplate:|serviceAccountName:|network:|allowFqdns:|workflow:|steps:|command:|tenant:|quota:|cpu:|memory:|artifacts:|bucket:|audit:|exportLogs:|exportPrompts:|retentionDays:)/g,
                   '<span style="color:#6366f1">$1</span>')
-                .replace(/(claude-sonnet-4)/g,
+                .replace(/(ghcr\.io\/clawdlinux\/agents\/browser:latest)/g,
                   '<span style="color:#00d4aa">$1</span>');
             })(),
           }}
@@ -254,7 +245,7 @@ export default function UseCases() {
               color: "#e2e8f0",
             }}
           >
-            Three Ways Teams Use{" "}
+            Three Ways to Deploy{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #00d4aa, #6366f1)",
@@ -263,7 +254,7 @@ export default function UseCases() {
                 backgroundClip: "text",
               }}
             >
-              Visual Market Intelligence
+              Clawdlinux Operator
             </span>
           </h2>
         </motion.div>
