@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { motion, AnimatePresence, useInView } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, TrendingDown, Shield, Network, ClipboardList } from "lucide-react";
 
 const YAML_AGENT_ISOLATION = `apiVersion: agentic.clawdlinux.io/v1alpha1
@@ -207,7 +207,6 @@ function CodeBlock({ code, title }) {
 
 export default function UseCases() {
   const [activeTab, setActiveTab] = useState(0);
-  const ref = useRef(null);
 
   const tab = tabs[activeTab];
 

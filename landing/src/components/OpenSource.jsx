@@ -30,6 +30,24 @@ const contributionStats = [
   { value: 'Apache', label: '2.0 License' },
 ];
 
+const STARTER_TEMPLATES = [
+  {
+    name: 'AgentWorkload Example',
+    description: 'Baseline workload manifest to validate your cluster setup and reconciliation flow.',
+    href: 'https://github.com/Clawdlinux/agentic-operator-core/blob/main/config/agentworkload_example.yaml',
+  },
+  {
+    name: 'Cost-Aware Routing',
+    description: 'Model mapping template for validation, analysis, and reasoning task routing.',
+    href: 'https://github.com/Clawdlinux/agentic-operator-core/blob/main/config/samples/agentworkload-cost-aware-routing.yaml',
+  },
+  {
+    name: 'Hedge Fund Demo',
+    description: 'Realistic multi-step workflow sample with artifacts and orchestration controls.',
+    href: 'https://github.com/Clawdlinux/agentic-operator-core/blob/main/config/samples/hedge-fund-demo.yaml',
+  },
+];
+
 export default function OpenSource() {
   const [copied, setCopied] = useState(false);
 
@@ -276,6 +294,50 @@ export default function OpenSource() {
                 </>
               )}
             </button>
+          </div>
+        </motion.div>
+
+        {/* Starter templates */}
+        <motion.div variants={itemVariants} className="mb-12">
+          <p
+            className="text-sm font-semibold mb-4"
+            style={{
+              color: 'rgba(255,255,255,0.5)',
+              fontFamily: "'IBM Plex Mono', monospace",
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Starter Templates
+          </p>
+          <div className="grid md:grid-cols-3 gap-4">
+            {STARTER_TEMPLATES.map((template) => (
+              <a
+                key={template.name}
+                href={template.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl p-4 transition-all duration-200 hover:-translate-y-1"
+                style={{
+                  background: 'rgba(13,21,37,0.65)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  textDecoration: 'none',
+                }}
+              >
+                <h4
+                  className="text-sm font-semibold mb-2"
+                  style={{ color: '#e2e8f0', fontFamily: "'Syne', sans-serif" }}
+                >
+                  {template.name}
+                </h4>
+                <p
+                  className="text-xs leading-relaxed"
+                  style={{ color: 'rgba(255,255,255,0.55)', fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  {template.description}
+                </p>
+              </a>
+            ))}
           </div>
         </motion.div>
 

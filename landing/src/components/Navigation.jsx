@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { Menu, X, Star, ExternalLink, Hexagon } from 'lucide-react';
+import { Menu, X, Star, ExternalLink, Hexagon, BookOpen, Calendar } from 'lucide-react';
 
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
@@ -11,6 +11,8 @@ const NAV_LINKS = [
 ];
 
 const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
+const QUICKSTART_URL = 'https://github.com/Clawdlinux/agentic-operator-core/blob/main/docs/01-quickstart.md';
+const DEMO_EMAIL_URL = 'mailto:oss@clawdlinux.org?subject=Agentic%20Operator%20Demo%20Request';
 const NAV_SCROLL_OFFSET = 88;
 
 export default function Navigation() {
@@ -19,7 +21,6 @@ export default function Navigation() {
   const { scrollY } = useScroll();
 
   const bgOpacity = useTransform(scrollY, [0, 50], [0, 1]);
-  const blurAmount = useTransform(scrollY, [0, 50], [0, 12]);
 
   useEffect(() => {
     const unsubscribe = scrollY.on('change', (y) => {
@@ -114,7 +115,7 @@ export default function Navigation() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            {NAV_LINKS.map((link, i) => (
+            {NAV_LINKS.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
@@ -137,7 +138,16 @@ export default function Navigation() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.15 }}
           >
-            {/* GitHub Star button */}
+            <a
+              href={QUICKSTART_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-4 py-2 text-sm text-slate-300 border border-white/10 rounded-lg hover:border-[#00d4aa]/40 hover:text-[#00d4aa] transition-all duration-200 bg-white/5 hover:bg-[#00d4aa]/5"
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Start in 5m</span>
+            </a>
             <a
               href={GITHUB_URL}
               target="_blank"
@@ -147,6 +157,18 @@ export default function Navigation() {
             >
               <Star className="w-3.5 h-3.5" />
               <span>Star</span>
+            </a>
+            <a
+              href={DEMO_EMAIL_URL}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 hover:brightness-110"
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
+                color: '#05080f',
+              }}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Book Demo</span>
             </a>
           </motion.div>
 
@@ -191,6 +213,16 @@ export default function Navigation() {
 
           <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-2">
             <a
+              href={QUICKSTART_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 px-4 py-3 text-sm text-slate-300 border border-white/10 rounded-lg hover:border-[#00d4aa]/40 hover:text-[#00d4aa] transition-all duration-200"
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Start in 5 minutes</span>
+            </a>
+            <a
               href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
@@ -199,6 +231,18 @@ export default function Navigation() {
             >
               <Star className="w-4 h-4" />
               <span>Star on GitHub</span>
+            </a>
+            <a
+              href={DEMO_EMAIL_URL}
+              className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200 hover:brightness-110"
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
+                color: '#05080f',
+              }}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Book Demo</span>
             </a>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Github, ArrowRight } from 'lucide-react';
+import { Github, ArrowRight, BookOpen, Calendar } from 'lucide-react';
 import ParticleNetwork from '../utils/particleNetwork';
 
 const USE_CASES = [
@@ -10,6 +10,9 @@ const USE_CASES = [
   'MinIO stores artifacts, prompts, logs, and outputs per workload.',
   'Built for platform teams standardizing AI workloads on Kubernetes.',
 ];
+
+const QUICKSTART_URL = 'https://github.com/Clawdlinux/agentic-operator-core/blob/main/docs/01-quickstart.md';
+const DEMO_EMAIL_URL = 'mailto:oss@clawdlinux.org?subject=Agentic%20Operator%20Demo%20Request';
 
 const TERMINAL_LINES = [
   { prompt: '$ ', text: 'kubectl apply -f agentworkload.yaml', delay: 0 },
@@ -276,7 +279,7 @@ export default function Hero() {
           </AnimatePresence>
         </div>
 
-        {/* CTA button */}
+        {/* CTA buttons */}
         <motion.div
           className="flex flex-wrap items-center justify-center gap-4 mb-8"
           initial={{ opacity: 0, y: 20 }}
@@ -284,7 +287,7 @@ export default function Hero() {
           transition={{ duration: 0.5, delay: 0.7 }}
         >
           <a
-            href="https://github.com/Clawdlinux/agentic-operator-core"
+            href={QUICKSTART_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-6 py-3 text-sm font-semibold text-[#05080f] rounded-xl transition-all duration-200 hover:brightness-110 hover:shadow-xl hover:shadow-[#00d4aa]/25 active:scale-95"
@@ -293,9 +296,32 @@ export default function Hero() {
               background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
             }}
           >
+            <BookOpen className="w-4 h-4" />
+            Start in 5 Minutes
+            <ArrowRight className="w-4 h-4" />
+          </a>
+          <a
+            href="https://github.com/Clawdlinux/agentic-operator-core"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-6 py-3 text-sm font-semibold text-slate-300 border border-white/10 rounded-xl transition-all duration-200 hover:border-[#00d4aa]/40 hover:text-[#00d4aa] hover:bg-[#00d4aa]/5"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+          >
             <Github className="w-4 h-4" />
             View on GitHub
-            <ArrowRight className="w-4 h-4" />
+          </a>
+          <a
+            href={DEMO_EMAIL_URL}
+            className="flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 hover:brightness-110"
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              background: 'rgba(99,102,241,0.18)',
+              color: '#c7d2fe',
+              border: '1px solid rgba(99,102,241,0.4)',
+            }}
+          >
+            <Calendar className="w-4 h-4" />
+            Book Demo
           </a>
         </motion.div>
 

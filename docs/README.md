@@ -134,16 +134,18 @@ It provides:
 - Helm 3.x
 - kubectl configured
 
-**Install in 30 seconds:**
+**Install with local chart source:**
 
 ```bash
-helm repo add agentic https://helm.agentic.io
-helm install agentic-operator agentic/agentic-operator \
+git clone https://github.com/Clawdlinux/agentic-operator-core.git
+cd agentic-operator-core
+helm dependency build ./charts
+helm upgrade --install agentic-operator ./charts \
   --namespace agentic-system \
   --create-namespace
 ```
 
-For detailed steps, see [Installation Guide](./02-installation.md).
+For cold-start-safe steps, see [Quick Start](./01-quickstart.md).
 
 ---
 
@@ -195,14 +197,14 @@ The operator automatically provisions:
 ## 🆘 Need Help?
 
 - 📖 Check [Troubleshooting](./10-troubleshooting.md)
-- 💬 Open an issue on [GitHub](https://github.com/shreyansh/agentic-operator)
-- 📧 Email support@agentic.io
+- 💬 Open an issue on [GitHub](https://github.com/Clawdlinux/agentic-operator-core)
+- 📧 Email oss@clawdlinux.org
 
 ---
 
 ## 📄 License
 
-MIT License - See LICENSE file in the repository.
+Apache License 2.0 - See LICENSE file in the repository.
 
-**Last Updated:** 2026-03-03  
-**Version:** 1.0.0
+**Last Updated:** 2026-03-18  
+**Version:** v0.1.0

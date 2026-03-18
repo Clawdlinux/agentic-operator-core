@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { motion, useInView } from "framer-motion";
+import { motion } from "framer-motion";
 import { FileCode, Package, Shield, Activity } from "lucide-react";
 
 const steps = [
@@ -192,7 +192,6 @@ function StepCard({ step, index }) {
 
 export default function Architecture() {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
 
   return (
     <section
