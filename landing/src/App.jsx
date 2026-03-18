@@ -12,6 +12,7 @@ import Architecture from './components/Architecture';
 import Trust from './components/Trust';
 import Quickstart from './components/Quickstart';
 import OpenSource from './components/OpenSource';
+import Waitlist from './components/Waitlist';
 import Footer from './components/Footer';
 
 export default function App() {
@@ -55,6 +56,8 @@ export default function App() {
         <Trust />
 
         <OpenSource />
+
+        <Waitlist />
       </main>
 
       <Footer />
