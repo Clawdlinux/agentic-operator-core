@@ -269,7 +269,7 @@ export default function Hero() {
             style={{
               border: `1px solid ${withAlpha(currentTheme.accent.teal, '40')}`,
               background: withAlpha(currentTheme.accent.teal, theme === 'dark' ? '14' : '10'),
-              color: currentTheme.accent.teal,
+              color: theme === 'dark' ? currentTheme.accent.teal : '#0b4f45',
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: currentTheme.accent.teal }} />
@@ -386,7 +386,7 @@ export default function Hero() {
             style={{
               fontFamily: "'DM Sans', sans-serif",
               background: withAlpha(currentTheme.accent.indigo, theme === 'dark' ? '2E' : '20'),
-              color: theme === 'dark' ? '#c7d2fe' : currentTheme.accent.indigo,
+              color: theme === 'dark' ? '#c7d2fe' : '#2b3672',
               border: `1px solid ${withAlpha(currentTheme.accent.indigo, '66')}`,
             }}
             onMouseEnter={(e) => {

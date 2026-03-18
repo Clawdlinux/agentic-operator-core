@@ -147,7 +147,7 @@ function ComingSoonCard({ product, currentTheme }) {
 }
 
 export default function Products() {
-  const { currentTheme } = useTheme();
+  const { currentTheme, theme } = useTheme();
 
   return (
     <section
@@ -188,7 +188,7 @@ export default function Products() {
             style={{
               background: `${currentTheme.accent.teal}14`,
               border: `1px solid ${currentTheme.accent.teal}33`,
-              color: currentTheme.accent.teal,
+              color: theme === 'dark' ? currentTheme.accent.teal : '#0b4f45',
               fontFamily: "'IBM Plex Mono', monospace",
             }}
           >

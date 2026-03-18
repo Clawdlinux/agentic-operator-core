@@ -234,7 +234,7 @@ export default function Architecture() {
             style={{
               background: withAlpha(currentTheme.accent.teal, theme === "dark" ? "14" : "10"),
               border: `1px solid ${withAlpha(currentTheme.accent.teal, "40")}`,
-              color: currentTheme.accent.teal,
+              color: theme === "dark" ? currentTheme.accent.teal : '#0b4f45',
               fontFamily: "'DM Sans', sans-serif",
             }}
           >

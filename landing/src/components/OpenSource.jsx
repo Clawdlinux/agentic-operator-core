@@ -110,7 +110,7 @@ export default function OpenSource() {
           <span
             className="inline-block text-xs font-semibold tracking-widest uppercase mb-4 px-3 py-1 rounded-full"
             style={{
-              color: currentTheme.accent.teal,
+              color: theme === 'dark' ? currentTheme.accent.teal : '#0b4f45',
               background: withAlpha(currentTheme.accent.teal, theme === 'dark' ? '14' : '10'),
               border: `1px solid ${withAlpha(currentTheme.accent.teal, '40')}`,
               fontFamily: "'IBM Plex Mono', monospace",

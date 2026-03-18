@@ -237,7 +237,7 @@ export default function UseCases() {
             style={{
               background: withAlpha(currentTheme.accent.indigo, theme === "dark" ? "14" : "10"),
               border: `1px solid ${withAlpha(currentTheme.accent.indigo, "40")}`,
-              color: currentTheme.accent.indigo,
+              color: theme === "dark" ? currentTheme.accent.indigo : '#2b3672',
               fontFamily: "'DM Sans', sans-serif",
             }}
           >
