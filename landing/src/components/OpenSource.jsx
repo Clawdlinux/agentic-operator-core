@@ -191,7 +191,7 @@ export default function OpenSource() {
                 style={{
                   background: withAlpha(currentTheme.accent.teal, theme === 'dark' ? '1F' : '14'),
                   border: `1px solid ${withAlpha(currentTheme.accent.teal, '4D')}`,
-                  color: currentTheme.accent.teal,
+                  color: theme === 'dark' ? currentTheme.accent.teal : '#0b4f45',
                   fontFamily: "'DM Sans', sans-serif",
                   textDecoration: 'none',
                 }}
@@ -207,7 +207,7 @@ export default function OpenSource() {
                 style={{
                   background: withAlpha(currentTheme.accent.indigo, theme === 'dark' ? '1F' : '14'),
                   border: `1px solid ${withAlpha(currentTheme.accent.indigo, '4D')}`,
-                  color: currentTheme.accent.indigo,
+                  color: theme === 'dark' ? currentTheme.accent.indigo : '#2b3672',
                   fontFamily: "'DM Sans', sans-serif",
                   textDecoration: 'none',
                 }}
