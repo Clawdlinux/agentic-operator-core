@@ -114,6 +114,31 @@ type AgentWorkloadSpec struct {
 	// Only used when modelStrategy is "cost-aware"
 	// +optional
 	ModelMapping map[string]string `json:"modelMapping,omitempty"`
+
+	// collaborationMode controls how agents interact within this workload.
+	// "solo" = single agent, no A2A communication (default, backward-compatible)
+	// "team" = agents collaborate via A2A, sharing a conversation context
+	// "delegation" = a lead agent delegates sub-tasks to specialist agents
+	// +kubebuilder:validation:Enum=solo;team;delegation
+	// +kubebuilder:default=solo
+	// +optional
+	CollaborationMode *string `json:"collaborationMode,omitempty"`
+
+	// agentRefs references AgentCard CRs that participate in this workload.
+	// Only used when collaborationMode is "team" or "delegation".
+	// +optional
+	AgentRefs []AgentRef `json:"agentRefs,omitempty"`
+}
+
+// AgentRef references an AgentCard and assigns it a role in the workload
+type AgentRef struct {
+	// name is the name of the AgentCard CR in the same namespace
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// role describes this agent's function in the workload (e.g. "lead", "analyst", "collector")
+	// +optional
+	Role *string `json:"role,omitempty"`
 }
 
 // OrchestrationSpec defines orchestration settings for Argo Workflows
@@ -301,6 +326,32 @@ type AgentWorkloadStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// agentStatuses reports per-agent status when collaborationMode is "team" or "delegation"
+	// +optional
+	AgentStatuses []AgentInstanceStatus `json:"agentStatuses,omitempty"`
+}
+
+// AgentInstanceStatus reports the status of a single agent in a collaborative workload
+type AgentInstanceStatus struct {
+	// name matches the AgentCard name from spec.agentRefs[]
+	Name string `json:"name"`
+
+	// phase is this agent's individual lifecycle state
+	// +kubebuilder:validation:Enum=Pending;Running;Completed;Failed
+	Phase string `json:"phase"`
+
+	// tasksCompleted is the number of A2A tasks this agent has completed
+	// +optional
+	TasksCompleted int32 `json:"tasksCompleted,omitempty"`
+
+	// lastActivity is when this agent last processed a task
+	// +optional
+	LastActivity *metav1.Time `json:"lastActivity,omitempty"`
+
+	// message provides a human-readable status detail
+	// +optional
+	Message *string `json:"message,omitempty"`
 }
 
 // +kubebuilder:object:root=true
