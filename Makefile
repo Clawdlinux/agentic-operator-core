@@ -17,7 +17,7 @@ LOCALBIN ?= $(CURDIR)/bin
 SETUP_ENVTEST := $(LOCALBIN)/setup-envtest
 STATICCHECK := $(LOCALBIN)/staticcheck
 
-.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build scan-secrets clean-venv check-python-version helm-lint
+.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster
 
 .DEFAULT_GOAL := help
 
@@ -35,6 +35,11 @@ help:
 	@echo "  make build          - Build go binaries"
 	@echo "  make helm-lint      - Lint the Helm chart"
 	@echo "  make scan-secrets   - Run repository secret scan"
+	@echo ""
+	@echo "Cluster test targets (requires KUBECONFIG):"
+	@echo "  make test-cluster   - Full cycle: setup → smoke → e2e → teardown"
+	@echo "  make test-smoke     - Smoke tests only (cluster must be pre-installed)"
+	@echo "  make test-e2e-cluster - E2E tests only (cluster must be pre-installed)"
 
 test: test-go test-python
 
@@ -127,3 +132,21 @@ scan-secrets:
 
 clean-venv:
 	@rm -rf $(VENV_DIR)
+
+# ── Cluster test targets ──────────────────────────────────────────────────────
+
+test-cluster:
+	@echo "Running full cluster test cycle..."
+	@chmod +x tests/harness/*.sh tests/smoke/*.sh tests/e2e/*.sh
+	@bash tests/harness/run-all.sh
+
+test-smoke:
+	@echo "Running smoke tests on existing cluster..."
+	@chmod +x tests/smoke/run_smoke.sh tests/harness/preflight.sh
+	@bash tests/smoke/run_smoke.sh
+
+test-e2e-cluster:
+	@echo "Running E2E tests on existing cluster..."
+	@chmod +x tests/e2e/*.sh tests/harness/preflight.sh
+	@bash tests/e2e/test_golden_path.sh
+	@bash tests/e2e/test_multi_tenant.sh
