@@ -46,6 +46,14 @@ agenticOperator:
   logLevel: info
   env: {}
 
+  # Webhook admission control (requires cert-manager)
+  webhook:
+    enabled: true
+    createSelfSignedIssuer: true
+    issuerRef:
+      name: ""   # defaults to <release>-selfsigned-issuer
+      kind: ClusterIssuer
+
   # Phase 4: Agent Evaluation Pipeline
   evaluation:
     enabled: true            # Enable quality scoring for every model call
@@ -197,7 +205,7 @@ minio:
     size: 10Gi
     storageClass: ""
   rootUser: minioadmin
-  rootPassword: minioadmin   # Change in production!
+  rootPassword: ""   # auto-generated if left empty
   defaultBuckets: "agent-artifacts,agent-logs"
 
 # ---------------------------------------------------------------------------
@@ -227,8 +235,8 @@ postgresql:
   auth:
     database: agentdb
     username: agentuser
-    password: changeme   # Change in production!
-    postgresPassword: changeme
+    password: ""   # auto-generated if left empty
+    postgresPassword: ""   # auto-generated if left empty
 
 # ---------------------------------------------------------------------------
 # Ingress (optional — routes to relevant services)

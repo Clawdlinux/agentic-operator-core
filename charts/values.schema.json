@@ -9,23 +9,36 @@
       "type": "object",
       "properties": {
         "imageRegistry": { "type": "string" },
-        "imagePullSecrets": { "type": "array", "items": { "type": "string" } },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
         "storageClass": { "type": "string" },
         "namespace": { "type": "string" }
       }
     },
     "license": {
       "type": "object",
-      "required": ["key"],
       "properties": {
         "key": {
           "type": "string",
-          "description": "REQUIRED — your license key",
-          "minLength": 1
+          "description": "Ed25519-signed license JWT — required at install time"
         },
         "publicKey": {
           "type": "string",
-          "description": "RSA public key used to verify the license"
+          "description": "Optional Ed25519 public key override (base64 PKIX or raw 32-byte key)"
         },
         "seats": {
           "type": "integer",
@@ -92,7 +105,7 @@
     },
     "litellm": {
       "type": "object",
-      "required": ["openaiKey"],
+      "required": [],
       "properties": {
         "enabled": { "type": "boolean" },
         "replicaCount": { "type": "integer", "minimum": 1 },
@@ -101,8 +114,7 @@
         "service": { "$ref": "#/$defs/service" },
         "openaiKey": {
           "type": "string",
-          "description": "REQUIRED — OpenAI API key for LiteLLM proxy",
-          "minLength": 1
+          "description": "OpenAI API key for LiteLLM proxy — required at install time"
         },
         "masterKey": { "type": "string" },
         "models": {
@@ -121,7 +133,7 @@
         "service": { "$ref": "#/$defs/service" },
         "persistence": { "$ref": "#/$defs/persistence" },
         "rootUser": { "type": "string", "minLength": 1 },
-        "rootPassword": { "type": "string", "minLength": 8 },
+        "rootPassword": { "type": "string", "description": "If empty, auto-generated on first install" },
         "defaultBuckets": { "type": "string" }
       }
     },
@@ -139,8 +151,8 @@
           "properties": {
             "database": { "type": "string" },
             "username": { "type": "string" },
-            "password": { "type": "string", "minLength": 8 },
-            "postgresPassword": { "type": "string", "minLength": 8 }
+            "password": { "type": "string", "description": "If empty, auto-generated on first install" },
+            "postgresPassword": { "type": "string", "description": "If empty, auto-generated on first install" }
           }
         }
       }

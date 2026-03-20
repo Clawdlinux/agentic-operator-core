@@ -30,8 +30,8 @@ type AgentWorkloadSpec struct {
 	// +optional
 	WorkloadType *string `json:"workloadType,omitempty"`
 
-	// mcpServerEndpoint is the HTTP endpoint of the MCP server (e.g. "http://mcp-server:8000")
-	// +kubebuilder:validation:Pattern=`^https?://[a-zA-Z0-9.-]+(:[0-9]+)?$`
+	// mcpServerEndpoint is the HTTPS endpoint of the MCP server (e.g. "https://mcp-server:8000")
+	// +kubebuilder:validation:Pattern=`^https://[a-zA-Z0-9.-]+(:[0-9]+)?$`
 	// +optional
 	MCPServerEndpoint *string `json:"mcpServerEndpoint,omitempty"`
 

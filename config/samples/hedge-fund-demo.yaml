@@ -27,7 +27,7 @@ spec:
     - "report-generator"      # Creates professional output
   
   # MCP server for external integrations
-  mcpServerEndpoint: "http://minio-api:9000"
+  mcpServerEndpoint: "https://minio-api:9000"
   
   # Auto-approval threshold (80% = moderate confidence required)
   autoApproveThreshold: "0.80"

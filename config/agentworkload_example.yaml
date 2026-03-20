@@ -8,7 +8,7 @@ spec:
   workloadType: generic
   
   # Endpoint to the MCP server
-  mcpServerEndpoint: "http://mcp-server:8000"
+  mcpServerEndpoint: "https://mcp-server:8000"
   
   # High-level objective for the agent
   objective: "Optimize system performance and reduce resource usage"
@@ -34,7 +34,7 @@ metadata:
   namespace: agentic-system
 spec:
   workloadType: ceph
-  mcpServerEndpoint: "http://ceph-mcp-server:8000"
+  mcpServerEndpoint: "https://ceph-mcp-server:8000"
   objective: "Manage OSD recovery and maintain cluster health"
   agents:
     - osd_recovery_agent
@@ -51,7 +51,7 @@ metadata:
   namespace: agentic-system
 spec:
   workloadType: minio
-  mcpServerEndpoint: "http://minio-mcp-server:8000"
+  mcpServerEndpoint: "https://minio-mcp-server:8000"
   objective: "Optimize MinIO bucket configuration and tiering"
   agents:
     - bucket_analyzer
@@ -68,7 +68,7 @@ metadata:
   namespace: agentic-system
 spec:
   workloadType: postgres
-  mcpServerEndpoint: "http://postgres-mcp-server:8000"
+  mcpServerEndpoint: "https://postgres-mcp-server:8000"
   objective: "Maintain database performance and optimize queries"
   agents:
     - query_analyzer
