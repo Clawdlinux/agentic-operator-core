@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useTheme } from '../hooks/useTheme';
 
 const containerVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -15,11 +16,13 @@ const itemVariants = {
 };
 
 export default function GammaPresentation() {
+  const { currentTheme, theme } = useTheme();
+  const withAlpha = (hex, alpha) => `${hex}${alpha}`;
 
   return (
     <section
       id="demo"
-      style={{ background: '#05080f' }}
+      style={{ background: currentTheme.bg.primary }}
       className="py-24 px-6 overflow-hidden"
     >
       <motion.div
@@ -34,17 +37,20 @@ export default function GammaPresentation() {
           <span
             className="inline-block text-xs font-semibold tracking-widest uppercase mb-4 px-3 py-1 rounded-full"
             style={{
-              color: '#00d4aa',
-              background: 'rgba(0,212,170,0.08)',
-              border: '1px solid rgba(0,212,170,0.2)',
+              color: currentTheme.accent.teal,
+              background: withAlpha(currentTheme.accent.teal, theme === 'dark' ? '14' : '10'),
+              border: `1px solid ${withAlpha(currentTheme.accent.teal, '40')}`,
               fontFamily: "'IBM Plex Mono', monospace",
             }}
           >
             Architecture
           </span>
           <h2
-            className="text-4xl md:text-5xl font-bold text-white"
-            style={{ fontFamily: "'Syne', sans-serif" }}
+            className="text-4xl md:text-5xl font-bold"
+            style={{
+              fontFamily: "'Syne', sans-serif",
+              color: currentTheme.text.primary,
+            }}
           >
             Production-Grade Design
           </h2>
@@ -53,7 +59,7 @@ export default function GammaPresentation() {
         <motion.p
           variants={itemVariants}
           className="text-center text-lg mb-10"
-          style={{ color: 'rgba(255,255,255,0.5)', fontFamily: "'DM Sans', sans-serif" }}
+          style={{ color: currentTheme.text.tertiary, fontFamily: "'DM Sans', sans-serif" }}
         >
           Enterprise Kubernetes operator with autonomous multi-agent consensus on agentic-prod cluster.
         </motion.p>
@@ -71,13 +77,13 @@ export default function GammaPresentation() {
             <div key={s.label} className="flex items-center gap-2">
               <span
                 className="text-sm font-semibold"
-                style={{ color: '#00d4aa', fontFamily: "'IBM Plex Mono', monospace" }}
+                style={{ color: currentTheme.accent.teal, fontFamily: "'IBM Plex Mono', monospace" }}
               >
                 {s.value}
               </span>
               <span
                 className="text-sm"
-                style={{ color: 'rgba(255,255,255,0.35)', fontFamily: "'DM Sans', sans-serif" }}
+                style={{ color: currentTheme.text.muted, fontFamily: "'DM Sans', sans-serif" }}
               >
                 {s.label}
               </span>
@@ -90,8 +96,11 @@ export default function GammaPresentation() {
           <div
             className="w-full grid grid-cols-1 md:grid-cols-3 gap-4 rounded-xl p-6"
             style={{
-              background: 'rgba(13,21,37,0.5)',
-              border: '1px solid rgba(0,212,170,0.12)',
+              background:
+                theme === 'dark'
+                  ? withAlpha(currentTheme.bg.secondary, '80')
+                  : withAlpha(currentTheme.bg.secondary, 'D9'),
+              border: `1px solid ${withAlpha(currentTheme.accent.teal, '1F')}`,
             }}
           >
             {[
@@ -105,14 +114,14 @@ export default function GammaPresentation() {
               <div key={f.title} className="text-center">
                 <div className="text-3xl mb-2">{f.icon}</div>
                 <div
-                  className="text-sm font-semibold text-white"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  className="text-sm font-semibold"
+                  style={{ fontFamily: "'DM Sans', sans-serif", color: currentTheme.text.primary }}
                 >
                   {f.title}
                 </div>
                 <div
                   className="text-xs mt-1"
-                  style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'DM Sans', sans-serif" }}
+                  style={{ color: currentTheme.text.tertiary, fontFamily: "'DM Sans', sans-serif" }}
                 >
                   {f.desc}
                 </div>

@@ -1,55 +1,58 @@
 import { useRef } from "react";
-import { motion, useInView } from "framer-motion";
-import { FileCode, RefreshCw, Zap, CheckCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { FileCode, Package, Shield, Activity } from "lucide-react";
+import { useTheme } from "../hooks/useTheme";
 
 const steps = [
   {
     number: "01",
     icon: FileCode,
-    title: "Apply YAML",
+    title: "Apply the Manifest",
     description:
-      "kubectl apply your AgentWorkload manifest. The Kubernetes API server stores it in etcd.",
-    command: "kubectl apply -f agent.yaml",
+      "Write an AgentWorkload YAML and apply it. The operator picks up desired state immediately.",
+    details: ["Declarative workload spec", "Namespace template binding", "Identity and storage inputs", "GitOps-friendly rollout"],
     color: "#00d4aa",
     colorAlpha: "rgba(0, 212, 170, 0.12)",
     colorBorder: "rgba(0, 212, 170, 0.25)",
   },
   {
     number: "02",
-    icon: RefreshCw,
-    title: "Operator Reconciles",
+    icon: Package,
+    title: "Controller Reconciles",
     description:
-      "The Go controller watches for AgentWorkload events, validates policy with OPA, and creates an Argo Workflow.",
-    command: "// controller-runtime reconcile loop",
+      "The operator provisions namespaces, RBAC, policies, and runtime wiring to match the workload contract.",
+    details: ["Namespace creation", "RBAC and service accounts", "Policy objects applied", "Secrets and storage mounted"],
     color: "#6366f1",
     colorAlpha: "rgba(99, 102, 241, 0.12)",
     colorBorder: "rgba(99, 102, 241, 0.25)",
   },
   {
     number: "03",
-    icon: Zap,
-    title: "Agent Launches",
+    icon: Shield,
+    title: "Argo DAG Executes",
     description:
-      "Argo Workflow spins up a pod running your LangGraph agent with all MCP tools mounted and ready.",
-    command: "argo submit --from=wftmpl/agent",
+      "Argo Workflows converts the workload graph into a DAG so every step executes with retries and status visibility.",
+    details: ["Step dependency graph", "Retry semantics", "Pod-level observability", "Deterministic workflow history"],
     color: "#f59e0b",
     colorAlpha: "rgba(245, 158, 11, 0.12)",
     colorBorder: "rgba(245, 158, 11, 0.25)",
   },
   {
     number: "04",
-    icon: CheckCircle,
-    title: "Report Delivered",
+    icon: Activity,
+    title: "Artifacts & Audit Trail",
     description:
-      "Agent completes its task, uploads artifacts to MinIO, and updates the AgentWorkload status with results.",
-    command: "status: phase: Succeeded",
+      "Outputs land in MinIO and logs stay attached to the run, giving operators an auditable record of each agent execution.",
+    details: ["Artifact retention", "Prompt and output capture", "Log export hooks", "Post-run inspection"],
     color: "#22c55e",
     colorAlpha: "rgba(34, 197, 94, 0.12)",
     colorBorder: "rgba(34, 197, 94, 0.25)",
   },
 ];
 
-function GridPattern() {
+const withAlpha = (hex, alpha) => `${hex}${alpha}`;
+
+function GridPattern({ currentTheme }) {
   return (
     <svg
       className="absolute inset-0 w-full h-full"
@@ -66,7 +69,7 @@ function GridPattern() {
           <path
             d="M 40 0 L 0 0 0 40"
             fill="none"
-            stroke="white"
+            stroke={currentTheme.text.primary}
             strokeWidth="1"
           />
         </pattern>
@@ -105,7 +108,7 @@ function ConnectorArrow({ color }) {
   );
 }
 
-function StepCard({ step, index }) {
+function StepCard({ step, index, currentTheme, theme }) {
   const Icon = step.icon;
 
   return (
@@ -119,7 +122,10 @@ function StepCard({ step, index }) {
       <div
         className="rounded-2xl p-6 flex flex-col gap-5 h-full relative overflow-hidden group"
         style={{
-          background: "rgba(13, 21, 37, 0.8)",
+          background:
+            theme === "dark"
+              ? withAlpha(currentTheme.bg.secondary, "CC")
+              : withAlpha(currentTheme.bg.secondary, "E6"),
           border: `1px solid ${step.colorBorder}`,
           backdropFilter: "blur(12px)",
         }}
@@ -160,7 +166,7 @@ function StepCard({ step, index }) {
             className="text-base font-bold mb-2"
             style={{
               fontFamily: "'Syne', sans-serif",
-              color: "#e2e8f0",
+              color: currentTheme.text.primary,
             }}
           >
             {step.title}
@@ -169,55 +175,49 @@ function StepCard({ step, index }) {
             className="text-sm leading-relaxed"
             style={{
               fontFamily: "'DM Sans', sans-serif",
-              color: "#94a3b8",
+              color: currentTheme.text.tertiary,
             }}
           >
             {step.description}
           </p>
         </div>
 
-        {/* Command snippet */}
-        <div
-          className="rounded-lg px-4 py-3 mt-auto"
-          style={{
-            background: "rgba(5, 8, 15, 0.8)",
-            border: "1px solid rgba(255,255,255,0.06)",
-          }}
-        >
-          <span
-            className="text-xs"
-            style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              color: step.color,
-            }}
-          >
-            $ {step.command}
-          </span>
-        </div>
+        {/* Details list */}
+        <ul className="mt-auto space-y-1.5">
+          {step.details.map((detail, i) => (
+            <li
+              key={i}
+              className="flex items-start gap-2 text-xs"
+              style={{ color: currentTheme.text.tertiary, fontFamily: "'DM Sans', sans-serif" }}
+            >
+              <span className="mt-0.5 block w-1 h-1 rounded-full flex-shrink-0" style={{ background: step.color }} />
+              {detail}
+            </li>
+          ))}
+        </ul>
       </div>
     </motion.div>
   );
 }
 
 export default function Architecture() {
+  const { currentTheme, theme } = useTheme();
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
 
   return (
     <section
       id="architecture"
       ref={ref}
       className="py-24 px-4 relative overflow-hidden"
-      style={{ background: "#05080f" }}
+      style={{ background: currentTheme.bg.primary }}
     >
-      <GridPattern />
+      <GridPattern currentTheme={currentTheme} />
 
       {/* Ambient glow */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2/3 h-64 pointer-events-none"
         style={{
-          background:
-            "radial-gradient(ellipse, rgba(0, 212, 170, 0.04) 0%, transparent 70%)",
+          background: `radial-gradient(ellipse, ${withAlpha(currentTheme.accent.teal, theme === "dark" ? "0A" : "08")} 0%, transparent 70%)`,
         }}
       />
 
@@ -232,41 +232,42 @@ export default function Architecture() {
           <div
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest mb-6"
             style={{
-              background: "rgba(0, 212, 170, 0.08)",
-              border: "1px solid rgba(0, 212, 170, 0.2)",
-              color: "#00d4aa",
+              background: withAlpha(currentTheme.accent.teal, theme === "dark" ? "14" : "10"),
+              border: `1px solid ${withAlpha(currentTheme.accent.teal, "40")}`,
+              color: theme === "dark" ? currentTheme.accent.teal : '#0b4f45',
               fontFamily: "'DM Sans', sans-serif",
             }}
           >
-            Architecture
+            How It Works
           </div>
           <h2
             className="text-3xl sm:text-4xl lg:text-5xl font-bold"
             style={{
               fontFamily: "'Syne', sans-serif",
-              color: "#e2e8f0",
+              color: currentTheme.text.primary,
             }}
           >
-            How It{" "}
+            From Target to{" "}
             <span
               style={{
-                background: "linear-gradient(135deg, #00d4aa, #6366f1)",
+                background: `linear-gradient(135deg, ${currentTheme.accent.teal}, ${currentTheme.accent.indigo})`,
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
               }}
             >
-              Works
+              Running Agent
             </span>
+            {" "}in Seconds
           </h2>
           <p
             className="mt-4 text-base max-w-xl mx-auto"
             style={{
               fontFamily: "'DM Sans', sans-serif",
-              color: "#94a3b8",
+              color: currentTheme.text.tertiary,
             }}
           >
-            From a single kubectl command to a running AI agent — four steps, fully automated.
+            Four reconciliation stages turn a declarative manifest into an isolated, observable AI workload on Kubernetes.
           </p>
         </motion.div>
 
@@ -274,7 +275,12 @@ export default function Architecture() {
         <div className="flex flex-col lg:flex-row items-stretch gap-4 lg:gap-0">
           {steps.map((step, index) => (
             <div key={step.number} className="flex flex-col lg:flex-row items-stretch flex-1 min-w-0">
-              <StepCard step={step} index={index} />
+              <StepCard
+                step={step}
+                index={index}
+                currentTheme={currentTheme}
+                theme={theme}
+              />
               {index < steps.length - 1 && (
                 <ConnectorArrow color={step.color} />
               )}
@@ -311,27 +317,30 @@ export default function Architecture() {
           <div
             className="inline-flex items-center gap-3 px-6 py-4 rounded-xl"
             style={{
-              background: "rgba(13, 21, 37, 0.8)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background:
+                theme === "dark"
+                  ? withAlpha(currentTheme.bg.secondary, "CC")
+                  : withAlpha(currentTheme.bg.secondary, "E6"),
+              border: `1px solid ${currentTheme.border.light}`,
             }}
           >
             <span
               className="text-sm"
               style={{
                 fontFamily: "'IBM Plex Mono', monospace",
-                color: "#94a3b8",
+                color: currentTheme.text.tertiary,
               }}
             >
-              Total time from apply to output:
+              From kubectl apply to running agent:
             </span>
             <span
               className="text-sm font-bold"
               style={{
                 fontFamily: "'IBM Plex Mono', monospace",
-                color: "#00d4aa",
+                color: currentTheme.accent.teal,
               }}
             >
-              under 4 minutes
+              one manifest, zero custom glue
             </span>
           </div>
         </motion.div>

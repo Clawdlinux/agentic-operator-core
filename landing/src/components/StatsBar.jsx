@@ -1,42 +1,43 @@
-import { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useTheme } from "../hooks/useTheme";
 
 const stats = [
   {
-    value: 320,
-    prefix: "$",
-    suffix: " saved",
-    label: "Competitive Intel",
-    sublabel: "per run",
-    color: "#f59e0b",
-    colorClass: "text-amber-400",
-  },
-  {
-    value: 47,
-    prefix: "",
-    suffix: " sec",
-    label: "K8s Remediation",
-    sublabel: "MTTR",
+    value: 1,
+    prefix: "v0.",
+    suffix: ".0",
+    label: "Latest Release",
+    sublabel: "stable tag",
     color: "#00d4aa",
     colorClass: "text-teal-400",
   },
   {
-    value: 46,
-    prefix: "",
-    suffix: "/46",
-    label: "Test Coverage",
-    sublabel: "tests passing",
-    color: "#22c55e",
-    colorClass: "text-green-400",
-  },
-  {
-    value: 72,
-    prefix: "",
-    suffix: "+ hr",
-    label: "Production Uptime",
-    sublabel: "continuous",
+    value: 25,
+    prefix: "K8s 1.",
+    suffix: "+",
+    label: "Kubernetes",
+    sublabel: "minimum cluster version",
     color: "#6366f1",
     colorClass: "text-violet-400",
+  },
+  {
+    value: 22,
+    prefix: "Go 1.",
+    suffix: "",
+    label: "Go Runtime",
+    sublabel: "required build version",
+    color: "#f59e0b",
+    colorClass: "text-amber-400",
+  },
+  {
+    value: 2,
+    prefix: "Apache ",
+    suffix: ".0",
+    label: "License",
+    sublabel: "open source",
+    color: "#22c55e",
+    colorClass: "text-green-400",
   },
 ];
 
@@ -59,7 +60,7 @@ function useCountUp(target, duration = 1800, active = false) {
   return count;
 }
 
-function StatItem({ stat, active, index }) {
+function StatItem({ stat, active, index, currentTheme }) {
   const count = useCountUp(stat.value, 1600, active);
   const isLast = index === stats.length - 1;
 
@@ -93,7 +94,7 @@ function StatItem({ stat, active, index }) {
           className="text-xs"
           style={{
             fontFamily: "'DM Sans', sans-serif",
-            color: "#94a3b8",
+            color: currentTheme.text.tertiary,
           }}
         >
           {stat.sublabel}
@@ -104,7 +105,7 @@ function StatItem({ stat, active, index }) {
           className="w-px self-stretch my-4"
           style={{
             background:
-              "linear-gradient(to bottom, transparent, rgba(255,255,255,0.08), transparent)",
+              `linear-gradient(to bottom, transparent, ${currentTheme.border.light}, transparent)`,
           }}
         />
       )}
@@ -113,25 +114,30 @@ function StatItem({ stat, active, index }) {
 }
 
 export default function StatsBar() {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
+  const { currentTheme } = useTheme();
+  const isInView = true;
 
   return (
     <motion.section
-      ref={ref}
       initial={{ opacity: 0, y: 24 }}
       animate={isInView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.6, ease: "easeOut" }}
       style={{
-        background: "rgba(5, 8, 15, 0.95)",
-        borderTop: "1px solid rgba(255,255,255,0.06)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        background: currentTheme.bg.overlay,
+        borderTop: `1px solid ${currentTheme.border.light}`,
+        borderBottom: `1px solid ${currentTheme.border.light}`,
       }}
     >
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0">
           {stats.map((stat, i) => (
-            <StatItem key={stat.label} stat={stat} active={isInView} index={i} />
+            <StatItem
+              key={stat.label}
+              stat={stat}
+              active={isInView}
+              index={i}
+              currentTheme={currentTheme}
+            />
           ))}
         </div>
       </div>

@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -50,13 +51,13 @@ const maxActionsInStatus = 100
 // AgentWorkloadReconciler reconciles a AgentWorkload object
 type AgentWorkloadReconciler struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	Validator      *license.Validator       // License validation (optional, can be nil)
-	Evaluator      *evaluation.Evaluator    // Phase 4: Agent Evaluation Pipeline
-	QuotaMgr       *multitenancy.QuotaManager // Phase 7: Per-tenant quotas
-	SLAMonitor     *multitenancy.SLAMonitor   // Phase 7: SLA tracking
-	TenantRes      *multitenancy.Resolver     // Phase 7: Tenant isolation
-	Metrics        *metrics.RoutingMetrics    // Singleton metrics recorder (initialized once)
+	Scheme     *runtime.Scheme
+	Validator  *license.Validator         // License validation (optional, can be nil)
+	Evaluator  *evaluation.Evaluator      // Phase 4: Agent Evaluation Pipeline
+	QuotaMgr   *multitenancy.QuotaManager // Phase 7: Per-tenant quotas
+	SLAMonitor *multitenancy.SLAMonitor   // Phase 7: SLA tracking
+	TenantRes  *multitenancy.Resolver     // Phase 7: Tenant isolation
+	Metrics    *metrics.RoutingMetrics    // Singleton metrics recorder (initialized once)
 }
 
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads,verbs=get;list;watch;create;update;patch;delete
@@ -89,10 +90,12 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		licenseToken := os.Getenv("LICENSE_JWT")
 		if licenseToken == "" {
 			// Try to load from Secret if env var not set
-			var licenseSecret *corev1.Secret
+			licenseSecret := &corev1.Secret{}
 			err := r.Get(ctx, types.NamespacedName{Name: "agentic-license", Namespace: "agentic-system"}, licenseSecret)
-			if err == nil && licenseSecret != nil {
-				licenseToken = string(licenseSecret.Data["license.jwt"])
+			if err == nil {
+				if token, exists := licenseSecret.Data["license.jwt"]; exists {
+					licenseToken = string(token)
+				}
 			}
 		}
 
@@ -134,7 +137,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 					"error", err.Error(),
 				)
 				workload.Status.Phase = "Failed"
-			if err := r.Status().Update(ctx, &workload); err != nil {
+				if err := r.Status().Update(ctx, &workload); err != nil {
 					log.Error(err, "failed to update workload status")
 				}
 				return ctrl.Result{RequeueAfter: 1 * time.Hour}, nil // Requeue later when quota resets
@@ -176,14 +179,14 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 					evaluation.RecordEvaluation(evalResult)
 				}
 			}
-			
+
 			// Phase 7: Track SLA failure
 			if r.SLAMonitor != nil && r.TenantRes != nil {
 				if tenant, err := r.TenantRes.ExtractFromNamespace(ctx, workload.Namespace); err == nil && tenant != nil {
 					_ = r.SLAMonitor.RecordFailure(tenant.Name)
 				}
 			}
-			
+
 			workload.Status.Phase = "Failed"
 			if err := r.Status().Update(ctx, &workload); err != nil {
 				log.Error(err, "failed to update workload status")
@@ -225,14 +228,14 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 
 			workload.Status.Phase = "Completed"
-			
+
 			// Phase 7: Track SLA success
 			if r.SLAMonitor != nil && r.TenantRes != nil {
 				if tenant, err := r.TenantRes.ExtractFromNamespace(ctx, workload.Namespace); err == nil && tenant != nil {
 					_ = r.SLAMonitor.RecordSuccess(tenant.Name)
 				}
 			}
-			
+
 			if err := r.Status().Update(ctx, &workload); err != nil {
 				log.Error(err, "failed to update workload status with routing info")
 				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
@@ -270,8 +273,13 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Extract cluster health from status
 	// Default to 75 if not provided by MCP, but log a warning
 	clusterHealth := 75.0
-	if health, ok := status["cluster_health"].(float64); ok {
-		clusterHealth = health
+	if rawHealth, ok := status["cluster_health"]; ok {
+		health, err := parseFlexibleFloat(rawHealth)
+		if err != nil {
+			log.Info("Warning: MCP status has invalid 'cluster_health' field, using default", "default", clusterHealth, "value", rawHealth)
+		} else {
+			clusterHealth = health
+		}
 	} else {
 		log.Info("Warning: MCP status missing 'cluster_health' field, using default", "default", clusterHealth)
 	}
@@ -322,7 +330,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	confidenceStr, ok := proposal["confidence"].(string)
+	rawConfidence, ok := proposal["confidence"]
 	if !ok {
 		log.Error(nil, "MCP proposal missing or invalid 'confidence' field")
 		workload.Status.Phase = "Failed"
@@ -332,15 +340,26 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	confidence, err := strconv.ParseFloat(confidenceStr, 64)
+	confidence, err := parseFlexibleFloat(rawConfidence)
 	if err != nil {
-		log.Error(err, "failed to parse confidence", "confidence", confidenceStr)
+		log.Error(err, "failed to parse confidence", "confidence", rawConfidence)
 		workload.Status.Phase = "Failed"
 		if err := r.Status().Update(ctx, &workload); err != nil {
 			log.Error(err, "failed to update workload status")
 		}
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
+
+	if confidence < 0 || confidence > 1 {
+		log.Error(nil, "confidence value out of range", "confidence", confidence)
+		workload.Status.Phase = "Failed"
+		if err := r.Status().Update(ctx, &workload); err != nil {
+			log.Error(err, "failed to update workload status")
+		}
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	confidenceStr := fmt.Sprintf("%.2f", confidence)
 
 	// Create OPA evaluator and evaluate action
 	// Use the appropriate evaluation mode based on policy setting
@@ -445,6 +464,47 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+// parseFlexibleFloat accepts numbers encoded as either numeric JSON values or strings.
+func parseFlexibleFloat(value interface{}) (float64, error) {
+	switch v := value.(type) {
+	case nil:
+		return 0, fmt.Errorf("value is nil")
+	case json.Number:
+		parsed, err := v.Float64()
+		if err != nil {
+			return 0, fmt.Errorf("invalid numeric value %q: %w", v.String(), err)
+		}
+		return parsed, nil
+	case float64:
+		return v, nil
+	case float32:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case uint:
+		return float64(v), nil
+	case uint32:
+		return float64(v), nil
+	case uint64:
+		return float64(v), nil
+	case string:
+		if v == "" {
+			return 0, fmt.Errorf("value is empty")
+		}
+		parsed, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid numeric string %q: %w", v, err)
+		}
+		return parsed, nil
+	default:
+		return 0, fmt.Errorf("unsupported numeric type %T", value)
+	}
 }
 
 // pruneActions removes oldest actions to keep the list bounded
@@ -598,7 +658,7 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 
 	if err != nil {
 		log.Error(err, "model routing failed", "objective", instructions)
-		return nil, nil, err
+		return nil, routingInfo, err
 	}
 
 	log.Info("model routing successful",

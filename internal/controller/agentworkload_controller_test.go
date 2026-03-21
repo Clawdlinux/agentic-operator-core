@@ -22,63 +22,67 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
 )
 
-var _ = Describe("AgentWorkload Controller", func() {
-	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+var _ = Describe("AgentWorkloadReconciler", func() {
+	const (
+		resourceName = "test-resource"
+		namespace    = "default"
+	)
 
-		ctx := context.Background()
+	ctx := context.Background()
+	namespacedName := types.NamespacedName{Name: resourceName, Namespace: namespace}
 
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+	newReconciler := func() *AgentWorkloadReconciler {
+		return &AgentWorkloadReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
 		}
-		agentworkload := &agenticv1alpha1.AgentWorkload{}
+	}
 
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind AgentWorkload")
-			err := k8sClient.Get(ctx, typeNamespacedName, agentworkload)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &agenticv1alpha1.AgentWorkload{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
-			}
-		})
+	AfterEach(func() {
+		resource := &agenticv1alpha1.AgentWorkload{}
+		err := k8sClient.Get(ctx, namespacedName, resource)
+		if errors.IsNotFound(err) {
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+	})
 
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &agenticv1alpha1.AgentWorkload{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
+	It("marks workload as Failed when MCP status retrieval fails", func() {
+		endpoint := "http://127.0.0.1:0"
+		objective := "optimize cluster utilization"
 
-			By("Cleanup the specific resource instance AgentWorkload")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &AgentWorkloadReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
+		resource := &agenticv1alpha1.AgentWorkload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      resourceName,
+				Namespace: namespace,
+			},
+			Spec: agenticv1alpha1.AgentWorkloadSpec{
+				MCPServerEndpoint: &endpoint,
+				Objective:         &objective,
+			},
+		}
+		Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
-		})
+		_, err := newReconciler().Reconcile(ctx, reconcile.Request{NamespacedName: namespacedName})
+		Expect(err).NotTo(HaveOccurred())
+
+		Eventually(func(g Gomega) {
+			updated := &agenticv1alpha1.AgentWorkload{}
+			g.Expect(k8sClient.Get(ctx, namespacedName, updated)).To(Succeed())
+			g.Expect(updated.Status.Phase).To(Equal("Failed"))
+		}).Should(Succeed())
+	})
+
+	It("ignores missing workload requests", func() {
+		_, err := newReconciler().Reconcile(ctx, reconcile.Request{NamespacedName: namespacedName})
+		Expect(err).NotTo(HaveOccurred())
 	})
 })

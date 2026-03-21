@@ -1,49 +1,50 @@
 import { motion } from "framer-motion";
 import {
-  Layers,
-  Plug,
-  GitBranch,
   Shield,
-  Package,
-  BarChart2,
+  Network,
+  Cpu,
+  Lock,
+  GitBranch,
+  Layers,
 } from "lucide-react";
+import { useTheme } from "../hooks/useTheme";
 
 const features = [
   {
-    icon: Layers,
-    title: "AgentWorkload CRD",
+    icon: Shield,
+    title: "Policy-Aware Isolation",
     description:
-      "Define AI agents as native Kubernetes resources. Apply YAML, get autonomous agents.",
+      "Every AgentWorkload gets namespace, identity, and storage boundaries without hand-written cluster glue.",
   },
   {
-    icon: Plug,
-    title: "MCP Tool Integration",
+    icon: Network,
+    title: "Cilium FQDN Egress",
     description:
-      "Connect any MCP server. Browserless, LiteLLM, PostgreSQL — zero lock-in.",
+      "Restrict outbound agent traffic to approved destinations and keep runtime access inside policy guardrails.",
+  },
+  {
+    icon: Cpu,
+    title: "Pluggable Agent Runtimes",
+    description:
+      "Run browser automation, LLM workers, or custom containers through the same operator reconciliation flow.",
+  },
+  {
+    icon: Lock,
+    title: "Scoped Secrets & Identity",
+    description:
+      "Bind secrets, service accounts, and access controls to the workload instead of sharing cluster-wide credentials.",
   },
   {
     icon: GitBranch,
-    title: "LangGraph Orchestration",
+    title: "Argo DAG Orchestration",
     description:
-      "Multi-agent state machines with PostgreSQL checkpointing. Survives pod evictions.",
+      "Translate multi-step agent jobs into Argo Workflows with retries, status transitions, and step-level visibility.",
   },
   {
-    icon: Shield,
-    title: "OPA Policy Governance",
+    icon: Layers,
+    title: "Artifacts & State Layers",
     description:
-      "Enforce strict agent action boundaries. SSRF protection, allowlist validation.",
-  },
-  {
-    icon: Package,
-    title: "Helm Umbrella Chart",
-    description:
-      "One command deploys the full stack: operator, Argo, MinIO, PostgreSQL, monitoring.",
-  },
-  {
-    icon: BarChart2,
-    title: "Full Observability",
-    description:
-      "Prometheus metrics, Grafana dashboards, Loki logs, AlertManager — batteries included.",
+      "Persist prompts, outputs, and workflow artifacts to MinIO so operators can inspect every run after completion.",
   },
 ];
 
@@ -65,32 +66,40 @@ const cardVariants = {
   },
 };
 
-function FeatureCard({ feature }) {
+const withAlpha = (hex, alpha) => `${hex}${alpha}`;
+
+function FeatureCard({ feature, currentTheme, theme }) {
   const Icon = feature.icon;
 
   return (
     <motion.div
       variants={cardVariants}
       whileHover={{
-        borderColor: "rgba(0, 212, 170, 0.45)",
-        boxShadow: "0 0 28px rgba(0, 212, 170, 0.12), 0 4px 24px rgba(0,0,0,0.4)",
+        borderColor: withAlpha(currentTheme.accent.teal, "73"),
+        boxShadow:
+          theme === "dark"
+            ? `0 0 28px ${withAlpha(currentTheme.accent.teal, "1F")}, 0 4px 24px rgba(0,0,0,0.4)`
+            : `0 0 22px ${withAlpha(currentTheme.accent.teal, "14")}, 0 4px 18px rgba(15,23,42,0.12)`,
         y: -4,
       }}
       className="rounded-xl p-6 flex flex-col gap-4 cursor-default transition-colors duration-300"
       style={{
-        background: "rgba(13, 21, 37, 0.7)",
-        border: "1px solid rgba(255,255,255,0.06)",
+        background:
+          theme === "dark"
+            ? withAlpha(currentTheme.bg.secondary, "B3")
+            : withAlpha(currentTheme.bg.secondary, "E6"),
+        border: `1px solid ${currentTheme.border.light}`,
         backdropFilter: "blur(12px)",
       }}
     >
       <div
         className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{
-          background: "rgba(0, 212, 170, 0.12)",
-          border: "1px solid rgba(0, 212, 170, 0.2)",
+          background: withAlpha(currentTheme.accent.teal, theme === "dark" ? "1F" : "14"),
+          border: `1px solid ${withAlpha(currentTheme.accent.teal, "40")}`,
         }}
       >
-        <Icon size={22} color="#00d4aa" strokeWidth={1.75} />
+        <Icon size={22} color={currentTheme.accent.teal} strokeWidth={1.75} />
       </div>
 
       <div>
@@ -98,7 +107,7 @@ function FeatureCard({ feature }) {
           className="text-base font-semibold mb-2"
           style={{
             fontFamily: "'Syne', sans-serif",
-            color: "#e2e8f0",
+            color: currentTheme.text.primary,
           }}
         >
           {feature.title}
@@ -107,7 +116,7 @@ function FeatureCard({ feature }) {
           className="text-sm leading-relaxed"
           style={{
             fontFamily: "'DM Sans', sans-serif",
-            color: "#94a3b8",
+            color: currentTheme.text.tertiary,
           }}
         >
           {feature.description}
@@ -118,11 +127,13 @@ function FeatureCard({ feature }) {
 }
 
 export default function Offerings() {
+  const { currentTheme, theme } = useTheme();
+
   return (
     <section
       id="features"
-      className="py-24 px-4"
-      style={{ background: "#05080f" }}
+      className="py-24 px-4 transition-colors duration-300"
+      style={{ background: currentTheme.bg.primary }}
     >
       <div className="max-w-6xl mx-auto">
         <motion.div
@@ -135,33 +146,32 @@ export default function Offerings() {
           <div
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest mb-6"
             style={{
-              background: "rgba(0, 212, 170, 0.08)",
-              border: "1px solid rgba(0, 212, 170, 0.2)",
-              color: "#00d4aa",
+              background: withAlpha(currentTheme.accent.teal, theme === "dark" ? "14" : "10"),
+              border: `1px solid ${withAlpha(currentTheme.accent.teal, "40")}`,
+              color: theme === "dark" ? currentTheme.accent.teal : '#0b4f45',
               fontFamily: "'DM Sans', sans-serif",
             }}
           >
-            Platform Features
+            Operator Capabilities
           </div>
           <h2
             className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight"
             style={{
               fontFamily: "'Syne', sans-serif",
-              color: "#e2e8f0",
+              color: currentTheme.text.primary,
             }}
           >
-            Everything You Need to Run{" "}
+            Everything You Need for{" "}
             <span
               style={{
-                background: "linear-gradient(135deg, #00d4aa, #6366f1)",
+                background: `linear-gradient(135deg, ${currentTheme.accent.teal}, ${currentTheme.accent.indigo})`,
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
               }}
             >
-              AI Agents
-            </span>{" "}
-            in Production
+              Agent Isolation on Kubernetes
+            </span>
           </h2>
         </motion.div>
 
@@ -173,7 +183,12 @@ export default function Offerings() {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
         >
           {features.map((feature) => (
-            <FeatureCard key={feature.title} feature={feature} />
+            <FeatureCard
+              key={feature.title}
+              feature={feature}
+              currentTheme={currentTheme}
+              theme={theme}
+            />
           ))}
         </motion.div>
       </div>
