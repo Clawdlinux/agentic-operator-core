@@ -1,0 +1,24 @@
+feat: implement A2A agent-to-agent communication system
+
+Adds complete A2A communication infrastructure:
+
+Go CRD and Controller:
+- AgentCard CRD for agent discovery with skills, endpoint, auth, health check
+- AgentCard controller with health probing and status reconciliation
+- A2A fields on AgentWorkload: collaborationMode, agentRefs, per-agent status
+- Full DeepCopy support for all new types
+- AgentCard CRD manifest with printer columns and validation
+- Registered AgentCardReconciler in operator main.go
+
+Python A2A SDK (agents/a2a/):
+- protocol.py: Pydantic v2 models (Task, TaskResult, AgentMessage, TaskStatus)
+- store.py: PostgreSQL-backed task store with connection pooling
+- server.py: FastAPI A2A server (agent-card, tasks CRUD, health)
+- client.py: A2A client with K8s agent discovery
+
+Supporting files:
+- Architecture doc (docs/a2a-architecture.md)
+- Sample manifests (config/samples/a2a_team_example.yaml)
+- E2E test script (tests/e2e/test_a2a.sh)
+
+All Go tests pass. Zero SQL injection vectors (parameterized queries only).
