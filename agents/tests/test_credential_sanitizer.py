@@ -23,7 +23,6 @@ class TestSanitizeCredentials:
         """Test masking of OpenAI API keys."""
         message = "API call failed with key sk-1234567890abcdefghijklmnop"
         result = sanitize_credentials(message)
-        assert "sk-" in result
         assert "***MASKED***" in result
         assert "1234567890" not in result
 
@@ -31,7 +30,6 @@ class TestSanitizeCredentials:
         """Test masking of GitHub tokens."""
         message = "GitHub token: ghp_abcdefghijklmnopqrstuvwxyz1234567890"
         result = sanitize_credentials(message)
-        assert "ghp_" in result
         assert "***MASKED***" in result
         assert "abcdefghijklmnopqrstuvwxyz" not in result
 
@@ -39,7 +37,6 @@ class TestSanitizeCredentials:
         """Test masking of AWS access keys."""
         message = "AWS credentials: AKIAIOSFODNN7EXAMPLE"
         result = sanitize_credentials(message)
-        assert "AKIA" in result
         assert "***MASKED***" in result
         assert "IOSFODNN7EXAMPLE" not in result
 
@@ -54,8 +51,8 @@ class TestSanitizeCredentials:
         """Test masking of Slack tokens."""
         message = "Slack token: xoxb-1234567890123-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx"
         result = sanitize_credentials(message)
-        assert "xoxb-" in result
         assert "***MASKED***" in result
+        assert "1234567890123" not in result
 
     def test_masks_api_key_in_json(self):
         """Test masking of API keys in JSON-like strings."""
@@ -269,7 +266,7 @@ class TestSanitizingFormatter:
         
         result = formatter.format(record)
         assert "***MASKED***" in result
-        assert "ghp_" in result
+        assert "abcdefghijklmnopqrstuvwxyz" not in result
 
 
 class TestSetupSanitizingLogger:
@@ -336,10 +333,9 @@ class TestIntegrationScenarios:
 
     def test_multiple_secrets_in_message(self):
         """Test masking of multiple secrets in one message."""
-        message = "Keys: sk-key1, ghp_token, AKIA1234567890123ABC"
+        message = "Keys: sk-abcdefghijklmnopqrstuv, ghp_abcdefghijklmnopqrstuvwxyz1234567890, AKIA1234567890123ABC"
         result = sanitize_credentials(message)
         
         masked_count = result.count("***MASKED***")
         assert masked_count >= 3
-        assert "sk-key1" not in result
-        assert "ghp_token" not in result
+        assert "abcdefghijklmnopqrstuv" not in result

@@ -52,7 +52,7 @@ async def test_browserless_dom_extraction():
     </html>
     """
     
-    structure = client.extract_dom_structure(html)
+    structure = await client.extract_dom_structure(html)
     
     assert structure["has_pricing"] == True
     assert structure["has_cta"] == True
@@ -61,15 +61,21 @@ async def test_browserless_dom_extraction():
 
 
 @pytest.mark.asyncio
-async def test_browserless_scrape_url_timeout(mock_websocket):
+async def test_browserless_scrape_url_timeout():
     """Test timeout handling"""
     client = BrowserlessClient(timeout=0.1)  # Very short timeout
     
-    with patch("websockets.connect") as mock_connect:
-        async def slow_connection(*args, **kwargs):
-            await asyncio.sleep(1)  # Longer than timeout
-            
-        mock_connect.side_effect = slow_connection
+    with patch("agents.tools.browserless.websockets.connect") as mock_connect:
+        mock_ws = AsyncMock()
+        
+        async def slow_recv():
+            await asyncio.sleep(10)
+        
+        mock_ws.recv = slow_recv
+        mock_ws.send = AsyncMock()
+        mock_ws.__aenter__.return_value = mock_ws
+        mock_ws.__aexit__.return_value = None
+        mock_connect.return_value = mock_ws
         
         with pytest.raises(BrowserlessTimeoutError):
             await client.scrape_url("https://example.com")
