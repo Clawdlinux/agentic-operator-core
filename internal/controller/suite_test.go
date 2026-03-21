@@ -104,15 +104,44 @@ var _ = AfterSuite(func() {
 // properly set up, run 'make setup-envtest' beforehand.
 func getFirstFoundEnvTestBinaryDir() string {
 	basePath := filepath.Join("..", "..", "bin", "k8s")
-	entries, err := os.ReadDir(basePath)
+	found, err := findEnvTestBinaryDir(basePath)
 	if err != nil {
-		logf.Log.Error(err, "Failed to read directory", "path", basePath)
+		logf.Log.Error(err, "Failed to locate envtest binaries", "path", basePath)
 		return ""
 	}
+	return found
+}
+
+// findEnvTestBinaryDir recursively finds a directory containing envtest control plane binaries.
+func findEnvTestBinaryDir(root string) (string, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return "", err
+	}
+
+	hasEtcd := false
+	hasAPIServer := false
+
 	for _, entry := range entries {
 		if entry.IsDir() {
-			return filepath.Join(basePath, entry.Name())
+			found, err := findEnvTestBinaryDir(filepath.Join(root, entry.Name()))
+			if err == nil && found != "" {
+				return found, nil
+			}
+			continue
+		}
+
+		switch entry.Name() {
+		case "etcd":
+			hasEtcd = true
+		case "kube-apiserver":
+			hasAPIServer = true
 		}
 	}
-	return ""
+
+	if hasEtcd && hasAPIServer {
+		return root, nil
+	}
+
+	return "", nil
 }

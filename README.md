@@ -1,63 +1,102 @@
 # Agentic Kubernetes Operator
 
-Kubernetes operator for orchestrating tool-agnostic AI agent workloads via `AgentWorkload` CRDs and MCP-compatible tool backends.
+Kubernetes operator for isolated, policy-aware AI agent workloads.
 
-> **NineVigil** is built on this operator. It deploys autonomous competitive intelligence agent swarms on customer-owned Kubernetes — air-gapped, GDPR-compliant, no data leaves your network. See [clawdlinux.org](https://clawdlinux.org).
+The Agentic Operator is the open-source core maintained by Nine Rewards Solutions Pvt Ltd under the Clawdlinux organization. It manages `AgentWorkload` CRDs, enforces workload boundaries, and orchestrates agent execution on Kubernetes.
 
-## For VCs & Reviewers
+## What It Does
 
-- We are building infrastructure for autonomous, policy-aware agent workflows on Kubernetes.
-- This public repo highlights product behavior through live demo videos and concrete use cases.
-- Start with the Operator Demo link below, then the Full Walkthrough.
-- Private sales collateral (including the pitch deck) is intentionally not published here.
+- Reconciles `AgentWorkload` custom resources with idempotent controller loops
+- Orchestrates agent DAG execution through Argo Workflows
+- Applies policy-aware network isolation (including Cilium FQDN egress patterns)
+- Routes LLM inference through a shared LiteLLM proxy
+- Supports shared Browserless pool integration for browser automation workloads
 
-## 🎬 Demo
+## Prerequisites
 
-### Operator Demo
+- kind (for local clusters) or an existing Kubernetes cluster (k3s/DOKS)
+- kubectl 1.24+
+- Helm 3.12+
+- Docker (required for kind local clusters)
 
-[▶ Watch Operator Demo (Streaming)](https://cdn.jsdelivr.net/gh/Clawdlinux/agentic-operator-core@main/agentic-operator-demo.mp4)
-
-### Full Walkthrough
-
-[▶ Watch Full Walkthrough (Streaming)](https://cdn.jsdelivr.net/gh/Clawdlinux/agentic-operator-core@main/demo-video.mp4)
-
-Direct file links:
-- [agentic-operator-demo.mp4](https://cdn.jsdelivr.net/gh/Clawdlinux/agentic-operator-core@main/agentic-operator-demo.mp4)
-- [demo-video.mp4](https://cdn.jsdelivr.net/gh/Clawdlinux/agentic-operator-core@main/demo-video.mp4)
-
-## ✅ Use Cases
-
-- Competitive intelligence pipelines that gather and summarize market signals
-- Autonomous Kubernetes remediation workflows with policy checks
-- Multi-agent research workflows that coordinate analysis and reporting
-
-## 🚀 Quick Start
+## Quick Start (Cold Start Safe)
 
 ```bash
 git clone https://github.com/Clawdlinux/agentic-operator-core
 cd agentic-operator-core
 
-# examples
+# 1) Create local cluster
+kind create cluster --name agentic-operator
+
+# 2) Install CRD first
+kubectl apply -f config/crd/agentworkload_crd.yaml
+
+# 3) Install umbrella chart from local source
+helm dependency build ./charts
+helm upgrade --install agentic-operator ./charts \
+	--namespace agentic-system \
+	--create-namespace
+
+# 4) Verify operator and CRD availability
+kubectl get crd agentworkloads.agentic.clawdlinux.org
+kubectl -n agentic-system get pods
+
+# 5) Apply a working sample AgentWorkload
 kubectl apply -f config/agentworkload_example.yaml
+kubectl -n agentic-system get agentworkloads
 ```
 
-For full installation and runtime configuration, see the docs in [docs](docs).
+If you are using a remote cluster, skip the `kind create cluster` step.
 
-## Public / Private Boundary
+## Architecture Diagram
 
-This repository is intentionally open-source friendly and excludes private sales material.
-The pitch deck is maintained in private channels and is not published in this public repo.
+```mermaid
+flowchart LR
+		A[AgentWorkload CRD] --> B[Agentic Operator Controller]
+		B --> C[Argo Workflows DAG]
+		C --> D[Agent Runtime Pods]
+		D --> E[LiteLLM Proxy]
+		D --> F[Browserless Pool]
+		D --> G[MinIO Artifacts]
+		B --> H[Policy and Isolation Layer]
+```
 
-For OSS governance boundaries and API stability commitments, see:
+## Repository Layout
 
-- [OSS Scope](docs/OSS_SCOPE.md)
-- [API Compatibility Policy](docs/API_COMPATIBILITY_POLICY.md)
+- `cmd/` - operator entrypoint
+- `internal/controller/` - reconciliation logic
+- `api/v1alpha1/` - CRD API types and schema
+- `agents/` - Python agent runtime code
+- `charts/` - Helm umbrella chart and subcharts
+- `config/` - Kustomize and deployment manifests
+- `docs/` - open-source documentation
+
+## Open vs Private Boundary
+
+Open source (`agentic-operator-core`) includes:
+
+- AgentWorkload CRD lifecycle
+- Argo DAG orchestration patterns
+- Cilium isolation templates
+- Generic agent scaffolding
+
+Private (`agentic-operator-private`) includes:
+
+- License validation and trial enforcement
+- Usage metering and billing hooks
+- Production DOKS enterprise deployment overlays
+
+## Documentation
+
+- [Quick Start](docs/01-quickstart.md)
+- [Installation](docs/02-installation.md)
+- [Configuration](docs/03-configuration.md)
+- [Architecture](docs/04-architecture.md)
+- [Troubleshooting](docs/10-troubleshooting.md)
 
 ## Contributing
 
-- Open an issue for bugs or feature proposals
-- Submit PRs against `main`
-- Keep changes scoped and testable
+See [CONTRIBUTING.md](CONTRIBUTING.md) for issue reporting, PR workflow, and review expectations.
 
 ## License
 

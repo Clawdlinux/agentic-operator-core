@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "./scripts/copilot/ensure-mcp-autostart.sh",
+        "timeout": 20
+      }
+    ]
+  }
+}

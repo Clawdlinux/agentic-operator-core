@@ -69,3 +69,7 @@ landing/dist/videos/
 
 # macOS/editor noise
 .DS_Store
+
+# Local agent tooling state
+.claude/
+.serena/

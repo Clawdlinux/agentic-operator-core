@@ -1,75 +1,80 @@
 import { motion } from 'framer-motion';
 import {
-  Zap,
   Cpu,
+  AlertTriangle,
   Shield,
-  TrendingUp,
-  Lock,
-  AlertCircle,
-  BarChart3,
-  Users,
+  GitMerge,
+  Layers,
+  GitPullRequest,
 } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
 
-const PHASES = [
+const AUDIENCES = [
   {
     id: 1,
-    phase: 'Phase 3',
-    title: 'Cost-Aware Model Routing',
-    description: 'Automatically select models based on task complexity. Validation → cheap, analysis → medium, reasoning → expensive. 70-80% cost reduction.',
-    icon: Zap,
+    phase: 'Platform Teams',
+    title: 'Namespace Automation',
+    description: 'Provision isolated agent namespaces, service accounts, storage, and policy from one declarative workload spec.',
+    icon: Cpu,
     color: '#00d4aa',
   },
   {
     id: 2,
-    phase: 'Phase 4',
-    title: 'Agent Quality Evaluation',
-    description: 'Real-time quality scoring (0-100) of every LLM response. Measures relevance, hallucination risk, completeness, clarity.',
-    icon: BarChart3,
+    phase: 'SREs',
+    title: 'Operational Guardrails',
+    description: 'Bake retries, quotas, and workflow lifecycle controls into every run instead of patching them together per team.',
+    icon: AlertTriangle,
     color: '#06b6d4',
   },
   {
     id: 3,
-    phase: 'Phase 5',
-    title: 'Production Hardening',
-    description: 'Exponential backoff retry, circuit breaker for providers, automatic PII/secret scrubbing in logs.',
+    phase: 'Security Teams',
+    title: 'Policy-Aware Egress',
+    description: 'Restrict outbound traffic with Cilium FQDN policies and keep agent traffic inside approved destinations.',
     icon: Shield,
     color: '#8b5cf6',
   },
   {
     id: 4,
-    phase: 'Phase 6',
-    title: 'Customer Onboarding',
-    description: '5-minute quick-start guide. Helm charts, examples for 3 provider patterns. Production-ready for day 1.',
-    icon: Users,
+    phase: 'DevOps',
+    title: 'Workflow Orchestration',
+    description: 'Map multi-step agent jobs to Argo DAGs with retries, status visibility, and artifact handoff out of the box.',
+    icon: GitMerge,
     color: '#ec4899',
   },
   {
     id: 5,
-    phase: 'Phase 7',
-    title: 'Multi-Tenant + SLA',
-    description: 'Namespace isolation, per-tenant quotas (daily limits), cost budgets, SLA success rate tracking with breach detection.',
-    icon: Lock,
+    phase: 'Multi-Tenant SaaS',
+    title: 'Tenant Isolation',
+    description: 'Run many customer workloads per cluster without credential bleed, namespace collisions, or noisy-neighbor drift.',
+    icon: Layers,
     color: '#f59e0b',
   },
   {
     id: 6,
-    phase: 'Phase 8',
-    title: 'Auto-Scaling by SLA',
-    description: 'Dynamic scaling based on success rate. Critical (<50%) → +2 replicas + model downgrade. Healthy (>95%) → -1 replica.',
-    icon: TrendingUp,
+    phase: 'OSS Contributors',
+    title: 'Extensible Control Plane',
+    description: 'Extend CRDs, controllers, and worker images to fit your own agent runtimes, network posture, and artifact model.',
+    icon: GitPullRequest,
     color: '#10b981',
   },
 ];
 
+const withAlpha = (hex, alpha) => `${hex}${alpha}`;
+
 export default function Features() {
+  const { currentTheme, theme } = useTheme();
+
   return (
-    <section id="features" className="relative py-24 px-4 sm:px-6 lg:px-8" style={{ background: '#05080f' }}>
+    <section
+      className="relative py-24 px-4 sm:px-6 lg:px-8 transition-colors duration-300"
+      style={{ background: currentTheme.bg.primary }}
+    >
       {/* Background gradient */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background:
-            'radial-gradient(circle at 50% 0%, rgba(0,212,170,0.08) 0%, rgba(0,212,170,0) 50%)',
+          background: `radial-gradient(circle at 50% 0%, ${withAlpha(currentTheme.accent.teal, theme === 'dark' ? '14' : '10')} 0%, rgba(0,212,170,0) 50%)`,
         }}
       />
 
@@ -83,20 +88,23 @@ export default function Features() {
             viewport={{ once: true }}
           >
             <h2
-              className="text-4xl sm:text-5xl font-bold mb-4 text-white"
-              style={{ fontFamily: "'Syne', sans-serif" }}
+              className="text-4xl sm:text-5xl font-bold mb-4"
+              style={{
+                fontFamily: "'Syne', sans-serif",
+                color: currentTheme.text.primary,
+              }}
             >
-              Enterprise Features
+              Who Deploys Clawdlinux
             </h2>
-            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-              6 production-ready phases delivering complete autonomous agent infrastructure: from cost optimization to multi-tenant SLA enforcement.
+            <p className="text-lg max-w-2xl mx-auto" style={{ color: currentTheme.text.tertiary }}>
+              From platform engineering to security review, Clawdlinux fits teams standardizing how autonomous agents run on Kubernetes.
             </p>
           </motion.div>
         </div>
 
         {/* Features grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {PHASES.map((feature, idx) => {
+          {AUDIENCES.map((feature, idx) => {
             const Icon = feature.icon;
             return (
               <motion.div
@@ -105,7 +113,11 @@ export default function Features() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: idx * 0.1 }}
                 viewport={{ once: true }}
-                className="group relative p-6 rounded-xl border border-white/8 bg-gradient-to-b from-white/5 to-transparent hover:border-white/15 transition-all duration-300"
+                className="group relative p-6 rounded-xl transition-all duration-300"
+                style={{
+                  border: `1px solid ${currentTheme.border.light}`,
+                  background: `linear-gradient(to bottom, ${withAlpha(currentTheme.bg.secondary, theme === 'dark' ? '6E' : 'CC')}, transparent)`,
+                }}
               >
                 {/* Hover glow effect */}
                 <div
@@ -128,48 +140,30 @@ export default function Features() {
                   </div>
 
                   {/* Title */}
-                  <h3 className="text-lg font-bold text-white mb-2">{feature.title}</h3>
+                  <h3 className="text-lg font-bold mb-2" style={{ color: currentTheme.text.primary }}>
+                    {feature.title}
+                  </h3>
 
                   {/* Description */}
-                  <p className="text-sm text-slate-400">{feature.description}</p>
+                  <p className="text-sm" style={{ color: currentTheme.text.tertiary }}>
+                    {feature.description}
+                  </p>
 
                   {/* Checkmark footer */}
-                  <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2">
+                  <div
+                    className="mt-4 pt-4 flex items-center gap-2"
+                    style={{ borderTop: `1px solid ${currentTheme.border.light}` }}
+                  >
                     <div className="w-1.5 h-1.5 rounded-full" style={{ background: feature.color }} />
-                    <span className="text-xs text-slate-500">Production ready</span>
+                    <span className="text-xs" style={{ color: currentTheme.text.muted }}>
+                      Open source
+                    </span>
                   </div>
                 </div>
               </motion.div>
             );
           })}
         </div>
-
-        {/* CTA section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          viewport={{ once: true }}
-          className="mt-16 text-center"
-        >
-          <p className="text-slate-400 mb-6">
-            All phases tested with 77/77 unit + integration tests passing. Ready for enterprise deployment.
-          </p>
-          <a
-            href="#waitlist"
-            onClick={(e) => {
-              e.preventDefault();
-              document.querySelector('#waitlist')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-95"
-            style={{
-              background: 'linear-gradient(135deg, #00d4aa 0%, #00b894 100%)',
-              color: '#05080f',
-            }}
-          >
-            Get Started Today
-          </a>
-        </motion.div>
       </div>
     </section>
   );

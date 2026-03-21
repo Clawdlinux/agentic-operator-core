@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  go-verify:
+    name: Go Verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Verify gofmt
+        run: |
+          FILES=$(find . -name '*.go' -not -path './.git/*')
+          UNFORMATTED=$(gofmt -l $FILES)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "Unformatted Go files:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: Verify go.mod/go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Install envtest binaries
+        run: |
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          mkdir -p ./bin
+          "$(go env GOPATH)/bin/setup-envtest" use latest --bin-dir ./bin -p path
+
+      - name: Run Go tests
+        run: go test ./api/... ./pkg/... ./internal/... -count=1
+
+  landing-build:
+    name: Landing Lint and Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: landing
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: landing/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

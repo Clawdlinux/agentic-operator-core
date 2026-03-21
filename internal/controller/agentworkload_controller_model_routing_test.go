@@ -1,263 +1,292 @@
-/*
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
 )
 
-// TestModelRoutingWithCostAwareStrategy tests that model routing works when cost-aware is enabled
-func TestModelRoutingWithCostAwareStrategy(t *testing.T) {
-	// Register the AgentWorkload type with the fake client
-	agenticv1alpha1.SchemeBuilder.Register(&agenticv1alpha1.AgentWorkload{})
-	if err := agenticv1alpha1.AddToScheme(scheme.Scheme); err != nil {
-		t.Fatalf("failed to add AgentWorkload to scheme: %v", err)
+type mockOpenAIScenario string
+
+const (
+	mockOpenAIScenarioSuccess       mockOpenAIScenario = "success"
+	mockOpenAIScenarioHTTP500       mockOpenAIScenario = "http500"
+	mockOpenAIScenarioMalformedJSON mockOpenAIScenario = "malformed_json"
+	mockOpenAIScenarioNoChoices     mockOpenAIScenario = "no_choices"
+)
+
+type openAIChatRequest struct {
+	Model string `json:"model"`
+}
+
+func Test_parseFlexibleFloat(t *testing.T) {
+	t.Parallel()
+
+	type config struct {
+		name      string
+		input     interface{}
+		expected  float64
+		expectErr bool
 	}
 
-	ctx := context.Background()
-
-	// Create a fake Kubernetes client
-	client := fake.NewClientBuilder().
-		WithScheme(scheme.Scheme).
-		Build()
-
-	// Create the reconciler
-	reconciler := &AgentWorkloadReconciler{
-		Client: client,
-		Scheme: scheme.Scheme,
+	testCases := []config{
+		{name: "float64", input: 0.95, expected: 0.95},
+		{name: "int", input: 42, expected: 42},
+		{name: "uint64", input: uint64(5), expected: 5},
+		{name: "json number", input: json.Number("7.5"), expected: 7.5},
+		{name: "numeric string", input: "0.87", expected: 0.87},
+		{name: "nil value", input: nil, expectErr: true},
+		{name: "invalid string", input: "high", expectErr: true},
+		{name: "unsupported type", input: true, expectErr: true},
 	}
 
-	// Create a test namespace
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-routing",
-		},
-	}
-	if err := client.Create(ctx, ns); err != nil {
-		t.Fatalf("failed to create namespace: %v", err)
-	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Create a test secret with API key
-	apiKeySecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-api-key",
-			Namespace: "test-routing",
-		},
-		Data: map[string][]byte{
-			"api-key": []byte("sk-test-key"),
-		},
-	}
-	if err := client.Create(ctx, apiKeySecret); err != nil {
-		t.Fatalf("failed to create secret: %v", err)
-	}
-
-	// Create an AgentWorkload with cost-aware routing
-	modelStrategyValue := "cost-aware"
-	taskClassifierValue := "default"
-	workload := &agenticv1alpha1.AgentWorkload{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       "test-workload",
-			Namespace:  "test-routing",
-			Generation: 1,
-		},
-		Spec: agenticv1alpha1.AgentWorkloadSpec{
-			ModelStrategy:  &modelStrategyValue,
-			TaskClassifier: &taskClassifierValue,
-			Objective: func() *string {
-				s := "Parse this JSON: {\"key\": \"value\"}"
-				return &s
-			}(),
-			Providers: []agenticv1alpha1.LLMProvider{
-				{
-					Name: "mock-openai",
-					Type: "openai-compatible",
-					Endpoint: func() *string {
-						s := "http://mock-api:8000/v1"
-						return &s
-					}(),
-					APIKeySecret: &agenticv1alpha1.SecretKeyRef{
-						Name: "test-api-key",
-						Key: func() *string {
-							s := "api-key"
-							return &s
-						}(),
-					},
-				},
-			},
-			ModelMapping: map[string]string{
-				"validation": "mock-openai/gpt-3.5-turbo",
-				"analysis":   "mock-openai/gpt-4",
-				"reasoning":  "mock-openai/gpt-4-turbo",
-			},
-		},
-	}
-
-	// Add the workload to the fake client
-	if err := client.Create(ctx, workload); err != nil {
-		t.Fatalf("failed to create workload: %v", err)
-	}
-
-	// Call routeAndCallModel
-	// Note: This will fail because we don't have a real mock API, but we're testing that:
-	// 1. The classifier correctly identifies this as a validation task
-	// 2. The routing logic correctly selects the provider and model
-	// 3. Errors are handled gracefully
-	response, routingInfo, err := reconciler.routeAndCallModel(ctx, workload)
-
-	// We expect an error because the mock API doesn't exist
-	// But the important part is that routingInfo should be properly set
-	// (even if the response is nil due to the API call failure)
-	if err == nil {
-		// If we somehow got a response, verify it's valid
-		if response != nil && routingInfo != nil {
-			if routingInfo.TaskCategory != "validation" {
-				t.Errorf("expected task category 'validation', got '%s'", routingInfo.TaskCategory)
+			got, err := parseFlexibleFloat(tc.input)
+			if tc.expectErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
 			}
-			if routingInfo.ProviderName != "mock-openai" {
-				t.Errorf("expected provider 'mock-openai', got '%s'", routingInfo.ProviderName)
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
 			}
-			if routingInfo.ModelName != "gpt-3.5-turbo" {
-				t.Errorf("expected model 'gpt-3.5-turbo', got '%s'", routingInfo.ModelName)
+
+			if got != tc.expected {
+				t.Fatalf("expected %v, got %v", tc.expected, got)
 			}
-		}
-	} else {
-		// Error is expected since we don't have a real API
-		t.Logf("Got expected error (no real API): %v", err)
+		})
 	}
 }
 
-// TestModelRoutingDisabledWithFixedStrategy tests that routing is skipped when strategy is "fixed"
-func TestModelRoutingDisabledWithFixedStrategy(t *testing.T) {
-	agenticv1alpha1.SchemeBuilder.Register(&agenticv1alpha1.AgentWorkload{})
-	if err := agenticv1alpha1.AddToScheme(scheme.Scheme); err != nil {
-		t.Fatalf("failed to add AgentWorkload to scheme: %v", err)
+func Test_AgentWorkloadReconciler_routeAndCallModel(t *testing.T) {
+	t.Parallel()
+
+	type config struct {
+		name             string
+		objective        string
+		scenario         mockOpenAIScenario
+		expectErr        bool
+		expectedCategory string
+		expectedModel    string
 	}
 
-	ctx := context.Background()
-	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-
-	reconciler := &AgentWorkloadReconciler{
-		Client: client,
-		Scheme: scheme.Scheme,
-	}
-
-	// Create workload with fixed strategy (default)
-	modelStrategyValue := "fixed"
-	workload := &agenticv1alpha1.AgentWorkload{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "fixed-strategy-workload",
-			Namespace: "default",
-		},
-		Spec: agenticv1alpha1.AgentWorkloadSpec{
-			ModelStrategy: &modelStrategyValue,
-			Objective: func() *string {
-				s := "Some objective"
-				return &s
-			}(),
-		},
-	}
-
-	response, routingInfo, err := reconciler.routeAndCallModel(ctx, workload)
-
-	// Should return early with no error and no routing info
-	if err != nil {
-		t.Errorf("expected no error, got: %v", err)
-	}
-	if response != nil || routingInfo != nil {
-		t.Errorf("expected nil response and routingInfo when strategy is 'fixed'")
-	}
-}
-
-// TestModelRoutingNoObjective tests handling of missing objective
-func TestModelRoutingNoObjective(t *testing.T) {
-	agenticv1alpha1.SchemeBuilder.Register(&agenticv1alpha1.AgentWorkload{})
-	if err := agenticv1alpha1.AddToScheme(scheme.Scheme); err != nil {
-		t.Fatalf("failed to add AgentWorkload to scheme: %v", err)
-	}
-
-	ctx := context.Background()
-	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-
-	reconciler := &AgentWorkloadReconciler{
-		Client: client,
-		Scheme: scheme.Scheme,
-	}
-
-	// Create workload with cost-aware strategy but no objective
-	modelStrategyValue := "cost-aware"
-	workload := &agenticv1alpha1.AgentWorkload{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "no-objective-workload",
-			Namespace: "default",
-		},
-		Spec: agenticv1alpha1.AgentWorkloadSpec{
-			ModelStrategy: &modelStrategyValue,
-			// No Objective set
-		},
-	}
-
-	response, routingInfo, err := reconciler.routeAndCallModel(ctx, workload)
-
-	// Should return early with no error when objective is missing
-	if err != nil {
-		t.Errorf("expected no error, got: %v", err)
-	}
-	if response != nil || routingInfo != nil {
-		t.Errorf("expected nil response and routingInfo when objective is missing")
-	}
-}
-
-// TestTaskClassification tests the task classifier integration
-func TestTaskClassification(t *testing.T) {
-	testCases := []struct {
-		name     string
-		objective string
-		expected string
-	}{
+	testCases := []config{
 		{
-			name:      "validation task",
-			objective: "Parse this JSON: {\"key\": \"value\"}",
-			expected:  "validation",
+			name:             "routes validation objective",
+			objective:        "Parse this JSON payload and verify required fields.",
+			scenario:         mockOpenAIScenarioSuccess,
+			expectedCategory: "validation",
+			expectedModel:    "gpt-3.5-turbo",
 		},
 		{
-			name:      "analysis task",
-			objective: "Analyze the market trends and identify key patterns",
-			expected:  "analysis",
+			name:             "routes analysis objective",
+			objective:        "Analyze quarterly revenue data and identify top trends.",
+			scenario:         mockOpenAIScenarioSuccess,
+			expectedCategory: "analysis",
+			expectedModel:    "gpt-4",
 		},
 		{
-			name:      "reasoning task",
-			objective: "Why did this system fail? Think deeply about all factors involved.",
-			expected:  "reasoning",
+			name:             "routes reasoning objective",
+			objective:        "Why did this rollout fail and how should we redesign the system?",
+			scenario:         mockOpenAIScenarioSuccess,
+			expectedCategory: "reasoning",
+			expectedModel:    "gpt-4-turbo",
+		},
+		{
+			name:             "returns routing metadata on provider http error",
+			objective:        "Parse this JSON payload and verify required fields.",
+			scenario:         mockOpenAIScenarioHTTP500,
+			expectErr:        true,
+			expectedCategory: "validation",
+			expectedModel:    "gpt-3.5-turbo",
+		},
+		{
+			name:             "returns routing metadata on malformed provider response",
+			objective:        "Analyze quarterly revenue data and identify top trends.",
+			scenario:         mockOpenAIScenarioMalformedJSON,
+			expectErr:        true,
+			expectedCategory: "analysis",
+			expectedModel:    "gpt-4",
+		},
+		{
+			name:             "returns error when provider response has no choices",
+			objective:        "Why did this rollout fail and how should we redesign the system?",
+			scenario:         mockOpenAIScenarioNoChoices,
+			expectErr:        true,
+			expectedCategory: "reasoning",
+			expectedModel:    "gpt-4-turbo",
 		},
 	}
 
 	for _, tc := range testCases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// This test is conceptual - actual routing would need a real API
-			// But it demonstrates how the classifier would be used
-			t.Logf("Objective: %s -> Expected classification: %s", tc.objective, tc.expected)
+			t.Parallel()
+
+			ctx := context.Background()
+			scheme := newControllerTestScheme(t)
+
+			mockServer := newMockOpenAIServer(tc.scenario)
+			defer mockServer.Close()
+
+			k8sClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(
+					&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test-routing"}},
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "provider-secret", Namespace: "test-routing"},
+						Data:       map[string][]byte{"api-key": []byte("test-token")},
+					},
+				).
+				Build()
+
+			reconciler := &AgentWorkloadReconciler{Client: k8sClient, Scheme: scheme}
+
+			strategy := "cost-aware"
+			classifier := "default"
+			endpoint := mockServer.URL
+			secretKey := "api-key"
+
+			workload := &agenticv1alpha1.AgentWorkload{
+				ObjectMeta: metav1.ObjectMeta{Name: "routing-workload", Namespace: "test-routing"},
+				Spec: agenticv1alpha1.AgentWorkloadSpec{
+					ModelStrategy:  &strategy,
+					TaskClassifier: &classifier,
+					Objective:      &tc.objective,
+					Providers: []agenticv1alpha1.LLMProvider{
+						{
+							Name:     "mock-openai",
+							Type:     "openai-compatible",
+							Endpoint: &endpoint,
+							APIKeySecret: &agenticv1alpha1.SecretKeyRef{
+								Name: "provider-secret",
+								Key:  &secretKey,
+							},
+						},
+					},
+					ModelMapping: map[string]string{
+						"validation": "mock-openai/gpt-3.5-turbo",
+						"analysis":   "mock-openai/gpt-4",
+						"reasoning":  "mock-openai/gpt-4-turbo",
+					},
+				},
+			}
+
+			response, routingInfo, err := reconciler.routeAndCallModel(ctx, workload)
+
+			if tc.expectErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				if response != nil {
+					t.Fatalf("expected nil response on error, got %+v", response)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				if response == nil {
+					t.Fatalf("expected non-nil response")
+				}
+				if want := fmt.Sprintf("ok:%s", tc.expectedModel); response.Content != want {
+					t.Fatalf("expected response content %q, got %q", want, response.Content)
+				}
+			}
+
+			if routingInfo == nil {
+				t.Fatalf("expected routing metadata, got nil")
+			}
+
+			if routingInfo.TaskCategory != tc.expectedCategory {
+				t.Fatalf("expected task category %q, got %q", tc.expectedCategory, routingInfo.TaskCategory)
+			}
+
+			if routingInfo.ModelName != tc.expectedModel {
+				t.Fatalf("expected model %q, got %q", tc.expectedModel, routingInfo.ModelName)
+			}
 		})
 	}
+}
+
+func newControllerTestScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+
+	s := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(s); err != nil {
+		t.Fatalf("failed adding core scheme: %v", err)
+	}
+	if err := agenticv1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("failed adding agentic scheme: %v", err)
+	}
+
+	return s
+}
+
+func newMockOpenAIServer(mode mockOpenAIScenario) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat/completions" {
+			http.NotFound(w, r)
+			return
+		}
+
+		if mode == mockOpenAIScenarioHTTP500 {
+			http.Error(w, "upstream unavailable", http.StatusInternalServerError)
+			return
+		}
+
+		if mode == mockOpenAIScenarioMalformedJSON {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"choices":`))
+			return
+		}
+
+		var req openAIChatRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if mode == mockOpenAIScenarioNoChoices {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"choices": []interface{}{},
+				"usage": map[string]interface{}{
+					"prompt_tokens":     12,
+					"completion_tokens": 6,
+				},
+			})
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{
+					"message": map[string]interface{}{
+						"content": fmt.Sprintf("ok:%s", req.Model),
+					},
+				},
+			},
+			"usage": map[string]interface{}{
+				"prompt_tokens":     21,
+				"completion_tokens": 8,
+			},
+		})
+	}))
 }
