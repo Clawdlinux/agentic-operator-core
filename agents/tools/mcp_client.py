@@ -157,6 +157,11 @@ def validate_url_host(
             "10.0.0.0/8",
             "172.16.0.0/12",
             "192.168.0.0/16",
+            "169.254.0.0/16",
+            "0.0.0.0/8",
+            "::1/128",
+            "fc00::/7",
+            "fe80::/10",
         ]
     
     parsed = urlparse(url)
@@ -204,6 +209,8 @@ def validate_url_host(
                 try:
                     network = ipaddress.ip_network(cidr, strict=False)
                     if ip in network:
+                        if ip.is_loopback and allow_localhost:
+                            continue
                         if not allow_private_ips:
                             raise SSRFProtectionError(
                                 f"IP {resolved_ip} in blocked range {cidr}"

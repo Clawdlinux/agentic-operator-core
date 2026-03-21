@@ -40,8 +40,10 @@ SENSITIVE_VALUE_PATTERNS: List[str] = [
     r'github_pat_[a-zA-Z0-9_]{22,}',
     r'xox[baprs]-[a-zA-Z0-9-]{10,}',
     r'AKIA[0-9A-Z]{16}',
-    r'eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*',
+    r'eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]*',
     r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}',
+    r'Bearer\s+[a-zA-Z0-9._\-]+',
+    r'://[^:]+:([^@\s]+)@',
 ]
 
 MASK_PATTERN = r'\1***MASKED***\3'
