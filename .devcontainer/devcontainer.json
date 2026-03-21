@@ -1,0 +1,25 @@
+{
+  "name": "Agentic Operator Dev",
+  "image": "mcr.microsoft.com/devcontainers/go:1-1.23-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "helm": "latest",
+      "kubectl": "latest",
+      "minikube": "none"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers-extra/features/kind:1": {}
+  },
+  "postCreateCommand": "go mod download && echo '✅ Ready — run: kind create cluster --name agentic && kubectl apply -f config/crd/agentworkload_crd.yaml'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "redhat.vscode-yaml"
+      ]
+    }
+  },
+  "forwardPorts": [],
+  "remoteUser": "vscode"
+}
