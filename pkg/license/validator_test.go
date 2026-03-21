@@ -4,44 +4,9 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 )
-
-// Helper: Generate test JWT token signed with test private key
-func generateTestToken(claims *LicenseClaims, privateKeyDER []byte, tamperSignature bool) (string, error) {
-	// Parse private key
-	if len(privateKeyDER) < 32 {
-		return "", fmt.Errorf("invalid private key")
-	}
-	privKey := ed25519.PrivateKey(privateKeyDER)
-
-	// Encode header
-	header := map[string]string{
-		"alg": "EdDSA",
-		"typ": "JWT",
-	}
-	headerJSON, _ := json.Marshal(header)
-	headerB64 := base64.RawURLEncoding.EncodeToString(headerJSON)
-
-	// Encode claims
-	claimsJSON, _ := json.Marshal(claims)
-	claimsB64 := base64.RawURLEncoding.EncodeToString(claimsJSON)
-
-	// Sign header.claims
-	message := []byte(headerB64 + "." + claimsB64)
-	signature := ed25519.Sign(privKey, message)
-
-	if tamperSignature {
-		// Flip first byte to simulate tampering
-		signature[0] ^= 0xFF
-	}
-
-	signatureB64 := base64.RawURLEncoding.EncodeToString(signature)
-
-	return headerB64 + "." + claimsB64 + "." + signatureB64, nil
-}
 
 // Test private key (from openssl genpkey -algorithm ed25519)
 // This is a test key only, NOT the production key
@@ -254,15 +219,6 @@ func TestExpiresIn(t *testing.T) {
 	}
 }
 
-func contains(s, substr string) bool {
-	for i := 0; i < len(s)-len(substr)+1; i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
 // TestNewValidator_ValidKey tests validator initialization
 func TestNewValidator_ValidKey(t *testing.T) {
 	validator, err := NewValidator()
@@ -271,7 +227,7 @@ func TestNewValidator_ValidKey(t *testing.T) {
 	}
 
 	if validator == nil {
-		t.Error("validator should not be nil")
+		t.Fatal("validator should not be nil")
 	}
 
 	if validator.publicKey == nil {

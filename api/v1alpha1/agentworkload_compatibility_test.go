@@ -30,7 +30,7 @@ func TestAgentWorkloadCompatibility_OlderStyleObjectStillValid(t *testing.T) {
 		},
 		"spec": {
 			"workloadType": "generic",
-			"mcpServerEndpoint": "http://localhost:8000",
+			"mcpServerEndpoint": "https://localhost:8000",
 			"objective": "legacy compatibility check",
 			"agents": ["agent1"]
 		}
@@ -72,7 +72,7 @@ func TestAgentWorkloadCompatibility_EvolvingOptionalFieldsMatrix(t *testing.T) {
 				},
 				"spec": {
 					"workloadType": "generic",
-					"mcpServerEndpoint": "http://localhost:8000",
+					"mcpServerEndpoint": "https://localhost:8000",
 					"objective": "legacy optional field omission",
 					"agents": ["agent1"]
 				}
@@ -105,7 +105,7 @@ func TestAgentWorkloadCompatibility_EvolvingOptionalFieldsMatrix(t *testing.T) {
 				},
 				"spec": {
 					"workloadType": "generic",
-					"mcpServerEndpoint": "http://localhost:8000",
+					"mcpServerEndpoint": "https://localhost:8000",
 					"objective": "orchestration and resources optional fields",
 					"agents": ["agent1"],
 					"orchestration": {
@@ -153,7 +153,7 @@ func TestAgentWorkloadCompatibility_EvolvingOptionalFieldsMatrix(t *testing.T) {
 				},
 				"spec": {
 					"workloadType": "generic",
-					"mcpServerEndpoint": "http://localhost:8000",
+					"mcpServerEndpoint": "https://localhost:8000",
 					"objective": "targeting and model routing optional fields",
 					"agents": ["agent1", "agent2"],
 					"targetUrls": ["https://example.com"],

@@ -54,9 +54,9 @@ spec:
                 description: jobId uniquely identifies this agent workload job
                 type: string
               mcpServerEndpoint:
-                description: mcpServerEndpoint is the HTTP endpoint of the MCP server
-                  (e.g. "http://mcp-server:8000")
-                pattern: ^https?://[a-zA-Z0-9.-]+(:[0-9]+)?$
+                description: mcpServerEndpoint is the HTTPS endpoint of the MCP server
+                  (e.g. "https://mcp-server:8000")
+                pattern: ^https://[a-zA-Z0-9.-]+(:[0-9]+)?$
                 type: string
               modelMapping:
                 additionalProperties:

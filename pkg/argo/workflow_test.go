@@ -41,7 +41,7 @@ func TestWorkflowManager_CreateArgoWorkflow(t *testing.T) {
 
 	// Create test AgentWorkload
 	workloadType := "generic"
-	mcpEndpoint := "http://mcp-server:8000"
+	mcpEndpoint := "https://mcp-server:8000"
 	objective := "test objective"
 
 	workload := &agenticv1alpha1.AgentWorkload{
@@ -390,8 +390,8 @@ func TestWorkflowManager_ValidateWorkflowTemplateMissing(t *testing.T) {
 	t.Log("✓ ValidateWorkflowTemplateMissing test passed")
 }
 
-// TestMustToJSON verifies JSON marshaling
-func TestMustToJSON(t *testing.T) {
+// TestToJSON verifies JSON marshaling
+func TestToJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    interface{}
@@ -416,14 +416,17 @@ func TestMustToJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := mustToJSON(tt.input)
+			result, err := toJSON(tt.input)
+			if err != nil {
+				t.Fatalf("toJSON returned error: %v", err)
+			}
 			if result != tt.expected {
-				t.Errorf("mustToJSON = %q, want %q", result, tt.expected)
+				t.Errorf("toJSON = %q, want %q", result, tt.expected)
 			}
 		})
 	}
 
-	t.Log("✓ MustToJSON tests passed")
+	t.Log("toJSON tests passed")
 }
 
 // BenchmarkWorkflowManager_CreateArgoWorkflow measures creation performance
@@ -436,7 +439,7 @@ func BenchmarkWorkflowManager_CreateArgoWorkflow(b *testing.B) {
 	wm := NewWorkflowManager(client, s)
 
 	workloadType := "generic"
-	mcpEndpoint := "http://mcp:8000"
+	mcpEndpoint := "https://mcp:8000"
 	objective := "test"
 
 	workload := &agenticv1alpha1.AgentWorkload{

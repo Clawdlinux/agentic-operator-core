@@ -198,6 +198,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&controller.AgentCardReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "AgentCard")
+		os.Exit(1)
+	}
+
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := (&agenticv1alpha1.AgentWorkload{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to setup webhook", "webhook", "AgentWorkload")

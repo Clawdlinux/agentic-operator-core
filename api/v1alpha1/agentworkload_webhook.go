@@ -205,9 +205,9 @@ func validateMCPEndpoint(endpoint string) error {
 		return fmt.Errorf("mcpServerEndpoint is not a valid URL: %v", err)
 	}
 
-	// Check scheme is http or https
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return fmt.Errorf("mcpServerEndpoint scheme must be http or https, got %q", parsedURL.Scheme)
+	// Check scheme is https only
+	if parsedURL.Scheme != "https" {
+		return fmt.Errorf("mcpServerEndpoint scheme must be https for secure communication, got %q", parsedURL.Scheme)
 	}
 
 	// Check host is not empty

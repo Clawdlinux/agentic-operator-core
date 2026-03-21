@@ -1,0 +1,238 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: agentcards.agentic.clawdlinux.org
+spec:
+  group: agentic.clawdlinux.org
+  names:
+    kind: AgentCard
+    listKind: AgentCardList
+    plural: agentcards
+    shortNames:
+    - ac
+    singular: agentcard
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .spec.endpoint.host
+      name: Endpoint
+      type: string
+    - jsonPath: .status.activeTaskCount
+      name: Active Tasks
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AgentCard is the Schema for the agentcards API — agent discovery
+          and capability advertisement for A2A communication
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AgentCardSpec defines the desired state of AgentCard
+            properties:
+              auth:
+                description: Authentication configuration for communicating with this
+                  agent
+                properties:
+                  tokenSecret:
+                    description: Secret reference for bearer token authentication
+                    properties:
+                      key:
+                        default: api-key
+                        type: string
+                      name:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type:
+                    default: serviceAccount
+                    description: Authentication type
+                    enum:
+                    - serviceAccount
+                    - bearer
+                    - none
+                    type: string
+                type: object
+              description:
+                description: Human-readable description of the agent
+                type: string
+              displayName:
+                description: Human-readable display name
+                minLength: 1
+                type: string
+              endpoint:
+                description: Network endpoint where the agent is reachable
+                properties:
+                  basePath:
+                    default: /a2a
+                    description: Base path prefix for A2A routes
+                    type: string
+                  host:
+                    description: Hostname or service DNS name
+                    minLength: 1
+                    type: string
+                  port:
+                    default: 8080
+                    description: Port number
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                required:
+                - host
+                type: object
+              healthCheck:
+                description: Health check configuration
+                properties:
+                  intervalSeconds:
+                    default: 30
+                    description: How often to probe health
+                    format: int32
+                    minimum: 5
+                    type: integer
+                  path:
+                    default: /healthz
+                    description: HTTP path for health probe
+                    type: string
+                  timeoutSeconds:
+                    default: 5
+                    description: Timeout for health probe
+                    format: int32
+                    minimum: 1
+                    type: integer
+                type: object
+              maxConcurrentTasks:
+                default: 10
+                description: Maximum tasks this agent can handle concurrently
+                format: int32
+                minimum: 1
+                type: integer
+              skills:
+                description: Capabilities this agent offers to other agents
+                items:
+                  properties:
+                    description:
+                      description: Human-readable description of the skill
+                      type: string
+                    inputSchema:
+                      description: JSON Schema for the skill input
+                      type: string
+                    name:
+                      description: Unique name of the skill
+                      minLength: 1
+                      type: string
+                    outputSchema:
+                      description: JSON Schema for the skill output
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              version:
+                description: Semantic version of the agent
+                type: string
+            required:
+            - displayName
+            - endpoint
+            type: object
+          status:
+            description: AgentCardStatus defines the observed state of AgentCard
+            properties:
+              activeTaskCount:
+                description: Number of tasks currently being processed
+                format: int32
+                type: integer
+              conditions:
+                description: Standard Kubernetes conditions
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastHeartbeat:
+                description: Last time the agent was confirmed healthy
+                format: date-time
+                type: string
+              phase:
+                default: Pending
+                description: Current phase of the agent
+                enum:
+                - Pending
+                - Available
+                - Unavailable
+                - Degraded
+                type: string
+              skills:
+                description: Per-skill availability status
+                items:
+                  properties:
+                    available:
+                      type: boolean
+                    lastUsed:
+                      format: date-time
+                      type: string
+                    name:
+                      type: string
+                  required:
+                  - available
+                  - name
+                  type: object
+                type: array
+              totalTasksCompleted:
+                description: Total tasks completed since creation
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
