@@ -24,7 +24,7 @@ func TestWebhook_RejectInvalidWorkloadType(t *testing.T) {
 	workload := &AgentWorkload{
 		Spec: AgentWorkloadSpec{
 			WorkloadType:      stringPtr("invalid_type"),
-			MCPServerEndpoint: stringPtr("http://localhost:8000"),
+			MCPServerEndpoint: stringPtr("https://localhost:8000"),
 			Objective:         stringPtr("test objective"),
 			Agents:            []string{"agent1"},
 		},
@@ -60,7 +60,7 @@ func TestWebhook_RejectInvalidThreshold(t *testing.T) {
 	workload := &AgentWorkload{
 		Spec: AgentWorkloadSpec{
 			WorkloadType:         stringPtr("generic"),
-			MCPServerEndpoint:    stringPtr("http://localhost:8000"),
+			MCPServerEndpoint:    stringPtr("https://localhost:8000"),
 			Objective:            stringPtr("test objective"),
 			Agents:               []string{"agent1"},
 			AutoApproveThreshold: stringPtr("1.5"), // Invalid: > 1.0
@@ -79,7 +79,7 @@ func TestWebhook_AcceptValidSpec(t *testing.T) {
 	workload := &AgentWorkload{
 		Spec: AgentWorkloadSpec{
 			WorkloadType:         stringPtr("generic"),
-			MCPServerEndpoint:    stringPtr("http://localhost:8000"),
+			MCPServerEndpoint:    stringPtr("https://localhost:8000"),
 			Objective:            stringPtr("test objective"),
 			Agents:               []string{"agent1"},
 			AutoApproveThreshold: stringPtr("0.95"),
@@ -99,7 +99,7 @@ func TestWebhook_RejectEmptyObjective(t *testing.T) {
 	workload := &AgentWorkload{
 		Spec: AgentWorkloadSpec{
 			WorkloadType:      stringPtr("generic"),
-			MCPServerEndpoint: stringPtr("http://localhost:8000"),
+			MCPServerEndpoint: stringPtr("https://localhost:8000"),
 			Objective:         stringPtr(""), // Empty
 			Agents:            []string{"agent1"},
 		},
@@ -117,7 +117,7 @@ func TestWebhook_RejectEmptyAgents(t *testing.T) {
 	workload := &AgentWorkload{
 		Spec: AgentWorkloadSpec{
 			WorkloadType:      stringPtr("generic"),
-			MCPServerEndpoint: stringPtr("http://localhost:8000"),
+			MCPServerEndpoint: stringPtr("https://localhost:8000"),
 			Objective:         stringPtr("test objective"),
 			Agents:            []string{}, // Empty
 		},
@@ -140,7 +140,7 @@ func TestWebhook_RejectObjectiveTooLong(t *testing.T) {
 	workload := &AgentWorkload{
 		Spec: AgentWorkloadSpec{
 			WorkloadType:      stringPtr("generic"),
-			MCPServerEndpoint: stringPtr("http://localhost:8000"),
+			MCPServerEndpoint: stringPtr("https://localhost:8000"),
 			Objective:         &longObjective, // > 1000 chars
 			Agents:            []string{"agent1"},
 		},
@@ -161,7 +161,7 @@ func TestWebhook_AcceptAllWorkloadTypes(t *testing.T) {
 		workload := &AgentWorkload{
 			Spec: AgentWorkloadSpec{
 				WorkloadType:      stringPtr(wt),
-				MCPServerEndpoint: stringPtr("http://localhost:8000"),
+				MCPServerEndpoint: stringPtr("https://localhost:8000"),
 				Objective:         stringPtr("test objective"),
 				Agents:            []string{"agent1"},
 			},
@@ -179,7 +179,7 @@ func TestWebhook_DefaultAutoApproveThreshold(t *testing.T) {
 	workload := &AgentWorkload{
 		Spec: AgentWorkloadSpec{
 			WorkloadType:      stringPtr("generic"),
-			MCPServerEndpoint: stringPtr("http://localhost:8000"),
+			MCPServerEndpoint: stringPtr("https://localhost:8000"),
 			Objective:         stringPtr("test objective"),
 			Agents:            []string{"agent1"},
 			// No AutoApproveThreshold specified
@@ -201,7 +201,7 @@ func TestWebhook_DefaultOPAPolicy(t *testing.T) {
 	workload := &AgentWorkload{
 		Spec: AgentWorkloadSpec{
 			WorkloadType:      stringPtr("generic"),
-			MCPServerEndpoint: stringPtr("http://localhost:8000"),
+			MCPServerEndpoint: stringPtr("https://localhost:8000"),
 			Objective:         stringPtr("test objective"),
 			Agents:            []string{"agent1"},
 			// No OPAPolicy specified
@@ -253,13 +253,14 @@ func TestValidateMCPEndpoint(t *testing.T) {
 		valid    bool
 		name     string
 	}{
-		{"http://localhost:8000", true, "valid http"},
+		{"https://localhost:8000", true, "valid https with port"},
 		{"https://mcp-server.example.com", true, "valid https"},
-		{"http://192.168.1.1:8000", true, "valid IP"},
+		{"https://192.168.1.1:8000", true, "valid https IP"},
+		{"http://localhost:8000", false, "invalid http scheme"},
 		{"not-a-url", false, "invalid no scheme"},
 		{"ftp://server.com", false, "invalid scheme ftp"},
 		{"", false, "invalid empty"},
-		{"http://", false, "invalid no host"},
+		{"https://", false, "invalid no host"},
 	}
 
 	for _, tc := range testCases {

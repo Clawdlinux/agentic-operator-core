@@ -1,0 +1,76 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentCard
+metadata:
+  name: visual-scraper
+  namespace: agentic-system
+spec:
+  displayName: "Visual Scraper Agent"
+  description: "Scrapes websites and captures screenshots for visual analysis"
+  version: "1.0.0"
+  skills:
+  - name: scrape-url
+    description: "Scrape a URL and return raw HTML content"
+    inputSchema: '{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}'
+    outputSchema: '{"type":"object","properties":{"html":{"type":"string"},"status_code":{"type":"integer"}}}'
+  - name: capture-screenshot
+    description: "Capture a full-page screenshot of a URL"
+    inputSchema: '{"type":"object","properties":{"url":{"type":"string"},"viewport":{"type":"object"}}}'
+    outputSchema: '{"type":"object","properties":{"screenshot_path":{"type":"string"},"dimensions":{"type":"object"}}}'
+  endpoint:
+    host: visual-scraper.agentic-system.svc.cluster.local
+    port: 8080
+    basePath: /a2a
+  auth:
+    type: serviceAccount
+  healthCheck:
+    path: /healthz
+    intervalSeconds: 30
+    timeoutSeconds: 5
+  maxConcurrentTasks: 5
+---
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentCard
+metadata:
+  name: market-analyst
+  namespace: agentic-system
+spec:
+  displayName: "Market Analyst Agent"
+  description: "Analyzes screenshots and DOM structures to extract competitive intelligence"
+  version: "1.0.0"
+  skills:
+  - name: analyze-visual
+    description: "Analyze screenshots for visual patterns and UI elements"
+    inputSchema: '{"type":"object","properties":{"screenshot_path":{"type":"string"}},"required":["screenshot_path"]}'
+    outputSchema: '{"type":"object","properties":{"insights":{"type":"array"},"confidence":{"type":"number"}}}'
+  - name: synthesize-report
+    description: "Generate a competitive intelligence report from analysis results"
+    inputSchema: '{"type":"object","properties":{"insights":{"type":"array"},"target_url":{"type":"string"}}}'
+    outputSchema: '{"type":"object","properties":{"report_path":{"type":"string"},"summary":{"type":"string"}}}'
+  endpoint:
+    host: market-analyst.agentic-system.svc.cluster.local
+    port: 8080
+    basePath: /a2a
+  auth:
+    type: serviceAccount
+  healthCheck:
+    path: /healthz
+    intervalSeconds: 30
+    timeoutSeconds: 5
+  maxConcurrentTasks: 3
+---
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: visual-analysis-team
+  namespace: agentic-system
+spec:
+  workloadType: visual-analysis
+  objective: "Collaborative visual market intelligence analysis"
+  collaborationMode: team
+  agentRefs:
+  - name: visual-scraper
+    role: data-collector
+  - name: market-analyst
+    role: analyzer
+  orchestration:
+    type: argo

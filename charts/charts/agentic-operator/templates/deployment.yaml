@@ -37,6 +37,20 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: LICENSE_SECRET_NAME
+              value: {{ include "agentic-operator-sub.licenseName" . | quote }}
+            - name: LICENSE_JWT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "agentic-operator-sub.licenseName" . }}
+                  key: LICENSE_JWT
+                  optional: true
+            - name: LICENSE_PUBLIC_KEY_B64
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "agentic-operator-sub.licenseName" . }}
+                  key: LICENSE_PUBLIC_KEY_B64
+                  optional: true
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}
@@ -54,6 +68,9 @@ spec:
               protocol: TCP
             - name: health
               containerPort: 8082
+              protocol: TCP
+            - name: webhook
+              containerPort: 9443
               protocol: TCP
           livenessProbe:
             httpGet:
@@ -75,6 +92,15 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: webhook-certs
+              mountPath: /tmp/k8s-webhook-server/serving-certs
+              readOnly: true
+      volumes:
+        - name: webhook-certs
+          secret:
+            secretName: {{ printf "%s-agentic-operator-webhook-tls" .Release.Name | trunc 63 | trimSuffix "-" }}
+            optional: true
       securityContext:
         runAsNonRoot: true
         seccompProfile:

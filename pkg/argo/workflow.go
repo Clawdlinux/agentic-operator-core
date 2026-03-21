@@ -190,9 +190,14 @@ func (wm *WorkflowManager) CreateArgoWorkflow(
 	}
 
 	// Set parameters as []interface{} to avoid deep copy panic
+	targetURLsJSON, err := toJSON(params.TargetURLs)
+	if err != nil {
+		log.Error(err, "failed to marshal target URLs")
+		return nil, err
+	}
 	parametersData := []interface{}{
 		map[string]interface{}{"name": "job_id", "value": params.JobID},
-		map[string]interface{}{"name": "target_urls", "value": mustToJSON(params.TargetURLs)},
+		map[string]interface{}{"name": "target_urls", "value": targetURLsJSON},
 		map[string]interface{}{"name": "minio_bucket", "value": params.MinioBucket},
 		map[string]interface{}{"name": "agent_image", "value": params.AgentImage},
 		map[string]interface{}{"name": "browserless_url", "value": params.BrowserlessURL},
@@ -409,13 +414,13 @@ func countNodesByPhase(nodes map[string]interface{}, phase string) int {
 	return count
 }
 
-// mustToJSON converts a value to JSON string, panicking on error
-func mustToJSON(value interface{}) string {
+// toJSON converts a value to JSON string, returning an error on failure
+func toJSON(value interface{}) (string, error) {
 	b, err := json.Marshal(value)
 	if err != nil {
-		panic(fmt.Sprintf("failed to marshal to JSON: %v", err))
+		return "", fmt.Errorf("failed to marshal to JSON: %w", err)
 	}
-	return string(b)
+	return string(b), nil
 }
 
 // ptr returns a pointer to a boolean value

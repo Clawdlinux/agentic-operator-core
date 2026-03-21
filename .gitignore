@@ -35,9 +35,12 @@ go.work.sum
 # Python
 **/*.pyc
 __pycache__/
+.venv/
 
 # Build artifacts
 manager
+/agentctl
+/main
 
 # Logs and test outputs
 *.log

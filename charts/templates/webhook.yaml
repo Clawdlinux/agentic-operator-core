@@ -1,0 +1,104 @@
+{{- if .Values.agenticOperator.webhook.enabled }}
+{{/*
+  Webhook TLS secret name — must match the subchart Deployment volumeMount.
+  Uses the subchart naming convention: <release>-agentic-operator-webhook-tls
+*/}}
+{{- $webhookSecretName := printf "%s-agentic-operator-webhook-tls" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- $webhookServiceName := printf "%s-webhook-service" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- $selfSignedIssuerName := printf "%s-selfsigned-issuer" .Release.Name | trunc 63 | trimSuffix "-" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $webhookServiceName }}
+  namespace: {{ include "agentic-operator.namespace" . }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webhook
+spec:
+  selector:
+    app.kubernetes.io/name: agentic-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: https
+      port: 443
+      targetPort: webhook
+      protocol: TCP
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-validating
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ include "agentic-operator.namespace" . }}/{{ include "agentic-operator.fullname" . }}-webhook-cert
+webhooks:
+  - name: agentworkload.agentic.clawdlinux.org
+    clientConfig:
+      service:
+        name: {{ $webhookServiceName }}
+        namespace: {{ include "agentic-operator.namespace" . }}
+        path: /validate-agentic-clawdlinux-org-v1alpha1-agentworkload
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["agentic.clawdlinux.org"]
+        apiVersions: ["v1alpha1"]
+        resources: ["agentworkloads"]
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+    timeoutSeconds: 10
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-mutating
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ include "agentic-operator.namespace" . }}/{{ include "agentic-operator.fullname" . }}-webhook-cert
+webhooks:
+  - name: magentworkload.agentic.clawdlinux.org
+    clientConfig:
+      service:
+        name: {{ $webhookServiceName }}
+        namespace: {{ include "agentic-operator.namespace" . }}
+        path: /mutate-agentic-clawdlinux-org-v1alpha1-agentworkload
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["agentic.clawdlinux.org"]
+        apiVersions: ["v1alpha1"]
+        resources: ["agentworkloads"]
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+    timeoutSeconds: 10
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-webhook-cert
+  namespace: {{ include "agentic-operator.namespace" . }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+spec:
+  secretName: {{ $webhookSecretName }}
+  dnsNames:
+    - {{ $webhookServiceName }}.{{ include "agentic-operator.namespace" . }}.svc
+    - {{ $webhookServiceName }}.{{ include "agentic-operator.namespace" . }}.svc.cluster.local
+  issuerRef:
+    name: {{ .Values.agenticOperator.webhook.issuerRef.name | default $selfSignedIssuerName }}
+    kind: {{ .Values.agenticOperator.webhook.issuerRef.kind | default "ClusterIssuer" }}
+---
+{{- if .Values.agenticOperator.webhook.createSelfSignedIssuer }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ $selfSignedIssuerName }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+{{- end }}
+{{- end }}

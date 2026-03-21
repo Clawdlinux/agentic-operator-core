@@ -1,0 +1,63 @@
+name: Test Gates
+
+on:
+  pull_request:
+    paths:
+      - "Makefile"
+      - "internal/controller/**"
+      - "pkg/**"
+      - "api/**"
+      - "cmd/**"
+      - "agents/**"
+      - "charts/**"
+      - "scripts/scan_secrets.sh"
+      - ".github/workflows/test-gates.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Makefile"
+      - "internal/controller/**"
+      - "pkg/**"
+      - "api/**"
+      - "cmd/**"
+      - "agents/**"
+      - "charts/**"
+      - "scripts/scan_secrets.sh"
+      - ".github/workflows/test-gates.yml"
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  test-gates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Quick secret scan
+        run: make scan-secrets
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check Go formatting
+        run: make fmt-check
+
+      - name: Run Go lint checks
+        run: make lint
+
+      - name: Run controller envtest suite
+        run: make test-controller GO_TEST_FLAGS="-count=1 -v -timeout 180s"
+
+      - name: Run Go tests
+        run: make test-go
+
+      - name: Lint Helm chart
+        run: make helm-lint

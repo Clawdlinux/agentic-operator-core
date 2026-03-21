@@ -43,13 +43,13 @@ func (mr *ModelRouter) RouteAndCall(
 	defer rootSpan.End()
 
 	// Validate spec has necessary config
-	if spec.ModelMapping == nil || len(spec.ModelMapping) == 0 {
+	if len(spec.ModelMapping) == 0 {
 		AddSpanEvent(rootSpan, "validation_failed", 
 			attribute.String("reason", "empty modelMapping"))
 		return nil, routingInfo, fmt.Errorf("modelMapping is empty or nil")
 	}
 
-	if spec.Providers == nil || len(spec.Providers) == 0 {
+	if len(spec.Providers) == 0 {
 		AddSpanEvent(rootSpan, "validation_failed",
 			attribute.String("reason", "no providers configured"))
 		return nil, routingInfo, fmt.Errorf("no providers configured")

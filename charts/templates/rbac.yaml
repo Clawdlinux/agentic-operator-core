@@ -56,16 +56,17 @@ rules:
       - clusterworkflowtemplates
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Custom resources (agentic-operator CRDs)
-  - apiGroups: ["agentic.io"]
-    resources: ["*"]
-    verbs: ["*"]
-  # RBAC (for sub-agent service accounts)
+  - apiGroups: ["agentic.clawdlinux.org"]
+    resources:
+      - agentworkloads
+      - agentworkloads/status
+      - agentworkloads/finalizers
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # RBAC (for sub-agent service accounts — namespace-scoped only)
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources:
       - roles
       - rolebindings
-      - clusterroles
-      - clusterrolebindings
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Metrics
   - apiGroups: ["metrics.k8s.io"]

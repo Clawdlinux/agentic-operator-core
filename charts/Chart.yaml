@@ -10,7 +10,7 @@ keywords:
   - kubernetes
   - operator
   - llm
-home: https://github.com/shreyanshjain7174/agentic-k8s-operator
+home: https://github.com/Clawdlinux/agentic-operator-core
 maintainers:
   - name: Shreyansh Jain
     email: shreyansh@example.com

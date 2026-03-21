@@ -21,9 +21,8 @@ type QuotaManager struct {
 type quotaTracker struct {
 	tenant           *TenantContext
 	workloadsUsed    int
-	costUsed         float64
-	lastResetDate    time.Time
-	dailyResetTicker *time.Ticker
+	costUsed      float64
+	lastResetDate time.Time
 }
 
 // NewQuotaManager creates a quota manager for the given tenants.

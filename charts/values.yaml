@@ -46,6 +46,14 @@ agenticOperator:
   logLevel: info
   env: {}
 
+  # Webhook admission control (requires cert-manager)
+  webhook:
+    enabled: true
+    createSelfSignedIssuer: true
+    issuerRef:
+      name: ""   # defaults to <release>-selfsigned-issuer
+      kind: ClusterIssuer
+
   # Phase 4: Agent Evaluation Pipeline
   evaluation:
     enabled: true            # Enable quality scoring for every model call
@@ -74,7 +82,8 @@ agenticOperator:
 cloudflareAI:
   enabled: false
   accountId: ""              # Your Cloudflare Account ID
-  apiToken: ""               # API token with Workers AI Read+Write
+  apiToken: ""               # API token (prefer existingSecret below)
+  existingSecret: ""         # Name of existing Secret containing 'api-token' key
   defaultModel: "@cf/meta/llama-2-7b-chat-int8"
 
 # ---------------------------------------------------------------------------
@@ -196,8 +205,8 @@ minio:
     enabled: true
     size: 10Gi
     storageClass: ""
-  rootUser: minioadmin
-  rootPassword: minioadmin   # Change in production!
+  rootUser: ""     # auto-generated if left empty
+  rootPassword: ""   # auto-generated if left empty
   defaultBuckets: "agent-artifacts,agent-logs"
 
 # ---------------------------------------------------------------------------
@@ -227,8 +236,8 @@ postgresql:
   auth:
     database: agentdb
     username: agentuser
-    password: changeme   # Change in production!
-    postgresPassword: changeme
+    password: ""   # auto-generated if left empty
+    postgresPassword: ""   # auto-generated if left empty
 
 # ---------------------------------------------------------------------------
 # Ingress (optional — routes to relevant services)

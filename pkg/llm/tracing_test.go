@@ -23,7 +23,7 @@ func TestModelRoutingSpan(t *testing.T) {
 	workloadNamespace := "default"
 
 	// Create span
-	ctx, span := StartModelRoutingSpan(ctx, workloadName, workloadNamespace)
+	_, span := StartModelRoutingSpan(ctx, workloadName, workloadNamespace)
 	span.AddEvent("test_event")
 	span.End()
 
@@ -59,7 +59,7 @@ func TestTaskClassificationSpan(t *testing.T) {
 	ctx := context.Background()
 	instructions := "Parse this JSON data"
 
-	ctx, span := StartTaskClassificationSpan(ctx, instructions)
+	_, span := StartTaskClassificationSpan(ctx, instructions)
 	SetTaskClassificationAttributes(span, "validation")
 	span.End()
 
@@ -88,7 +88,7 @@ func TestProviderResolutionSpan(t *testing.T) {
 	ctx := context.Background()
 	providerName := "openai"
 
-	ctx, span := StartProviderResolutionSpan(ctx, providerName)
+	_, span := StartProviderResolutionSpan(ctx, providerName)
 	SetProviderResolutionAttributes(span, "openai-compatible", "https://api.openai.com/v1")
 	span.End()
 
@@ -118,7 +118,7 @@ func TestModelCallSpan(t *testing.T) {
 	providerName := "openai"
 	modelName := "gpt-4"
 
-	ctx, span := StartModelCallSpan(ctx, providerName, modelName)
+	_, span := StartModelCallSpan(ctx, providerName, modelName)
 	SetModelCallAttributes(span, 150, 200, true)
 	span.End()
 
@@ -145,7 +145,7 @@ func TestTracingAttributes(t *testing.T) {
 	defer tracerProvider.Shutdown(context.Background())
 
 	ctx := context.Background()
-	ctx, span := StartModelRoutingSpan(ctx, "test-workload", "default")
+	_, span := StartModelRoutingSpan(ctx, "test-workload", "default")
 
 	attrs := &TracingAttributes{
 		WorkloadName:      "test-workload",
@@ -183,7 +183,7 @@ func TestSpanEvents(t *testing.T) {
 	defer tracerProvider.Shutdown(context.Background())
 
 	ctx := context.Background()
-	ctx, span := StartModelRoutingSpan(ctx, "test-workload", "default")
+	_, span := StartModelRoutingSpan(ctx, "test-workload", "default")
 
 	AddSpanEvent(span, "task_classified", attribute.String("category", "validation"))
 	AddSpanEvent(span, "provider_resolved", attribute.String("provider", "openai"))

@@ -17,6 +17,9 @@ minio==7.2.0
 psycopg2-binary==2.9.9
 sqlalchemy==2.0.23
 
+# PDF report generation
+reportlab==4.1.0
+
 # Utilities
 pydantic==2.5.0
 python-dotenv==1.0.0
