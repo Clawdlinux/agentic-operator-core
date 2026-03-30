@@ -1,0 +1,104 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator
+  namespace: agentic-demo
+  labels:
+    app: orchestrator
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  selector:
+    app: orchestrator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: agentic-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestrator
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+    spec:
+      serviceAccountName: orchestrator
+      containers:
+      - name: orchestrator
+        image: agentic-orchestrator:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: RESEARCHER_URL
+          value: http://researcher:8080
+        - name: WRITER_URL
+          value: http://writer:8080
+        - name: EDITOR_URL
+          value: http://editor:8080
+        - name: MINIO_ENDPOINT
+          value: http://minio:9000
+        - name: MINIO_BUCKET
+          value: agentic-demo
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: root-user
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: root-password
+        - name: POSTGRES_URL
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: connection-string
+        - name: LOG_LEVEL
+          value: INFO
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orchestrator
+  namespace: agentic-demo
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: orchestrator-pdb
+  namespace: agentic-demo
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: orchestrator
