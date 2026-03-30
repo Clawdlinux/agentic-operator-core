@@ -27,3 +27,9 @@ type LicenceValidator interface {
 	// number of concurrent workloads. Returns nil if valid.
 	Validate(ctx context.Context, concurrentWorkloads int) error
 }
+
+// WorkloadCountHint allows validators to indicate whether they require
+// a live concurrent workload count.
+type WorkloadCountHint interface {
+	RequiresWorkloadCount() bool
+}

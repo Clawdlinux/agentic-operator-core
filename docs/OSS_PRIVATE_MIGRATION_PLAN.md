@@ -113,8 +113,8 @@ Notes:
 
 ## Completion Criteria
 
-- `enterprise/billing` and `enterprise/licensing` contain enterprise enforcement logic outside
-  `agentic-operator-core`.
+- In `agentic-operator-private`, `enterprise/billing` and `enterprise/licensing` contain
+  enterprise enforcement logic; `agentic-operator-core` only keeps OSS-safe placeholders.
 - Core docs describe OSS functionality only; private workflows are referenced
   from private repo docs.
 - [private-boundary-manifest.yaml](./private-boundary-manifest.yaml) reflects
