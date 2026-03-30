@@ -1,5 +1,7 @@
 package license
 
+// OSS-PRIVATE-ALLOW: Enterprise-tier license claims are retained temporarily for compatibility.
+
 import (
 	"crypto/ed25519"
 	"encoding/base64"

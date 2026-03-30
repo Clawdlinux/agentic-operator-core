@@ -1,5 +1,7 @@
 package multitenancy
 
+// OSS-PRIVATE-ALLOW: Tenant SLA fields remain temporarily during OSS/private boundary transition.
+
 import "time"
 
 // TenantContext represents a customer's isolated environment.

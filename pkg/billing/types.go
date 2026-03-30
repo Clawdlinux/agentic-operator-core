@@ -1,5 +1,7 @@
 package billing
 
+// OSS-PRIVATE-ALLOW: Billing type models are temporarily kept during staged private migration.
+
 import "time"
 
 // BillingEvent records a completed workload and its cost.

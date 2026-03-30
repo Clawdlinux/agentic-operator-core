@@ -1,5 +1,7 @@
 package autoscaling
 
+// OSS-PRIVATE-ALLOW: Temporary SLA terminology during staged OSS/private split.
+
 import (
 	"sync"
 	"time"
