@@ -31,9 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - 13 staticcheck warnings resolved (deprecated `ioutil`, unused fields/funcs, nil checks)
 - RBAC wildcard `resources: ["*"]` replaced with explicit resources
-## [0.1.0] - 2026-03-31
+## [0.1.1] - 2026-03-31
 
-Initial release of Agentic Operator — Kubernetes-native multi-agent orchestration framework.
+Customer-ready release of Agentic Operator — Kubernetes-native multi-agent orchestration framework.
 
 ### Added
 - **AgentPersona CRD** — First-class Kubernetes resource for agent identity (Role, Tone, MemoryScope, SystemPrompt, ToolProfile)
