@@ -18,7 +18,7 @@ SETUP_ENVTEST := $(LOCALBIN)/setup-envtest
 STATICCHECK := $(LOCALBIN)/staticcheck
 CONTROLLER_GEN := $(LOCALBIN)/controller-gen
 
-.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
+.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build build-agentctl install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
 
 .DEFAULT_GOAL := help
 
@@ -140,6 +140,24 @@ lint: vet fmt-check $(STATICCHECK)
 build:
 	@echo "Building Go binaries..."
 	@$(GO) build ./...
+
+build-agentctl:
+	@echo "Building agentctl binary..."
+	@mkdir -p bin
+	@$(GO) build -o bin/agentctl ./cmd/agentctl/...
+
+install-agentctl: build-agentctl
+	@if [[ ! -f bin/agentctl ]]; then \
+		echo "agentctl binary not found at bin/agentctl"; \
+		exit 1; \
+	fi
+	@if [[ -w /usr/local/bin ]]; then \
+		install -m 0755 bin/agentctl /usr/local/bin/agentctl; \
+	else \
+		echo "install-agentctl requires elevated permissions for /usr/local/bin; invoking sudo"; \
+		sudo install -m 0755 bin/agentctl /usr/local/bin/agentctl; \
+	fi
+	@echo "Installed /usr/local/bin/agentctl"
 
 helm-lint:
 	@echo "Linting Helm chart..."
