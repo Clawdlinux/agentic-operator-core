@@ -16,6 +16,8 @@ limitations under the License.
 
 package main
 
+// OSS-PRIVATE-ALLOW: Mentions of SLA in comments are transitional and non-enforcing in OSS.
+
 import (
 	"crypto/tls"
 	"flag"
@@ -186,14 +188,13 @@ func main() {
 	quotaMgr := multitenancy.NewQuotaManager(tenants)
 	slaMonitor := multitenancy.NewSLAMonitor(tenants)
 
-	if err := (&controller.AgentWorkloadReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
-		Evaluator:  evaluation.NewEvaluator(), // Phase 4: Agent Evaluation Pipeline
-		QuotaMgr:   quotaMgr,                  // Phase 7: Quota enforcement
-		SLAMonitor: slaMonitor,                // Phase 7: SLA tracking
-		TenantRes:  tenantResolver,            // Phase 7: Tenant isolation
-	}).SetupWithManager(mgr); err != nil {
+	workloadReconciler := controller.NewAgentWorkloadReconciler(mgr.GetClient(), mgr.GetScheme())
+	workloadReconciler.Evaluator = evaluation.NewEvaluator() // Phase 4: Agent Evaluation Pipeline
+	workloadReconciler.QuotaMgr = quotaMgr                   // Phase 7: Quota enforcement
+	workloadReconciler.SLAMonitor = slaMonitor               // Phase 7: SLA tracking
+	workloadReconciler.TenantRes = tenantResolver            // Phase 7: Tenant isolation
+
+	if err := workloadReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "AgentWorkload")
 		os.Exit(1)
 	}

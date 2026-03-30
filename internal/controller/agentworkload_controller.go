@@ -16,11 +16,12 @@ limitations under the License.
 
 package controller
 
+// OSS-PRIVATE-ALLOW: Tenant quota and SLA wording is transitional and remains OSS-safe.
+
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -35,7 +36,7 @@ import (
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
 	"github.com/shreyansh/agentic-operator/pkg/argo"
 	"github.com/shreyansh/agentic-operator/pkg/evaluation"
-	"github.com/shreyansh/agentic-operator/pkg/license"
+	"github.com/shreyansh/agentic-operator/pkg/finops"
 	"github.com/shreyansh/agentic-operator/pkg/llm"
 	"github.com/shreyansh/agentic-operator/pkg/mcp"
 	"github.com/shreyansh/agentic-operator/pkg/metrics"
@@ -51,13 +52,53 @@ const maxActionsInStatus = 100
 // AgentWorkloadReconciler reconciles a AgentWorkload object
 type AgentWorkloadReconciler struct {
 	client.Client
-	Scheme     *runtime.Scheme
-	Validator  *license.Validator         // License validation (optional, can be nil)
-	Evaluator  *evaluation.Evaluator      // Phase 4: Agent Evaluation Pipeline
-	QuotaMgr   *multitenancy.QuotaManager // Phase 7: Per-tenant quotas
-	SLAMonitor *multitenancy.SLAMonitor   // Phase 7: SLA tracking
-	TenantRes  *multitenancy.Resolver     // Phase 7: Tenant isolation
-	Metrics    *metrics.RoutingMetrics    // Singleton metrics recorder (initialized once)
+	Scheme           *runtime.Scheme
+	CostReporter     finops.CostReporter        // FinOps integration (defaults to no-op)
+	LicenceValidator finops.LicenceValidator    // License validation (defaults to no-op)
+	Evaluator        *evaluation.Evaluator      // Phase 4: Agent Evaluation Pipeline
+	QuotaMgr         *multitenancy.QuotaManager // Phase 7: Per-tenant quotas
+	SLAMonitor       *multitenancy.SLAMonitor   // Phase 7: SLA tracking
+	TenantRes        *multitenancy.Resolver     // Phase 7: Tenant isolation
+	Metrics          *metrics.RoutingMetrics    // Singleton metrics recorder (initialized once)
+}
+
+type AgentWorkloadReconcilerOption func(*AgentWorkloadReconciler)
+
+func WithCostReporter(reporter finops.CostReporter) AgentWorkloadReconcilerOption {
+	return func(r *AgentWorkloadReconciler) {
+		r.CostReporter = reporter
+	}
+}
+
+func WithLicenceValidator(validator finops.LicenceValidator) AgentWorkloadReconcilerOption {
+	return func(r *AgentWorkloadReconciler) {
+		r.LicenceValidator = validator
+	}
+}
+
+func NewAgentWorkloadReconciler(client client.Client, scheme *runtime.Scheme, opts ...AgentWorkloadReconcilerOption) *AgentWorkloadReconciler {
+	reconciler := &AgentWorkloadReconciler{
+		Client:           client,
+		Scheme:           scheme,
+		CostReporter:     finops.NewNoOpCostReporter(),
+		LicenceValidator: finops.NewNoOpLicenceValidator(),
+	}
+
+	for _, opt := range opts {
+		opt(reconciler)
+	}
+
+	return reconciler
+}
+
+func (r *AgentWorkloadReconciler) ensureFinopsDefaults() {
+	if r.CostReporter == nil {
+		r.CostReporter = finops.NewNoOpCostReporter()
+	}
+
+	if r.LicenceValidator == nil {
+		r.LicenceValidator = finops.NewNoOpLicenceValidator()
+	}
 }
 
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads,verbs=get;list;watch;create;update;patch;delete
@@ -75,6 +116,7 @@ type AgentWorkloadReconciler struct {
 // 7. Requeue after 30 seconds
 func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
+	r.ensureFinopsDefaults()
 
 	// Step 1: Fetch the AgentWorkload
 	var workload agenticv1alpha1.AgentWorkload
@@ -91,42 +133,21 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// ========== LICENSE ENFORCEMENT ==========
-	// Check license validity BEFORE creating any workload
-	if r.Validator != nil {
-		licenseToken := os.Getenv("LICENSE_JWT")
-		if licenseToken == "" {
-			// Try to load from Secret if env var not set
-			licenseSecret := &corev1.Secret{}
-			err := r.Get(ctx, types.NamespacedName{Name: "agentic-license", Namespace: "agentic-system"}, licenseSecret)
-			if err == nil {
-				if token, exists := licenseSecret.Data["license.jwt"]; exists {
-					licenseToken = string(token)
-				}
+	// Check license validity BEFORE creating any workload.
+	var workloads agenticv1alpha1.AgentWorkloadList
+	if err := r.List(ctx, &workloads); err == nil {
+		currentCount := len(workloads.Items)
+		if err := r.LicenceValidator.Validate(ctx, currentCount); err != nil {
+			log.Error(err, "license check failed")
+			workload.Status.Phase = "Failed"
+			if statusErr := r.Status().Update(ctx, &workload); statusErr != nil {
+				log.Error(statusErr, "failed to update workload status")
 			}
+			// Don't requeue - license failure is terminal
+			return ctrl.Result{}, nil
 		}
-
-		if licenseToken != "" {
-			// Count current workloads in cluster
-			var workloads agenticv1alpha1.AgentWorkloadList
-			if err := r.List(ctx, &workloads); err == nil {
-				currentCount := len(workloads.Items)
-
-				// Enforce license limits
-				if err := r.Validator.EnforceInReconciler(licenseToken, currentCount); err != nil {
-					log.Error(err, "license check failed")
-					workload.Status.Phase = "Failed"
-					if err := r.Status().Update(ctx, &workload); err != nil {
-						log.Error(err, "failed to update workload status")
-					}
-					// Don't requeue - license failure is terminal
-					return ctrl.Result{}, nil
-				}
-			} else {
-				log.Error(err, "failed to list workloads for license enforcement")
-			}
-		} else {
-			log.Info("No license found (running in dev mode)")
-		}
+	} else {
+		log.Error(err, "failed to list workloads for license enforcement")
 	}
 
 	// ========== QUOTA ENFORCEMENT (Phase 7) ==========
@@ -612,6 +633,7 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 	workload *agenticv1alpha1.AgentWorkload,
 ) (*llm.ModelResponse, *llm.RoutingInfo, error) {
 	log := logf.FromContext(ctx)
+	r.ensureFinopsDefaults()
 
 	// Check if cost-aware routing is enabled
 	modelStrategy := "fixed" // Default
@@ -653,6 +675,11 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 	registry := llm.NewProviderRegistry()
 	router := llm.NewModelRouter(registry, classifier)
 
+	if err := r.CostReporter.CheckBudget(ctx, workload.Name, workload.Namespace); err != nil {
+		log.Error(err, "budget check failed")
+		return nil, nil, err
+	}
+
 	// Route and call the model
 	response, routingInfo, err := router.RouteAndCall(
 		ctx,
@@ -665,6 +692,21 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 	if err != nil {
 		log.Error(err, "model routing failed", "objective", instructions)
 		return nil, routingInfo, err
+	}
+
+	if recordErr := r.CostReporter.RecordUsage(
+		ctx,
+		workload.Name,
+		workload.Namespace,
+		routingInfo.ProviderName+"/"+routingInfo.ModelName,
+		int64(routingInfo.InputTokens),
+		int64(routingInfo.OutputTokens),
+	); recordErr != nil {
+		log.Error(recordErr, "failed to record usage")
+	}
+
+	if annotateErr := r.updateWorkloadCostAnnotation(ctx, workload); annotateErr != nil {
+		log.Error(annotateErr, "failed to update workload cost annotation")
 	}
 
 	log.Info("model routing successful",
@@ -708,6 +750,8 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *AgentWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.ensureFinopsDefaults()
+
 	// Initialize metrics singleton once during setup (prevents duplicate registration)
 	if r.Metrics == nil {
 		r.Metrics = metrics.NewRoutingMetrics()
@@ -717,6 +761,32 @@ func (r *AgentWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&agenticv1alpha1.AgentWorkload{}).
 		Named("agentworkload").
 		Complete(r)
+}
+
+func (r *AgentWorkloadReconciler) updateWorkloadCostAnnotation(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {
+	costToday, err := r.CostReporter.WorkloadCostToday(ctx, workload.Name, workload.Namespace)
+	if err != nil {
+		return err
+	}
+
+	current := &agenticv1alpha1.AgentWorkload{}
+	if err := r.Get(ctx, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, current); err != nil {
+		return err
+	}
+
+	if current.Annotations == nil {
+		current.Annotations = map[string]string{}
+	}
+
+	costString := fmt.Sprintf("%.6f", costToday)
+	if current.Annotations["agentworkload.clawdlinux.io/cost-usd-today"] == costString {
+		return nil
+	}
+
+	before := current.DeepCopy()
+	current.Annotations["agentworkload.clawdlinux.io/cost-usd-today"] = costString
+
+	return r.Patch(ctx, current, client.MergeFrom(before))
 }
 
 func (r *AgentWorkloadReconciler) reconcilePersonaNamespaceLabels(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {
