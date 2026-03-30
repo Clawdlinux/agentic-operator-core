@@ -16,6 +16,8 @@ limitations under the License.
 
 package controller
 
+// OSS-PRIVATE-ALLOW: Tenant quota and SLA wording is transitional and remains OSS-safe.
+
 import (
 	"context"
 	"encoding/json"
