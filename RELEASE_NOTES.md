@@ -1,4 +1,4 @@
-# Agentic Operator v0.1.0 Release Notes
+# Agentic Operator v0.1.1 Release Notes
 
 **Release Date:** March 31, 2026
 
@@ -10,7 +10,7 @@ The Agentic Operator is the **first Kubernetes-native agent orchestration framew
 
 ---
 
-## ✨ What's New in v0.1.0
+## ✨ What's New in v0.1.1
 
 ### Kubernetes-Native Agent Management
 - **AgentPersona CRD** — Define agent identity, memory scope, system prompts, and tool profiles as Kubernetes resources
