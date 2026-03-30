@@ -5,7 +5,7 @@ package finops
 import (
 	"context"
 
-	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // NoOpCostReporter provides OSS defaults with no external billing enforcement.
@@ -16,8 +16,7 @@ func NewNoOpCostReporter() *NoOpCostReporter {
 }
 
 func (n *NoOpCostReporter) RecordUsage(ctx context.Context, workloadName, namespace, model string, promptTokens, completionTokens int64) error {
-	_ = ctx
-	ctrl.Log.V(1).Info(
+	logf.FromContext(ctx).V(1).Info(
 		"finops: no-op reporter, cost not enforced",
 		"workload", workloadName,
 		"namespace", namespace,
@@ -29,8 +28,7 @@ func (n *NoOpCostReporter) RecordUsage(ctx context.Context, workloadName, namesp
 }
 
 func (n *NoOpCostReporter) CheckBudget(ctx context.Context, workloadName, namespace string) error {
-	_ = ctx
-	ctrl.Log.V(1).Info(
+	logf.FromContext(ctx).V(1).Info(
 		"finops: no-op reporter, cost not enforced",
 		"workload", workloadName,
 		"namespace", namespace,
@@ -39,8 +37,7 @@ func (n *NoOpCostReporter) CheckBudget(ctx context.Context, workloadName, namesp
 }
 
 func (n *NoOpCostReporter) WorkloadCostToday(ctx context.Context, workloadName, namespace string) (float64, error) {
-	_ = ctx
-	ctrl.Log.V(1).Info(
+	logf.FromContext(ctx).V(1).Info(
 		"finops: no-op reporter, cost not enforced",
 		"workload", workloadName,
 		"namespace", namespace,
@@ -56,10 +53,13 @@ func NewNoOpLicenceValidator() *NoOpLicenceValidator {
 }
 
 func (n *NoOpLicenceValidator) Validate(ctx context.Context, concurrentWorkloads int) error {
-	_ = ctx
-	ctrl.Log.V(1).Info(
+	logf.FromContext(ctx).V(1).Info(
 		"licensing: no-op validator, all workloads permitted",
 		"concurrentWorkloads", concurrentWorkloads,
 	)
 	return nil
+}
+
+func (n *NoOpLicenceValidator) RequiresWorkloadCount() bool {
+	return false
 }

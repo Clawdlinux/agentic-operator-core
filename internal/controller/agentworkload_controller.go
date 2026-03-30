@@ -134,20 +134,29 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// ========== LICENSE ENFORCEMENT ==========
 	// Check license validity BEFORE creating any workload.
-	var workloads agenticv1alpha1.AgentWorkloadList
-	if err := r.List(ctx, &workloads); err == nil {
-		currentCount := len(workloads.Items)
-		if err := r.LicenceValidator.Validate(ctx, currentCount); err != nil {
-			log.Error(err, "license check failed")
-			workload.Status.Phase = "Failed"
-			if statusErr := r.Status().Update(ctx, &workload); statusErr != nil {
-				log.Error(statusErr, "failed to update workload status")
-			}
-			// Don't requeue - license failure is terminal
-			return ctrl.Result{}, nil
+	currentCount := 0
+	requiresCount := true
+	if hint, ok := r.LicenceValidator.(finops.WorkloadCountHint); ok {
+		requiresCount = hint.RequiresWorkloadCount()
+	}
+
+	if requiresCount {
+		var workloads agenticv1alpha1.AgentWorkloadList
+		if err := r.List(ctx, &workloads); err != nil {
+			log.Error(err, "failed to list workloads for license enforcement")
+			return ctrl.Result{}, err
 		}
-	} else {
-		log.Error(err, "failed to list workloads for license enforcement")
+		currentCount = len(workloads.Items)
+	}
+
+	if err := r.LicenceValidator.Validate(ctx, currentCount); err != nil {
+		log.Error(err, "license check failed")
+		workload.Status.Phase = "Failed"
+		if statusErr := r.Status().Update(ctx, &workload); statusErr != nil {
+			log.Error(statusErr, "failed to update workload status")
+		}
+		// Don't requeue - license failure is terminal
+		return ctrl.Result{}, nil
 	}
 
 	// ========== QUOTA ENFORCEMENT (Phase 7) ==========
@@ -694,16 +703,21 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 		return nil, routingInfo, err
 	}
 
-	if recordErr := r.CostReporter.RecordUsage(
-		ctx,
-		workload.Name,
-		workload.Namespace,
-		routingInfo.ProviderName+"/"+routingInfo.ModelName,
-		int64(routingInfo.InputTokens),
-		int64(routingInfo.OutputTokens),
-	); recordErr != nil {
-		log.Error(recordErr, "failed to record usage")
-	}
+	go func() {
+		recordCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		if recordErr := r.CostReporter.RecordUsage(
+			recordCtx,
+			workload.Name,
+			workload.Namespace,
+			routingInfo.ProviderName+"/"+routingInfo.ModelName,
+			int64(routingInfo.InputTokens),
+			int64(routingInfo.OutputTokens),
+		); recordErr != nil {
+			log.Error(recordErr, "failed to record usage")
+		}
+	}()
 
 	if annotateErr := r.updateWorkloadCostAnnotation(ctx, workload); annotateErr != nil {
 		log.Error(annotateErr, "failed to update workload cost annotation")
@@ -769,24 +783,19 @@ func (r *AgentWorkloadReconciler) updateWorkloadCostAnnotation(ctx context.Conte
 		return err
 	}
 
-	current := &agenticv1alpha1.AgentWorkload{}
-	if err := r.Get(ctx, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, current); err != nil {
-		return err
-	}
-
-	if current.Annotations == nil {
-		current.Annotations = map[string]string{}
+	if workload.Annotations == nil {
+		workload.Annotations = map[string]string{}
 	}
 
 	costString := fmt.Sprintf("%.6f", costToday)
-	if current.Annotations["agentworkload.clawdlinux.io/cost-usd-today"] == costString {
+	if workload.Annotations["agentworkload.clawdlinux.io/cost-usd-today"] == costString {
 		return nil
 	}
 
-	before := current.DeepCopy()
-	current.Annotations["agentworkload.clawdlinux.io/cost-usd-today"] = costString
+	before := workload.DeepCopy()
+	workload.Annotations["agentworkload.clawdlinux.io/cost-usd-today"] = costString
 
-	return r.Patch(ctx, current, client.MergeFrom(before))
+	return r.Patch(ctx, workload, client.MergeFrom(before))
 }
 
 func (r *AgentWorkloadReconciler) reconcilePersonaNamespaceLabels(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {
