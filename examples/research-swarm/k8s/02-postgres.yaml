@@ -1,0 +1,177 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: agentic-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: agentic-demo
+  labels:
+    app: postgres
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  clusterIP: None  # Headless service for StatefulSet
+  selector:
+    app: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: agentic-demo
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: password
+        - name: POSTGRES_DB
+          value: spans
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+          subPath: postgres
+        - name: init-sql
+          mountPath: /docker-entrypoint-initdb.d
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: postgres-data
+      - name: init-sql
+        configMap:
+          name: postgres-init-sql
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secrets
+  namespace: agentic-demo
+type: Opaque
+stringData:
+  username: spans
+  password: spans_prod
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-sql
+  namespace: agentic-demo
+data:
+  01-init.sql: |
+    CREATE SCHEMA IF NOT EXISTS spans;
+    SET search_path TO spans;
+
+    CREATE TABLE IF NOT EXISTS spans_trace (
+      id BIGSERIAL PRIMARY KEY,
+      trace_id UUID NOT NULL,
+      span_id UUID NOT NULL,
+      parent_span_id UUID,
+      agent_role VARCHAR(50) NOT NULL,
+      operation VARCHAR(100) NOT NULL,
+      status VARCHAR(20) DEFAULT 'started',
+      start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      end_time TIMESTAMP,
+      duration_ms INT,
+      tokens_used INT,
+      cost_usd NUMERIC(10, 6),
+      model_used VARCHAR(100),
+      metadata JSONB,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT valid_status CHECK (status IN ('started', 'completed', 'failed', 'paused'))
+    );
+
+    CREATE TABLE IF NOT EXISTS artifacts (
+      id BIGSERIAL PRIMARY KEY,
+      trace_id UUID NOT NULL,
+      span_id UUID NOT NULL,
+      artifact_type VARCHAR(50) NOT NULL,
+      minio_path VARCHAR(500) NOT NULL,
+      content_hash VARCHAR(64),
+      size_bytes INT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (trace_id) REFERENCES spans_trace(trace_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS litellm_spend (
+      id BIGSERIAL PRIMARY KEY,
+      virtual_key VARCHAR(100) NOT NULL UNIQUE,
+      date DATE NOT NULL,
+      total_cost_usd NUMERIC(12, 6),
+      request_count INT,
+      token_count INT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX idx_spans_trace_trace_id ON spans_trace(trace_id);
+    CREATE INDEX idx_spans_trace_agent_role ON spans_trace(agent_role);
+    CREATE INDEX idx_spans_trace_status ON spans_trace(status);
+    CREATE INDEX idx_spans_trace_created_at ON spans_trace(created_at);
+    CREATE INDEX idx_artifacts_trace_id ON artifacts(trace_id);
+    CREATE INDEX idx_litellm_spend_virtual_key ON litellm_spend(virtual_key, date);

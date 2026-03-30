@@ -1,0 +1,39 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy agent base requirements (from ../)
+COPY agents/requirements.txt requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir \
+    fastapi==0.104.1 \
+    uvicorn==0.24.0 \
+    azure-storage-blob==12.19.0 \
+    azure-identity==1.14.0 \
+    azure-keyvault-secrets==4.7.0
+
+# Copy agent base modules
+COPY agents/ /app/agents/
+
+# Copy this agent's implementation
+ARG AGENT_TYPE=researcher
+COPY examples/research-swarm/agents/${AGENT_TYPE}/ /app/agent/
+
+# Set environment for the agent
+ENV AGENT_TYPE=${AGENT_TYPE}
+ENV PYTHONUNBUFFERED=1
+
+# Health check
+HEALTHCHECK --interval=5s --timeout=3s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Run the agent
+CMD ["python", "-m", "uvicorn", "agent.main:app", "--host", "0.0.0.0", "--port", "8080"]
