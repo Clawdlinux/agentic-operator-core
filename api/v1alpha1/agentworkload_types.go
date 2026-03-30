@@ -128,6 +128,44 @@ type AgentWorkloadSpec struct {
 	// Only used when collaborationMode is "team" or "delegation".
 	// +optional
 	AgentRefs []AgentRef `json:"agentRefs,omitempty"`
+
+	// persona defines optional runtime identity, style, memory scope, and tool access policy.
+	// +optional
+	Persona *AgentPersona `json:"persona,omitempty"`
+}
+
+// AgentPersona defines agent identity and behavior controls for runtime execution.
+type AgentPersona struct {
+	// Role describes the agent's function in the swarm (e.g. "researcher",
+	// "writer", "reviewer", "orchestrator"). Used for routing and logging.
+	// +optional
+	Role string `json:"role,omitempty"`
+
+	// Tone sets the communication style injected into the system prompt.
+	// Valid values: formal, casual, technical, empathetic, adversarial
+	// +kubebuilder:validation:Enum=formal;casual;technical;empathetic;adversarial
+	// +optional
+	Tone string `json:"tone,omitempty"`
+
+	// MemoryScope defines how memory is shared across agents in the workload.
+	// isolated: agent has no shared memory
+	// shared: all agents in the workload share a memory pool
+	// hierarchical: agent inherits from parent but has private scratch space
+	// +kubebuilder:validation:Enum=isolated;shared;hierarchical
+	// +kubebuilder:default=isolated
+	// +optional
+	MemoryScope string `json:"memoryScope,omitempty"`
+
+	// SystemPromptAppend is injected at the END of the base system prompt.
+	// Use this to encode persona-specific instructions without overriding
+	// the operator's base safety and governance prompt.
+	// +optional
+	SystemPromptAppend string `json:"systemPromptAppend,omitempty"`
+
+	// ToolProfile is an explicit allow-list of tool names this agent may call.
+	// If empty, the workload-level tool policy applies.
+	// +optional
+	ToolProfile []string `json:"toolProfile,omitempty"`
 }
 
 // AgentRef references an AgentCard and assigns it a role in the workload

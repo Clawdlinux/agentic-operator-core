@@ -19,9 +19,9 @@ import time
 from typing import Optional
 
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.postgres import PostgresSaver
 
 from agents.graph.state import AgentWorkflowState
+from agents.runtime.persona import append_system_prompt, ensure_tool_allowed
 from agents.tools.browserless import BrowserlessClient, BrowserlessError
 from agents.tools.litellm_client import LiteLLMClient
 
@@ -87,7 +87,7 @@ async def scrape_all_urls(state: AgentWorkflowState) -> AgentWorkflowState:
         
         # Scrape all URLs in parallel
         scrape_tasks = [
-            browserless.scrape_url(url)
+            _guarded_scrape(browserless, url)
             for url in state["target_urls"]
         ]
         
@@ -145,14 +145,15 @@ async def screenshot_agent(state: AgentWorkflowState) -> AgentWorkflowState:
         
         for url, screenshot_bytes in state["screenshots"].items():
             try:
+                ensure_tool_allowed("litellm.analyze_screenshot")
                 insight = await litellm.analyze_screenshot(
                     screenshot_bytes,
-                    prompt="""Analyze this website screenshot and provide:
+                    prompt=append_system_prompt("""Analyze this website screenshot and provide:
 1. Primary call-to-action (CTA)
 2. Pricing visibility (is pricing prominent?)
 3. Visual design quality (modern/dated)
 4. Key competitive advantages visible
-Keep response to 150 words.""",
+Keep response to 150 words."""),
                     url=url
                 )
                 
@@ -195,6 +196,7 @@ async def dom_agent(state: AgentWorkflowState) -> AgentWorkflowState:
         
         for url, html_content in state["raw_html"].items():
             try:
+                ensure_tool_allowed("browserless.extract_dom_structure")
                 structure = browserless.extract_dom_structure(html_content)
                 dom_structures[url] = structure
                 logger.info(f"Parsed DOM for {url}: {structure}")
@@ -234,13 +236,14 @@ DOM Analysis:
 """
         
         # Generate report
+        ensure_tool_allowed("litellm.synthesize_report")
         report = await litellm.synthesize_report(
             context=context,
-            prompt="""Based on the competitive analysis, provide:
+            prompt=append_system_prompt("""Based on the competitive analysis, provide:
 1. Key competitive positioning
 2. Strengths vs. weaknesses
 3. Recommended actions
-4. Market differentiation opportunities"""
+    4. Market differentiation opportunities""")
         )
         
         state["report_content"] = report
@@ -305,6 +308,7 @@ def build_workflow(
         # Use PostgreSQL for production
         if not db_url:
             db_url = os.getenv("POSTGRES_URL", "postgresql://localhost/langgraph")
+        from langgraph.checkpoint.postgres import PostgresSaver
         checkpointer = PostgresSaver(db_url)
         logger.info(f"Using PostgresSaver: {db_url}")
     
@@ -316,3 +320,8 @@ def build_workflow(
 
 
 import json
+
+
+async def _guarded_scrape(browserless: BrowserlessClient, url: str):
+    ensure_tool_allowed("browserless.scrape_url")
+    return await browserless.scrape_url(url)

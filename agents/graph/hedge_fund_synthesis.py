@@ -17,6 +17,8 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib import colors
 
+from agents.runtime.persona import memory_scope_label
+
 logger = logging.getLogger(__name__)
 
 SCRAPER_PROMPT = """You are a competitive intelligence analyst. Extract the following from this webpage content:
@@ -201,7 +203,8 @@ class HedgeFundReportGenerator:
                     object_name=report_name,
                     data=BytesIO(pdf_bytes),
                     length=len(pdf_bytes),
-                    content_type="application/pdf"
+                    content_type="application/pdf",
+                    metadata={"memory-scope": memory_scope_label()},
                 )
                 logger.info(f"Report uploaded to MinIO: {bucket_name}/{report_name}")
             except Exception as e:

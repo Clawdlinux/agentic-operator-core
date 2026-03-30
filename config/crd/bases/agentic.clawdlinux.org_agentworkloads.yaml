@@ -39,6 +39,27 @@ spec:
           spec:
             description: spec defines the desired state of AgentWorkload
             properties:
+              agentRefs:
+                description: |-
+                  agentRefs references AgentCard CRs that participate in this workload.
+                  Only used when collaborationMode is "team" or "delegation".
+                items:
+                  description: AgentRef references an AgentCard and assigns it a role
+                    in the workload
+                  properties:
+                    name:
+                      description: name is the name of the AgentCard CR in the same
+                        namespace
+                      minLength: 1
+                      type: string
+                    role:
+                      description: role describes this agent's function in the workload
+                        (e.g. "lead", "analyst", "collector")
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               agents:
                 description: agents is a list of agent names to run for this workload
                 items:
@@ -49,6 +70,18 @@ spec:
                 description: autoApproveThreshold is the confidence level (0-1) above
                   which actions are auto-approved (as string, e.g. "0.95")
                 pattern: ^0(\.[0-9]{1,2})?$|^1(\.0{1,2})?$
+                type: string
+              collaborationMode:
+                default: solo
+                description: |-
+                  collaborationMode controls how agents interact within this workload.
+                  "solo" = single agent, no A2A communication (default, backward-compatible)
+                  "team" = agents collaborate via A2A, sharing a conversation context
+                  "delegation" = a lead agent delegates sub-tasks to specialist agents
+                enum:
+                - solo
+                - team
+                - delegation
                 type: string
               jobId:
                 description: jobId uniquely identifies this agent workload job
@@ -107,6 +140,52 @@ spec:
                         description: namespace is the namespace of the WorkflowTemplate
                         type: string
                     type: object
+                type: object
+              persona:
+                description: persona defines optional runtime identity, style, memory
+                  scope, and tool access policy.
+                properties:
+                  memoryScope:
+                    default: isolated
+                    description: |-
+                      MemoryScope defines how memory is shared across agents in the workload.
+                      isolated: agent has no shared memory
+                      shared: all agents in the workload share a memory pool
+                      hierarchical: agent inherits from parent but has private scratch space
+                    enum:
+                    - isolated
+                    - shared
+                    - hierarchical
+                    type: string
+                  role:
+                    description: |-
+                      Role describes the agent's function in the swarm (e.g. "researcher",
+                      "writer", "reviewer", "orchestrator"). Used for routing and logging.
+                    type: string
+                  systemPromptAppend:
+                    description: |-
+                      SystemPromptAppend is injected at the END of the base system prompt.
+                      Use this to encode persona-specific instructions without overriding
+                      the operator's base safety and governance prompt.
+                    type: string
+                  tone:
+                    description: |-
+                      Tone sets the communication style injected into the system prompt.
+                      Valid values: formal, casual, technical, empathetic, adversarial
+                    enum:
+                    - formal
+                    - casual
+                    - technical
+                    - empathetic
+                    - adversarial
+                    type: string
+                  toolProfile:
+                    description: |-
+                      ToolProfile is an explicit allow-list of tool names this agent may call.
+                      If empty, the workload-level tool policy applies.
+                    items:
+                      type: string
+                    type: array
                 type: object
               providers:
                 description: |-
@@ -248,6 +327,42 @@ spec:
           status:
             description: status defines the observed state of AgentWorkload
             properties:
+              agentStatuses:
+                description: agentStatuses reports per-agent status when collaborationMode
+                  is "team" or "delegation"
+                items:
+                  description: AgentInstanceStatus reports the status of a single
+                    agent in a collaborative workload
+                  properties:
+                    lastActivity:
+                      description: lastActivity is when this agent last processed
+                        a task
+                      format: date-time
+                      type: string
+                    message:
+                      description: message provides a human-readable status detail
+                      type: string
+                    name:
+                      description: name matches the AgentCard name from spec.agentRefs[]
+                      type: string
+                    phase:
+                      description: phase is this agent's individual lifecycle state
+                      enum:
+                      - Pending
+                      - Running
+                      - Completed
+                      - Failed
+                      type: string
+                    tasksCompleted:
+                      description: tasksCompleted is the number of A2A tasks this
+                        agent has completed
+                      format: int32
+                      type: integer
+                  required:
+                  - name
+                  - phase
+                  type: object
+                type: array
               argoPhase:
                 description: |-
                   argoPhase tracks the current Argo Workflow phase

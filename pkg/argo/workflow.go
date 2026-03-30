@@ -161,12 +161,16 @@ func (wm *WorkflowManager) CreateArgoWorkflow(
 	workflow.SetKind(WorkflowKind)
 	workflow.SetName(agentWorkload.Name)
 	workflow.SetNamespace(DefaultWorkflowNamespace)
-	workflow.SetLabels(map[string]string{
+	workflowLabels := map[string]string{
 		"app.kubernetes.io/name":    "agentic-k8s-operator",
 		"app.kubernetes.io/part-of": "agentic-k8s-operator",
 		"agentic.io/job-id":         params.JobID,
 		"agentic.io/source":         "agentworkload-controller",
-	})
+	}
+	if agentWorkload.Spec.Persona != nil && agentWorkload.Spec.Persona.Role != "" {
+		workflowLabels["agentworkload.clawdlinux.io/role"] = agentWorkload.Spec.Persona.Role
+	}
+	workflow.SetLabels(workflowLabels)
 
 	// Set ownerReference to AgentWorkload for cascade deletion
 	// When AgentWorkload is deleted, Kubernetes automatically deletes the Workflow
@@ -203,11 +207,26 @@ func (wm *WorkflowManager) CreateArgoWorkflow(
 		map[string]interface{}{"name": "browserless_url", "value": params.BrowserlessURL},
 		map[string]interface{}{"name": "litellm_url", "value": params.LiteLLMURL},
 		map[string]interface{}{"name": "postgres_dsn", "value": params.PostgresDSN},
+		map[string]interface{}{"name": "PERSONA_ROLE", "value": personaRole(agentWorkload)},
+		map[string]interface{}{"name": "PERSONA_TONE", "value": personaTone(agentWorkload)},
+		map[string]interface{}{"name": "PERSONA_MEMORY_SCOPE", "value": personaMemoryScope(agentWorkload)},
+		map[string]interface{}{"name": "PERSONA_SYSTEM_PROMPT_APPEND", "value": personaSystemPromptAppend(agentWorkload)},
+		map[string]interface{}{"name": "PERSONA_TOOL_PROFILE", "value": personaToolProfileJSON(agentWorkload)},
 	}
 
 	if err := unstructured.SetNestedField(workflow.Object, parametersData, "spec", "arguments", "parameters"); err != nil {
 		log.Error(err, "failed to set arguments.parameters")
 		return nil, err
+	}
+
+	if agentWorkload.Spec.Persona != nil && agentWorkload.Spec.Persona.Role != "" {
+		podLabels := map[string]interface{}{
+			"agentworkload.clawdlinux.io/role": agentWorkload.Spec.Persona.Role,
+		}
+		if err := unstructured.SetNestedField(workflow.Object, podLabels, "spec", "podMetadata", "labels"); err != nil {
+			log.Error(err, "failed to set podMetadata.labels")
+			return nil, err
+		}
 	}
 
 	log.Info("Creating Argo Workflow", "name", workflow.GetName(), "namespace", workflow.GetNamespace(), "jobId", params.JobID)
@@ -426,6 +445,45 @@ func toJSON(value interface{}) (string, error) {
 // ptr returns a pointer to a boolean value
 func ptr(b bool) *bool {
 	return &b
+}
+
+func personaRole(workload *agenticv1alpha1.AgentWorkload) string {
+	if workload.Spec.Persona == nil {
+		return ""
+	}
+	return workload.Spec.Persona.Role
+}
+
+func personaTone(workload *agenticv1alpha1.AgentWorkload) string {
+	if workload.Spec.Persona == nil {
+		return ""
+	}
+	return workload.Spec.Persona.Tone
+}
+
+func personaMemoryScope(workload *agenticv1alpha1.AgentWorkload) string {
+	if workload.Spec.Persona == nil || workload.Spec.Persona.MemoryScope == "" {
+		return "isolated"
+	}
+	return workload.Spec.Persona.MemoryScope
+}
+
+func personaSystemPromptAppend(workload *agenticv1alpha1.AgentWorkload) string {
+	if workload.Spec.Persona == nil {
+		return ""
+	}
+	return workload.Spec.Persona.SystemPromptAppend
+}
+
+func personaToolProfileJSON(workload *agenticv1alpha1.AgentWorkload) string {
+	if workload.Spec.Persona == nil || len(workload.Spec.Persona.ToolProfile) == 0 {
+		return "[]"
+	}
+	b, err := json.Marshal(workload.Spec.Persona.ToolProfile)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
 }
 
 // ValidateWorkflowTemplate checks if the WorkflowTemplate exists in the cluster

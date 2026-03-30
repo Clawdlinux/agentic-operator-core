@@ -56,7 +56,7 @@ var _ = Describe("AgentWorkloadReconciler", func() {
 	})
 
 	It("marks workload as Failed when MCP status retrieval fails", func() {
-		endpoint := "http://127.0.0.1:0"
+		endpoint := "https://127.0.0.1:0"
 		objective := "optimize cluster utilization"
 
 		resource := &agenticv1alpha1.AgentWorkload{

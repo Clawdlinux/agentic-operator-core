@@ -13,16 +13,21 @@ spec:
     plural: agentcards
     shortNames:
     - ac
+    - agentcards
     singular: agentcard
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      type: string
     - jsonPath: .status.phase
       name: Phase
       type: string
-    - jsonPath: .spec.endpoint.host
-      name: Endpoint
-      type: string
+    - jsonPath: .spec.skills
+      name: Skills
+      priority: 1
+      type: integer
     - jsonPath: .status.activeTaskCount
       name: Active Tasks
       type: integer
@@ -32,29 +37,43 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: AgentCard is the Schema for the agentcards API — agent discovery
-          and capability advertisement for A2A communication
+        description: AgentCard advertises an agent's identity, skills, and endpoint
+          for A2A discovery.
         properties:
           apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
           spec:
-            description: AgentCardSpec defines the desired state of AgentCard
+            description: spec defines the agent's advertised capabilities
             properties:
               auth:
-                description: Authentication configuration for communicating with this
-                  agent
+                description: auth configures authentication for incoming A2A requests
                 properties:
                   tokenSecret:
-                    description: Secret reference for bearer token authentication
+                    description: |-
+                      tokenSecret references a Secret containing a bearer token
+                      Only used when type is "bearer"
                     properties:
                       key:
                         default: api-key
+                        description: 'key is the key within the Secret (default: "api-key")'
                         type: string
                       name:
+                        description: name is the name of the Secret in the same namespace
                         minLength: 1
                         type: string
                     required:
@@ -62,7 +81,7 @@ spec:
                     type: object
                   type:
                     default: serviceAccount
-                    description: Authentication type
+                    description: type specifies the authentication mechanism
                     enum:
                     - serviceAccount
                     - bearer
@@ -70,26 +89,30 @@ spec:
                     type: string
                 type: object
               description:
-                description: Human-readable description of the agent
+                description: description explains what this agent does
+                maxLength: 1000
                 type: string
               displayName:
-                description: Human-readable display name
+                description: displayName is a human-readable name for this agent
+                maxLength: 253
                 minLength: 1
                 type: string
               endpoint:
-                description: Network endpoint where the agent is reachable
+                description: endpoint defines how to reach this agent
                 properties:
                   basePath:
                     default: /a2a
-                    description: Base path prefix for A2A routes
+                    description: basePath is the URL path prefix for A2A endpoints
+                      (e.g. "/a2a")
                     type: string
                   host:
-                    description: Hostname or service DNS name
+                    description: host is the Kubernetes Service name or FQDN for this
+                      agent
                     minLength: 1
                     type: string
                   port:
                     default: 8080
-                    description: Port number
+                    description: port is the TCP port the A2A server listens on
                     format: int32
                     maximum: 65535
                     minimum: 1
@@ -98,94 +121,124 @@ spec:
                 - host
                 type: object
               healthCheck:
-                description: Health check configuration
+                description: healthCheck configures liveness probing for this agent
                 properties:
                   intervalSeconds:
                     default: 30
-                    description: How often to probe health
+                    description: intervalSeconds is how often to check agent health
                     format: int32
                     minimum: 5
                     type: integer
                   path:
                     default: /healthz
-                    description: HTTP path for health probe
+                    description: path is the HTTP path for health checks (e.g. "/healthz")
                     type: string
                   timeoutSeconds:
                     default: 5
-                    description: Timeout for health probe
+                    description: timeoutSeconds is the HTTP timeout for health checks
                     format: int32
                     minimum: 1
                     type: integer
                 type: object
               maxConcurrentTasks:
-                default: 10
-                description: Maximum tasks this agent can handle concurrently
+                default: 5
+                description: maxConcurrentTasks limits how many tasks this agent handles
+                  simultaneously
                 format: int32
                 minimum: 1
                 type: integer
               skills:
-                description: Capabilities this agent offers to other agents
+                description: skills lists the capabilities this agent offers to peers
                 items:
+                  description: AgentSkill describes a single capability an agent offers
                   properties:
                     description:
-                      description: Human-readable description of the skill
+                      description: description explains what this skill does
+                      maxLength: 500
                       type: string
                     inputSchema:
-                      description: JSON Schema for the skill input
+                      description: inputSchema is a JSON Schema defining the expected
+                        input (as raw JSON)
                       type: string
                     name:
-                      description: Unique name of the skill
+                      description: name is a unique identifier for this skill (e.g.
+                        "website-analysis")
+                      maxLength: 253
                       minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     outputSchema:
-                      description: JSON Schema for the skill output
+                      description: outputSchema is a JSON Schema defining the expected
+                        output (as raw JSON)
                       type: string
                   required:
                   - name
                   type: object
+                minItems: 1
                 type: array
               version:
-                description: Semantic version of the agent
+                description: version is the semantic version of this agent (e.g. "1.0.0")
+                pattern: ^[0-9]+\.[0-9]+\.[0-9]+$
                 type: string
             required:
             - displayName
             - endpoint
+            - skills
             type: object
           status:
-            description: AgentCardStatus defines the observed state of AgentCard
+            description: status reports the agent's observed state
             properties:
               activeTaskCount:
-                description: Number of tasks currently being processed
+                description: activeTaskCount is the number of tasks currently being
+                  processed
                 format: int32
                 type: integer
               conditions:
-                description: Standard Kubernetes conditions
+                description: conditions represent the current state of the AgentCard
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
                       maxLength: 32768
                       type: string
                     observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
                       format: int64
                       minimum: 0
                       type: integer
                     reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
                       maxLength: 1024
                       minLength: 1
                       pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                       type: string
                     status:
+                      description: status of the condition, one of True, False, Unknown.
                       enum:
                       - "True"
                       - "False"
                       - Unknown
                       type: string
                     type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -197,13 +250,15 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               lastHeartbeat:
-                description: Last time the agent was confirmed healthy
+                description: lastHeartbeat is the last time the agent reported healthy
                 format: date-time
                 type: string
               phase:
-                default: Pending
-                description: Current phase of the agent
+                description: phase is the agent's current lifecycle state
                 enum:
                 - Pending
                 - Available
@@ -211,15 +266,20 @@ spec:
                 - Degraded
                 type: string
               skills:
-                description: Per-skill availability status
+                description: skills reports per-skill availability
                 items:
+                  description: SkillStatus reports the availability of a single skill
                   properties:
                     available:
+                      description: available indicates if this skill is currently
+                        operational
                       type: boolean
                     lastUsed:
+                      description: lastUsed is when this skill was last invoked
                       format: date-time
                       type: string
                     name:
+                      description: name matches the skill's name in spec.skills[]
                       type: string
                   required:
                   - available
@@ -227,10 +287,13 @@ spec:
                   type: object
                 type: array
               totalTasksCompleted:
-                description: Total tasks completed since creation
+                description: totalTasksCompleted is the lifetime count of completed
+                  tasks
                 format: int64
                 type: integer
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

@@ -17,6 +17,8 @@ from urllib.parse import urlparse
 
 import aiohttp
 
+from agents.runtime.persona import ensure_tool_allowed
+
 logger = logging.getLogger(__name__)
 
 
@@ -403,6 +405,7 @@ class MCPClient:
             URLValidationError: On validation failure
             SSRFProtectionError: On SSRF violation
         """
+        ensure_tool_allowed(tool_name)
         validated_url = self.validate_endpoint(url)
         
         await self._ensure_session()

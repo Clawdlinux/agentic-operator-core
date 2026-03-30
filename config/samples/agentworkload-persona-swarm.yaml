@@ -1,0 +1,64 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: swarm-researcher
+  namespace: agentic-system
+spec:
+  workloadType: generic
+  mcpServerEndpoint: https://mcp-server.example.com
+  objective: "Collect market signals and source references"
+  agents:
+    - researcher-agent
+  collaborationMode: team
+  persona:
+    role: researcher
+    tone: technical
+    memoryScope: shared
+    systemPromptAppend: "Prioritize primary sources and include confidence notes."
+    toolProfile:
+      - browserless.scrape_url
+      - browserless.extract_dom_structure
+      - mcp.get_status
+---
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: swarm-writer
+  namespace: agentic-system
+spec:
+  workloadType: generic
+  mcpServerEndpoint: https://mcp-server.example.com
+  objective: "Draft a concise executive narrative from shared findings"
+  agents:
+    - writer-agent
+  collaborationMode: team
+  persona:
+    role: writer
+    tone: empathetic
+    memoryScope: shared
+    systemPromptAppend: "Write for executive clarity with plain language and clear takeaways."
+    toolProfile:
+      - litellm.synthesize_report
+      - mcp.propose_action
+---
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: swarm-reviewer
+  namespace: agentic-system
+spec:
+  workloadType: generic
+  mcpServerEndpoint: https://mcp-server.example.com
+  objective: "Challenge assumptions and identify risk before publication"
+  agents:
+    - reviewer-agent
+  collaborationMode: team
+  persona:
+    role: reviewer
+    tone: adversarial
+    memoryScope: hierarchical
+    systemPromptAppend: "Actively test for weak evidence, edge cases, and hidden assumptions."
+    toolProfile:
+      - mcp.get_status
+      - mcp.propose_action
+      - mcp.execute_action
