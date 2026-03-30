@@ -16,7 +16,18 @@ import sys
 from typing import List
 
 from agents.graph.workflow import build_workflow, AgentWorkflowError
+from agents.runtime.persona import load_persona_config
 from agents.utils.credential_sanitizer import SanitizingFormatter
+
+
+class PersonaContextFilter(logging.Filter):
+    """Attach persona fields to every log record for structured observability."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        persona = load_persona_config()
+        record.persona_role = persona.role or ""
+        record.persona_tone = persona.tone or ""
+        return True
 
 
 def setup_logging() -> None:
@@ -31,9 +42,10 @@ def setup_logging() -> None:
     handler.setLevel(logging.INFO)
     
     formatter = SanitizingFormatter(
-        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        fmt="%(asctime)s - %(name)s - %(levelname)s - role=%(persona_role)s tone=%(persona_tone)s - %(message)s"
     )
     handler.setFormatter(formatter)
+    handler.addFilter(PersonaContextFilter())
     root_logger.addHandler(handler)
 
 
@@ -128,7 +140,15 @@ async def run_workflow(job_id: str, target_urls: List[str]) -> dict:
 
 def main():
     """Main entrypoint for agent pod."""
+    persona = load_persona_config()
     logger.info("Agent pod starting")
+    logger.info(
+        "Persona loaded",
+        extra={
+            "persona_role": persona.role,
+            "persona_tone": persona.tone,
+        },
+    )
     
     try:
         # Parse environment variables

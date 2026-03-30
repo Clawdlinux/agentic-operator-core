@@ -1,20 +1,22 @@
 package billing
 
+// OSS-PRIVATE-ALLOW: Billing package retained temporarily while private extraction is in progress.
+
 import "sync"
 
 // CostCalculator computes costs for workloads and invoices.
 type CostCalculator struct {
 	mu sync.RWMutex
-	
+
 	// modelPricing: tier → cost per 1K tokens
 	modelPricing map[string]float64
-	
+
 	// operatorFee: markup percentage (e.g., 0.10 = 10%)
 	operatorFee float64
-	
+
 	// taxRate: sales tax percentage (e.g., 0.08 = 8%)
 	taxRate float64
-	
+
 	// discounts: tenant → discount percentage (0-100)
 	discounts map[string]float64
 }
@@ -23,9 +25,9 @@ type CostCalculator struct {
 func NewCostCalculator() *CostCalculator {
 	return &CostCalculator{
 		modelPricing: map[string]float64{
-			"cheap":      0.001,   // GPT-3.5 equivalent: $0.001 / 1K tokens
-			"medium":     0.010,   // GPT-4 equivalent: $0.01 / 1K tokens
-			"expensive":  0.030,   // GPT-4 Turbo equivalent: $0.03 / 1K tokens
+			"cheap":     0.001, // GPT-3.5 equivalent: $0.001 / 1K tokens
+			"medium":    0.010, // GPT-4 equivalent: $0.01 / 1K tokens
+			"expensive": 0.030, // GPT-4 Turbo equivalent: $0.03 / 1K tokens
 		},
 		operatorFee: 0.10, // 10% operator fee
 		taxRate:     0.08, // 8% sales tax (US average)

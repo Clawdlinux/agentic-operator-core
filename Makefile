@@ -16,8 +16,9 @@ VENV_STAMP := $(VENV_DIR)/.deps-ready
 LOCALBIN ?= $(CURDIR)/bin
 SETUP_ENVTEST := $(LOCALBIN)/setup-envtest
 STATICCHECK := $(LOCALBIN)/staticcheck
+CONTROLLER_GEN := $(LOCALBIN)/controller-gen
 
-.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster
+.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build build-agentctl install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
 
 .DEFAULT_GOAL := help
 
@@ -32,6 +33,8 @@ help:
 	@echo "  make fmt-check      - Fail if go files are not formatted"
 	@echo "  make vet            - Run go vet"
 	@echo "  make lint           - Run lint checks"
+	@echo "  make manifests      - Generate CRD manifests"
+	@echo "  make generate       - Generate code (deepcopy + go generate)"
 	@echo "  make build          - Build go binaries"
 	@echo "  make helm-lint      - Lint the Helm chart"
 	@echo "  make scan-secrets   - Run repository secret scan"
@@ -87,6 +90,23 @@ $(SETUP_ENVTEST): | $(LOCALBIN)
 $(STATICCHECK): | $(LOCALBIN)
 	@GOBIN=$(LOCALBIN) $(GO) install honnef.co/go/tools/cmd/staticcheck@latest
 
+$(CONTROLLER_GEN): | $(LOCALBIN)
+	@GOBIN=$(LOCALBIN) $(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+
+manifests: $(CONTROLLER_GEN)
+	@echo "Generating CRD manifests..."
+	@$(CONTROLLER_GEN) \
+		rbac:roleName=manager-role \
+		crd:allowDangerousTypes=true \
+		webhook \
+		paths="./..." \
+		output:crd:artifacts:config=config/crd/bases
+
+generate: $(CONTROLLER_GEN)
+	@echo "Generating deepcopy and codegen artifacts..."
+	@$(CONTROLLER_GEN) object:headerFile="" paths="./api/..."
+	@$(GO) generate ./...
+
 setup-envtest: $(SETUP_ENVTEST)
 	@echo "Downloading envtest assets ($(ENVTEST_K8S_VERSION))..."
 	@$(SETUP_ENVTEST) use -p path $(ENVTEST_K8S_VERSION) >/dev/null
@@ -120,6 +140,24 @@ lint: vet fmt-check $(STATICCHECK)
 build:
 	@echo "Building Go binaries..."
 	@$(GO) build ./...
+
+build-agentctl:
+	@echo "Building agentctl binary..."
+	@mkdir -p bin
+	@$(GO) build -o bin/agentctl ./cmd/agentctl/...
+
+install-agentctl: build-agentctl
+	@if [[ ! -f bin/agentctl ]]; then \
+		echo "agentctl binary not found at bin/agentctl"; \
+		exit 1; \
+	fi
+	@if [[ -w /usr/local/bin ]]; then \
+		install -m 0755 bin/agentctl /usr/local/bin/agentctl; \
+	else \
+		echo "install-agentctl requires elevated permissions for /usr/local/bin; invoking sudo"; \
+		sudo install -m 0755 bin/agentctl /usr/local/bin/agentctl; \
+	fi
+	@echo "Installed /usr/local/bin/agentctl"
 
 helm-lint:
 	@echo "Linting Helm chart..."

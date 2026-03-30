@@ -9,7 +9,7 @@ import (
 type MockOpenAIProvider struct {
 	name      string
 	responses map[string]string // Mock responses by prompt
-	callCount map[string]int     // Track number of calls per model
+	callCount map[string]int    // Track number of calls per model
 }
 
 // NewMockOpenAIProvider creates a new mock OpenAI provider for testing
@@ -45,13 +45,13 @@ func (p *MockOpenAIProvider) CallModel(ctx context.Context, model string, prompt
 	if response, ok := p.responses[prompt]; ok {
 		return &ModelResponse{
 			Content:      response,
-			InputTokens:  len(prompt) / 4,  // Rough estimate: ~4 chars per token
+			InputTokens:  len(prompt) / 4, // Rough estimate: ~4 chars per token
 			OutputTokens: len(response) / 4,
 			Model:        model,
 			Provider:     p.name,
 			Raw: map[string]interface{}{
-				"mock": true,
-				"prompt": prompt,
+				"mock":     true,
+				"prompt":   prompt,
 				"response": response,
 			},
 		}, nil

@@ -1,5 +1,7 @@
 package autoscaling
 
+// OSS-PRIVATE-ALLOW: Temporary SLA terminology during staged OSS/private split.
+
 import (
 	"sync"
 	"time"
@@ -9,11 +11,11 @@ import (
 
 // AutoScaler evaluates SLA metrics and makes scaling decisions.
 type AutoScaler struct {
-	slaMonitor    *multitenancy.SLAMonitor
-	policy        *ScalingPolicy
-	mu            sync.RWMutex
-	lastScaling   map[string]time.Time // Track cooldown per tenant
-	history       []ScalingEvent
+	slaMonitor      *multitenancy.SLAMonitor
+	policy          *ScalingPolicy
+	mu              sync.RWMutex
+	lastScaling     map[string]time.Time // Track cooldown per tenant
+	history         []ScalingEvent
 	currentReplicas map[string]int // Track current replica count per tenant
 }
 
@@ -47,12 +49,12 @@ func (s *AutoScaler) EvaluateAndDecide(tenantName string, currentReplicas int) (
 	// Check cooldown
 	if s.isInCooldown(tenantName) {
 		return &ScalingEvent{
-			TenantName:   tenantName,
-			TriggerType:  "cooldown",
-			Action:       "noop",
-			SuccessRate:  status.SuccessRatePercent,
-			Timestamp:    time.Now(),
-			Reason:       "In cooldown period, no scaling",
+			TenantName:  tenantName,
+			TriggerType: "cooldown",
+			Action:      "noop",
+			SuccessRate: status.SuccessRatePercent,
+			Timestamp:   time.Now(),
+			Reason:      "In cooldown period, no scaling",
 		}, nil
 	}
 

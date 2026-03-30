@@ -63,6 +63,7 @@ type AgentWorkloadReconciler struct {
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;patch;update
 
 // Reconcile reconciles the AgentWorkload by:
 // 1. Fetching the AgentWorkload CR
@@ -83,6 +84,11 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	log.Info("Reconciling AgentWorkload", "name", workload.Name)
+
+	if err := r.reconcilePersonaNamespaceLabels(ctx, &workload); err != nil {
+		log.Error(err, "failed to reconcile persona labels on namespace")
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
 
 	// ========== LICENSE ENFORCEMENT ==========
 	// Check license validity BEFORE creating any workload
@@ -711,4 +717,32 @@ func (r *AgentWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&agenticv1alpha1.AgentWorkload{}).
 		Named("agentworkload").
 		Complete(r)
+}
+
+func (r *AgentWorkloadReconciler) reconcilePersonaNamespaceLabels(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {
+	if workload.Spec.Persona == nil {
+		return nil
+	}
+
+	namespace := &corev1.Namespace{}
+	if err := r.Get(ctx, types.NamespacedName{Name: workload.Namespace}, namespace); err != nil {
+		return err
+	}
+
+	memoryScope := workload.Spec.Persona.MemoryScope
+	if memoryScope == "" {
+		memoryScope = "isolated"
+	}
+
+	if namespace.Labels == nil {
+		namespace.Labels = map[string]string{}
+	}
+	if namespace.Labels["agentworkload.clawdlinux.io/memory-scope"] == memoryScope {
+		return nil
+	}
+
+	before := namespace.DeepCopy()
+	namespace.Labels["agentworkload.clawdlinux.io/memory-scope"] = memoryScope
+
+	return r.Patch(ctx, namespace, client.MergeFrom(before))
 }

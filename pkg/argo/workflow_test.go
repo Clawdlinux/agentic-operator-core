@@ -205,6 +205,47 @@ func TestWorkflowManager_BuildWorkflowParameters(t *testing.T) {
 	t.Log("✓ BuildWorkflowParameters test passed")
 }
 
+func TestWorkflowManager_CreateArgoWorkflow_WithPersonaRoleLabel(t *testing.T) {
+	s := runtime.NewScheme()
+	_ = scheme.AddToScheme(s)
+	_ = agenticv1alpha1.AddToScheme(s)
+
+	client := fake.NewClientBuilder().WithScheme(s).Build()
+	wm := NewWorkflowManager(client, s)
+
+	workload := &agenticv1alpha1.AgentWorkload{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "persona-labeled-job",
+			Namespace: "default",
+			UID:       "persona-uid-001",
+		},
+		Spec: agenticv1alpha1.AgentWorkloadSpec{
+			Persona: &agenticv1alpha1.AgentPersona{
+				Role: "researcher",
+			},
+		},
+	}
+
+	ctx := context.Background()
+	workflow, err := wm.CreateArgoWorkflow(ctx, workload)
+	if err != nil {
+		t.Fatalf("CreateArgoWorkflow failed: %v", err)
+	}
+
+	if workflow.GetLabels()["agentworkload.clawdlinux.io/role"] != "researcher" {
+		t.Fatalf("workflow role label not set, got %q", workflow.GetLabels()["agentworkload.clawdlinux.io/role"])
+	}
+
+	podMetadataLabels, found, err := unstructured.NestedMap(workflow.Object, "spec", "podMetadata", "labels")
+	if err != nil || !found {
+		t.Fatalf("podMetadata.labels missing: found=%v err=%v", found, err)
+	}
+
+	if podMetadataLabels["agentworkload.clawdlinux.io/role"] != "researcher" {
+		t.Fatalf("podMetadata role label not set, got %v", podMetadataLabels["agentworkload.clawdlinux.io/role"])
+	}
+}
+
 // TestWorkflowManager_GetArgoWorkflowStatus verifies workflow status retrieval
 func TestWorkflowManager_GetArgoWorkflowStatus(t *testing.T) {
 	s := runtime.NewScheme()

@@ -11,16 +11,16 @@ import (
 const (
 	// TracerName is the name of the tracer for model routing
 	TracerName = "agentic.operator/model-routing"
-	
+
 	// SpanNameTaskClassification is the span name for task classification
 	SpanNameTaskClassification = "task.classification"
-	
+
 	// SpanNameProviderResolution is the span name for provider resolution
 	SpanNameProviderResolution = "provider.resolution"
-	
+
 	// SpanNameModelCall is the span name for model API call
 	SpanNameModelCall = "model.call"
-	
+
 	// SpanNameModelRouting is the top-level span for the entire routing operation
 	SpanNameModelRouting = "model.routing"
 )
@@ -29,22 +29,22 @@ const (
 type TracingAttributes struct {
 	// WorkloadName is the name of the AgentWorkload
 	WorkloadName string
-	
+
 	// WorkloadNamespace is the namespace of the AgentWorkload
 	WorkloadNamespace string
-	
+
 	// TaskCategory is the classified task type
 	TaskCategory string
-	
+
 	// Provider is the selected provider name
 	Provider string
-	
+
 	// Model is the selected model name
 	Model string
-	
+
 	// InputTokens is the number of input tokens
 	InputTokens int
-	
+
 	// OutputTokens is the number of output tokens
 	OutputTokens int
 }

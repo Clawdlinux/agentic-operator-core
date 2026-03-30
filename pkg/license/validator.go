@@ -1,5 +1,7 @@
 package license
 
+// OSS-PRIVATE-ALLOW: Enterprise-tier license claims are retained temporarily for compatibility.
+
 import (
 	"crypto/ed25519"
 	"encoding/base64"
@@ -16,12 +18,12 @@ const vendorPublicKeyB64 = "MCowBQYDK2VwAyEAbWtAI5nTlk33ajZ5/zxobblqJ4UWtEzPuayH
 
 // LicenseClaims represents the decoded license token payload
 type LicenseClaims struct {
-	CustomerID string    `json:"customer_id"` // Unique customer identifier
-	Licensee   string    `json:"licensee"`    // Company name
-	Tier       string    `json:"tier"`        // trial, basic, pro, enterprise
-	MaxSeats   int       `json:"max_seats"`   // Max concurrent workloads
-	ExpiresAt  int64     `json:"expires_at"`  // Unix timestamp
-	Features   []string  `json:"features"`    // Feature flags
+	CustomerID string   `json:"customer_id"` // Unique customer identifier
+	Licensee   string   `json:"licensee"`    // Company name
+	Tier       string   `json:"tier"`        // trial, basic, pro, enterprise
+	MaxSeats   int      `json:"max_seats"`   // Max concurrent workloads
+	ExpiresAt  int64    `json:"expires_at"`  // Unix timestamp
+	Features   []string `json:"features"`    // Feature flags
 }
 
 // Validator cryptographically verifies license tokens

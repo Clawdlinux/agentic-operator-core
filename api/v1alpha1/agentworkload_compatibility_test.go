@@ -195,6 +195,40 @@ func TestAgentWorkloadCompatibility_EvolvingOptionalFieldsMatrix(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "persona_optionals",
+			manifest: `{
+				"apiVersion": "agentic.clawdlinux.org/v1alpha1",
+				"kind": "AgentWorkload",
+				"metadata": {
+					"name": "optional-persona"
+				},
+				"spec": {
+					"workloadType": "generic",
+					"mcpServerEndpoint": "https://localhost:8000",
+					"objective": "persona optional field check",
+					"agents": ["agent1"],
+					"persona": {
+						"role": "researcher",
+						"tone": "technical",
+						"memoryScope": "shared",
+						"systemPromptAppend": "Prioritize evidence and source links.",
+						"toolProfile": ["browserless.scrape_url", "litellm.synthesize_report"]
+					}
+				}
+			}`,
+			verify: func(t *testing.T, workload *AgentWorkload) {
+				if workload.Spec.Persona == nil {
+					t.Fatalf("expected persona optional field to be accepted")
+				}
+				if workload.Spec.Persona.Role != "researcher" {
+					t.Fatalf("unexpected persona role: %q", workload.Spec.Persona.Role)
+				}
+				if workload.Spec.Persona.Tone != "technical" {
+					t.Fatalf("unexpected persona tone: %q", workload.Spec.Persona.Tone)
+				}
+			},
+		},
 	}
 
 	for _, tc := range testCases {

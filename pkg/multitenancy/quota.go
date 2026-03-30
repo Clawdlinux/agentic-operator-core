@@ -19,8 +19,8 @@ type QuotaManager struct {
 }
 
 type quotaTracker struct {
-	tenant           *TenantContext
-	workloadsUsed    int
+	tenant        *TenantContext
+	workloadsUsed int
 	costUsed      float64
 	lastResetDate time.Time
 }

@@ -1,5 +1,7 @@
 package multitenancy
 
+// OSS-PRIVATE-ALLOW: Tenant SLA fields remain temporarily during OSS/private boundary transition.
+
 import "time"
 
 // TenantContext represents a customer's isolated environment.
@@ -9,12 +11,12 @@ type TenantContext struct {
 	Namespace string // e.g., "agentic-customer-acme"
 
 	// License & Capacity
-	License           *License
-	QuotaPerDay       int   // Max workloads per day
-	ResourceQuotaCPU  string // e.g., "10"
-	ResourceQuotaRAM  string // e.g., "20Gi"
-	CostBudgetUSD     float64
-	SLATargetPercent  float64 // e.g., 99.0 for 99%, 99.9 for 99.9%
+	License          *License
+	QuotaPerDay      int    // Max workloads per day
+	ResourceQuotaCPU string // e.g., "10"
+	ResourceQuotaRAM string // e.g., "20Gi"
+	CostBudgetUSD    float64
+	SLATargetPercent float64 // e.g., 99.0 for 99%, 99.9 for 99.9%
 
 	// Metadata
 	CreatedAt time.Time
@@ -24,11 +26,11 @@ type TenantContext struct {
 
 // License represents a customer's license.
 type License struct {
-	Key           string    // JWT token
-	Tier          string    // trial, basic, pro, enterprise
-	Seats         int       // Concurrent workloads allowed
+	Key           string // JWT token
+	Tier          string // trial, basic, pro, enterprise
+	Seats         int    // Concurrent workloads allowed
 	ExpiresAt     time.Time
-	Features      []string  // e.g., ["custom_models", "sso", "compliance_logging"]
+	Features      []string // e.g., ["custom_models", "sso", "compliance_logging"]
 	IsValid       bool
 	LastValidated time.Time
 }
@@ -46,15 +48,15 @@ type ResourceQuota struct {
 
 // QuotaStatus tracks current usage.
 type QuotaStatus struct {
-	TenantName        string
-	WorkloadsPerDay   int
-	WorkloadsUsed     int
+	TenantName         string
+	WorkloadsPerDay    int
+	WorkloadsUsed      int
 	WorkloadsRemaining int
-	CostThisMonth     float64
-	CostRemaining     float64
-	PercentageUsed    float64 // 0-100
-	LastReset         time.Time
-	IsExceeded        bool
+	CostThisMonth      float64
+	CostRemaining      float64
+	PercentageUsed     float64 // 0-100
+	LastReset          time.Time
+	IsExceeded         bool
 }
 
 // SLAStatus tracks SLA compliance.

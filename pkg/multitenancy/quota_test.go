@@ -37,12 +37,12 @@ func TestQuotaManagerCheckAndConsume(t *testing.T) {
 		IsActive:      true,
 	}
 	qm := NewQuotaManager([]*TenantContext{tenant})
-	
+
 	err := qm.CheckAndConsume("test", 10.0)
 	if err != nil {
 		t.Fatalf("first CheckAndConsume failed: %v", err)
 	}
-	
+
 	status, _ := qm.GetStatus("test")
 	if status.WorkloadsUsed != 1 {
 		t.Errorf("expected 1 used, got %d", status.WorkloadsUsed)
@@ -59,7 +59,7 @@ func TestQuotaManagerExceeded(t *testing.T) {
 		IsActive:      true,
 	}
 	qm := NewQuotaManager([]*TenantContext{tenant})
-	
+
 	_ = qm.CheckAndConsume("test", 10.0)
 	err := qm.CheckAndConsume("test", 10.0)
 	if err != ErrQuotaExceeded {
@@ -77,12 +77,12 @@ func TestQuotaManagerBudgetExceeded(t *testing.T) {
 		IsActive:      true,
 	}
 	qm := NewQuotaManager([]*TenantContext{tenant})
-	
+
 	err := qm.CheckAndConsume("test", 40.0)
 	if err != nil {
 		t.Fatalf("first consume failed: %v", err)
 	}
-	
+
 	err = qm.CheckAndConsume("test", 15.0)
 	if err != ErrBudgetExceeded {
 		t.Errorf("expected ErrBudgetExceeded, got %v", err)
@@ -99,13 +99,13 @@ func TestQuotaManagerReset(t *testing.T) {
 		IsActive:      true,
 	}
 	qm := NewQuotaManager([]*TenantContext{tenant})
-	
+
 	_ = qm.CheckAndConsume("test", 10.0)
 	status, _ := qm.GetStatus("test")
 	if status.WorkloadsUsed != 1 {
 		t.Errorf("expected 1 used after consume, got %d", status.WorkloadsUsed)
 	}
-	
+
 	_ = qm.Reset("test")
 	status, _ = qm.GetStatus("test")
 	if status.WorkloadsUsed != 0 {
@@ -124,17 +124,17 @@ func TestQuotaManagerDailyReset(t *testing.T) {
 	}
 	qm := NewQuotaManager([]*TenantContext{tenant})
 	tracker := qm.tenants["test"]
-	
+
 	_ = qm.CheckAndConsume("test", 5.0)
-	
+
 	// Manually set to yesterday to trigger reset
 	tracker.lastResetDate = time.Now().AddDate(0, 0, -1)
-	
+
 	err := qm.CheckAndConsume("test", 5.0)
 	if err != nil {
 		t.Fatalf("second consume after daily reset failed: %v", err)
 	}
-	
+
 	status, _ := qm.GetStatus("test")
 	if status.WorkloadsUsed != 1 {
 		t.Errorf("expected 1 used after daily reset, got %d", status.WorkloadsUsed)

@@ -44,7 +44,7 @@ func (mr *ModelRouter) RouteAndCall(
 
 	// Validate spec has necessary config
 	if len(spec.ModelMapping) == 0 {
-		AddSpanEvent(rootSpan, "validation_failed", 
+		AddSpanEvent(rootSpan, "validation_failed",
 			attribute.String("reason", "empty modelMapping"))
 		return nil, routingInfo, fmt.Errorf("modelMapping is empty or nil")
 	}
@@ -108,7 +108,7 @@ func (mr *ModelRouter) RouteAndCall(
 			attribute.String("provider", providerName))
 		return nil, routingInfo, fmt.Errorf("provider not found: %s", providerName)
 	}
-	SetProviderResolutionAttributes(resolutionSpan, providerConfig.Type, 
+	SetProviderResolutionAttributes(resolutionSpan, providerConfig.Type,
 		func() string {
 			if providerConfig.Endpoint != nil {
 				return *providerConfig.Endpoint
