@@ -35,10 +35,10 @@ var ErrCircuitOpen = errors.New("circuit breaker is open — provider temporaril
 type CircuitBreaker struct {
 	mu sync.RWMutex
 
-	failures        int
-	successes       int
-	lastFailure     time.Time
-	state           CircuitState
+	failures         int
+	successes        int
+	lastFailure      time.Time
+	state            CircuitState
 	failureThreshold int
 	successThreshold int           // consecutive successes to close from half-open
 	resetTimeout     time.Duration // how long to stay open before trying half-open

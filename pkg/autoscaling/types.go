@@ -34,8 +34,8 @@ func DefaultScalingPolicy() *ScalingPolicy {
 // ScalingEvent records a scaling decision.
 type ScalingEvent struct {
 	TenantName       string
-	TriggerType      string    // "warning", "critical", "healthy", "cooldown", "manual"
-	Action           string    // "scale_up", "scale_down", "model_downgrade", "noop"
+	TriggerType      string // "warning", "critical", "healthy", "cooldown", "manual"
+	Action           string // "scale_up", "scale_down", "model_downgrade", "noop"
 	PreviousReplicas int
 	NewReplicas      int
 	PreviousModel    string
@@ -47,9 +47,9 @@ type ScalingEvent struct {
 
 // ScalingDecision represents the recommendation from the scaler.
 type ScalingDecision struct {
-	ShouldScale         bool
-	DesiredReplicas     int
+	ShouldScale          bool
+	DesiredReplicas      int
 	ShouldDowngradeModel bool
-	DesiredModel        string
-	Reason              string
+	DesiredModel         string
+	Reason               string
 }

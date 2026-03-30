@@ -23,12 +23,12 @@ type ExecutionRecord struct {
 
 // QualityEvaluation scores the quality of an agent's output (all scores 0-100)
 type QualityEvaluation struct {
-	OverallScore  int // weighted aggregate
-	Relevance     int // did output address the task?
-	HallucinRisk  int // lower is better (0=no risk, 100=high risk)
-	Completeness  int // is the response thorough enough?
-	Clarity       int // is it well-structured?
-	Details       map[string]interface{}
+	OverallScore int // weighted aggregate
+	Relevance    int // did output address the task?
+	HallucinRisk int // lower is better (0=no risk, 100=high risk)
+	Completeness int // is the response thorough enough?
+	Clarity      int // is it well-structured?
+	Details      map[string]interface{}
 }
 
 // EvaluationResult combines execution record + quality scores

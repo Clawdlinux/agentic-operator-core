@@ -55,13 +55,13 @@ type BillingAccount struct {
 
 // CostBreakdown shows cost calculation details.
 type CostBreakdown struct {
-	InputTokens      int
-	OutputTokens     int
-	TotalTokens      int
-	BaseCost         float64
-	OperatorMarkup   float64 // 10% of base
+	InputTokens       int
+	OutputTokens      int
+	TotalTokens       int
+	BaseCost          float64
+	OperatorMarkup    float64 // 10% of base
 	SubtotalBeforeTax float64
-	Tax              float64
-	DiscountAmount   float64
-	FinalCost        float64
+	Tax               float64
+	DiscountAmount    float64
+	FinalCost         float64
 }

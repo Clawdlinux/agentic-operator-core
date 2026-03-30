@@ -179,15 +179,15 @@ func TestEvaluatorIntegration_EvaluateAndRetrieve(t *testing.T) {
 	ctx := context.Background()
 
 	record := ExecutionRecord{
-		WorkloadID:   "test-workload",
-		Namespace:    "default",
-		AgentName:    "test-agent",
-		ModelUsed:    "llama-2-7b",
-		TaskCategory: "validation",
-		Status:       "success",
-		Output:       "Yes, the data is valid.",
-		StartedAt:    time.Now().Add(-5 * time.Second),
-		CompletedAt:  time.Now(),
+		WorkloadID:      "test-workload",
+		Namespace:       "default",
+		AgentName:       "test-agent",
+		ModelUsed:       "llama-2-7b",
+		TaskCategory:    "validation",
+		Status:          "success",
+		Output:          "Yes, the data is valid.",
+		StartedAt:       time.Now().Add(-5 * time.Second),
+		CompletedAt:     time.Now(),
 		DurationSeconds: 5,
 	}
 

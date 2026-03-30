@@ -40,8 +40,8 @@ type TaskClassifier struct {
 // NewDefaultClassifier returns a classifier with default heuristics
 func NewDefaultClassifier() *TaskClassifier {
 	return &TaskClassifier{
-		ValidationThreshold: 200,   // Short prompts
-		AnalysisThreshold:   800,   // Medium prompts
+		ValidationThreshold: 200, // Short prompts
+		AnalysisThreshold:   800, // Medium prompts
 		ValidationKeywords: []string{
 			"verify", "check", "validate", "parse", "format",
 			"extract", "split", "join", "convert", "normalize",

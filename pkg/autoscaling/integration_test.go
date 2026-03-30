@@ -17,10 +17,10 @@ func TestAutoScaler_IntegrationWithSLAMonitor_WarningToHealthy(t *testing.T) {
 		CostBudgetUSD:    5000,
 		SLATargetPercent: 99.0,
 		License: &multitenancy.License{
-			Key:       "test-key",
-			Tier:      "pro",
-			IsValid:   true,
-			Seats:     5,
+			Key:     "test-key",
+			Tier:    "pro",
+			IsValid: true,
+			Seats:   5,
 		},
 		IsActive: true,
 	}
@@ -188,7 +188,7 @@ func TestAutoScaler_IntegrationQuotaAndSLAInteraction(t *testing.T) {
 	tenant := &multitenancy.TenantContext{
 		Name:             "customer-limited",
 		Namespace:        "agentic-customer-limited",
-		QuotaPerDay:      10,        // Low quota
+		QuotaPerDay:      10, // Low quota
 		CostBudgetUSD:    100,
 		SLATargetPercent: 99.0,
 		License:          &multitenancy.License{IsValid: true},
@@ -202,7 +202,7 @@ func TestAutoScaler_IntegrationQuotaAndSLAInteraction(t *testing.T) {
 	// Consume quota (total 90 < budget 100)
 	err1 := quotaMgr.CheckAndConsume("customer-limited", 70.0)
 	err2 := quotaMgr.CheckAndConsume("customer-limited", 20.0)
-	
+
 	if err1 != nil || err2 != nil {
 		t.Fatalf("First consumptions should succeed: err1=%v, err2=%v", err1, err2)
 	}

@@ -223,23 +223,23 @@ func TestModelRouterMissingModelMapping(t *testing.T) {
 // TestTaskCategoryMapping tests that different task types map to correct models
 func TestTaskCategoryMapping(t *testing.T) {
 	testCases := []struct {
-		name     string
-		objective string
+		name             string
+		objective        string
 		expectedCategory string
 	}{
 		{
-			name:      "short validation prompt",
-			objective: "Verify this email: test@example.com",
+			name:             "short validation prompt",
+			objective:        "Verify this email: test@example.com",
 			expectedCategory: "validation",
 		},
 		{
-			name:      "medium analysis prompt",
-			objective: "Analyze these quarterly sales metrics and identify the top 3 trends",
+			name:             "medium analysis prompt",
+			objective:        "Analyze these quarterly sales metrics and identify the top 3 trends",
 			expectedCategory: "analysis",
 		},
 		{
-			name:      "long reasoning prompt",
-			objective: "Why did our product launch fail? Think about all factors: market timing, execution, competition, resources, strategy. How should we approach the next launch differently?",
+			name:             "long reasoning prompt",
+			objective:        "Why did our product launch fail? Think about all factors: market timing, execution, competition, resources, strategy. How should we approach the next launch differently?",
 			expectedCategory: "reasoning",
 		},
 	}

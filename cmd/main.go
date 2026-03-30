@@ -185,7 +185,7 @@ func main() {
 	tenants := []*multitenancy.TenantContext{} // Will be populated from cluster config
 	quotaMgr := multitenancy.NewQuotaManager(tenants)
 	slaMonitor := multitenancy.NewSLAMonitor(tenants)
-	
+
 	if err := (&controller.AgentWorkloadReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
