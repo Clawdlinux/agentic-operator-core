@@ -29,8 +29,8 @@ The paths below are candidates for private extraction.
 
 | Concern | Current path(s) in `agentic-operator-core` | Suggested target in `agentic-operator-private` |
 | --- | --- | --- |
-| Billing and cost monetization | `pkg/billing/**` | `pkg/billing/**` |
-| Commercial license validation/enforcement | `pkg/license/**` | `pkg/license/**` |
+| Billing and cost monetization | `enterprise/billing/**` | `enterprise/billing/**` |
+| Commercial license validation/enforcement | `enterprise/licensing/**` | `enterprise/licensing/**` |
 | License generation tooling | `cmd/generate-license/**`, `scripts/generate_license.sh` | `cmd/generate-license/**`, `scripts/generate_license.sh` |
 | Controller-side license enforcement hooks | `internal/controller/agentworkload_controller.go` (license-specific branches) | `internal/controller/agentworkload_controller.go` plus private helpers under `internal/controller/license/**` |
 | Enterprise SLA/autoscaling differentiation | `pkg/autoscaling/**`, `pkg/multitenancy/sla.go` (enterprise-only portions) | `pkg/autoscaling/**`, `pkg/multitenancy/sla.go` (private extensions only) |
@@ -113,7 +113,7 @@ Notes:
 
 ## Completion Criteria
 
-- `pkg/billing` and `pkg/license` no longer contain private enforcement logic in
+- `enterprise/billing` and `enterprise/licensing` contain enterprise enforcement logic outside
   `agentic-operator-core`.
 - Core docs describe OSS functionality only; private workflows are referenced
   from private repo docs.

@@ -4,16 +4,16 @@ source_repo: agentic-operator-core
 target_repo: agentic-operator-private
 
 modules:
-  - path: pkg/billing
+  - path: enterprise/billing
     concern: billing_monetization
     status: pending_migration
-    target_path: pkg/billing
+    target_path: enterprise/billing
     notes: Cost monetization and account pricing logic.
 
-  - path: pkg/license
+  - path: enterprise/licensing
     concern: commercial_licensing
     status: pending_migration
-    target_path: pkg/license
+    target_path: enterprise/licensing
     notes: Commercial license token validation and seat enforcement.
 
   - path: cmd/generate-license
