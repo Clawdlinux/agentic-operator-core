@@ -1,5 +1,7 @@
 package billing
 
+// OSS-PRIVATE-ALLOW: Billing package retained temporarily while private extraction is in progress.
+
 import "sync"
 
 // CostCalculator computes costs for workloads and invoices.
