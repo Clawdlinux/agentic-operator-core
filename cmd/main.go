@@ -16,6 +16,8 @@ limitations under the License.
 
 package main
 
+// OSS-PRIVATE-ALLOW: Mentions of SLA in comments are transitional and non-enforcing in OSS.
+
 import (
 	"crypto/tls"
 	"flag"

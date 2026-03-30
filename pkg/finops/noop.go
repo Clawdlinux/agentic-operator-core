@@ -1,5 +1,7 @@
 package finops
 
+// OSS-PRIVATE-ALLOW: No-op docs/log strings intentionally mention billing/licensing context.
+
 import (
 	"context"
 

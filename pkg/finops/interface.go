@@ -1,5 +1,7 @@
 package finops
 
+// OSS-PRIVATE-ALLOW: Interface docs reference enterprise implementers by design.
+
 import "context"
 
 // CostReporter is implemented by the enterprise billing module.
