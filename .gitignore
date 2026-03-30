@@ -76,3 +76,12 @@ landing/dist/videos/
 # Local agent tooling state
 .claude/
 .serena/
+
+# Enterprise-only source should not be committed from OSS workflows.
+enterprise/*
+!enterprise/billing/
+!enterprise/licensing/
+enterprise/billing/*
+enterprise/licensing/*
+!enterprise/billing/README.md
+!enterprise/licensing/README.md
