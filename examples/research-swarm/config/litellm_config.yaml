@@ -1,0 +1,51 @@
+# LiteLLM Router Configuration for Research Swarm Demo
+# Supports 3 virtual keys for per-agent cost tracking and budget control
+
+model_list:
+  - model_name: gpt-4o-mini  # Default model for all agents
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: ${OPENAI_API_KEY}
+
+# Virtual keys for agent-level spend tracking and budgeting
+virtual_keys:
+  - sk-researcher-virtual:
+      spend_limit_per_request_usd: 0.10  # Max $0.10 per research request
+      spend_limit_per_day_usd: 20.00     # Max $20.00 per day for researcher
+      
+  - sk-writer-virtual:
+      spend_limit_per_request_usd: 0.15
+      spend_limit_per_day_usd: 30.00
+      
+  - sk-editor-virtual:
+      spend_limit_per_request_usd: 0.10
+      spend_limit_per_day_usd: 20.00
+
+# User ID mapping (optional, for audit logging)
+# Each virtual key can be tagged with a user/agent identity
+key_management:
+  - virtual_key: sk-researcher-virtual
+    user_id: researcher-agent
+    team_id: agentic-demo
+    
+  - virtual_key: sk-writer-virtual
+    user_id: writer-agent
+    team_id: agentic-demo
+    
+  - virtual_key: sk-editor-virtual
+    user_id: editor-agent
+    team_id: agentic-demo
+
+# Logging and telemetry
+logging:
+  verbose: true
+  log_endpoint: /logs
+  spend_logs_endpoint: /spend/logs  # Query: GET /spend/logs?virtual_key=sk-researcher-virtual
+  
+# Router behavior
+router_settings:
+  allowed_model_names:
+    - gpt-4o-mini
+  enable_cache: false
+  enable_pre_call_checks: true
+  enable_cooldowns: false  # No rate limiting for demo

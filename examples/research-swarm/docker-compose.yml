@@ -1,0 +1,203 @@
+version: '3.9'
+
+services:
+  litellm-proxy:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm
+    ports:
+      - "8000:8000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LITELLM_LOG: "DEBUG"
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-master-key}
+    volumes:
+      - ./config/litellm_config.yaml:/app/config.yaml
+    networks:
+      - research-pipeline
+    command: litellm --config /app/config.yaml --port 8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  minio:
+    image: "minio/minio:latest"
+    container_name: minio-server
+    ports:
+      - "9090:9090"
+      - "9000:9000"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - minio-data:/data
+    command: minio server /data --console-address ":9090"
+    networks:
+      - research-pipeline
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-spans
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spans}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spans_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-spans}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - research-pipeline
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spans}"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  researcher:
+    build:
+      context: ..
+      dockerfile: research-swarm/docker/Dockerfile.agent
+      args:
+        AGENT_TYPE: researcher
+    container_name: researcher-agent
+    ports:
+      - "9001:8080"
+    environment:
+      AGENT_ROLE: researcher
+      AGENT_TONE: neutral_academic
+      LITELLM_PROXY_URL: "http://litellm-proxy:8000"
+      LITELLM_KEY: "sk-researcher-virtual"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: agentic-demo
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
+      LOG_LEVEL: INFO
+    depends_on:
+      litellm-proxy:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - research-pipeline
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  writer:
+    build:
+      context: ..
+      dockerfile: research-swarm/docker/Dockerfile.agent
+      args:
+        AGENT_TYPE: writer
+    container_name: writer-agent
+    ports:
+      - "9002:8080"
+    environment:
+      AGENT_ROLE: writer
+      AGENT_TONE: engaging_professional
+      LITELLM_PROXY_URL: "http://litellm-proxy:8000"
+      LITELLM_KEY: "sk-writer-virtual"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: agentic-demo
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
+      LOG_LEVEL: INFO
+    depends_on:
+      litellm-proxy:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - research-pipeline
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  editor:
+    build:
+      context: ..
+      dockerfile: research-swarm/docker/Dockerfile.agent
+      args:
+        AGENT_TYPE: editor
+    container_name: editor-agent
+    ports:
+      - "9003:8080"
+    environment:
+      AGENT_ROLE: editor
+      AGENT_TONE: authoritative_precise
+      LITELLM_PROXY_URL: "http://litellm-proxy:8000"
+      LITELLM_KEY: "sk-editor-virtual"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: agentic-demo
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
+      LOG_LEVEL: INFO
+    depends_on:
+      litellm-proxy:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - research-pipeline
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.orchestrator
+    container_name: orchestrator
+    ports:
+      - "9000:8000"
+    environment:
+      RESEARCHER_URL: "http://researcher:8080"
+      WRITER_URL: "http://writer:8080"
+      EDITOR_URL: "http://editor:8080"
+      LITELLM_SPEND_ENDPOINT: "http://litellm-proxy:8000"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: agentic-demo
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
+      LOG_LEVEL: INFO
+    depends_on:
+      - researcher
+      - writer
+      - editor
+      - litellm-proxy
+      - minio
+      - postgres
+    networks:
+      - research-pipeline
+
+networks:
+  research-pipeline:
+    driver: bridge
+
+volumes:
+  minio-data:
+  postgres-data:

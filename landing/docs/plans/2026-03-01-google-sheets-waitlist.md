@@ -6,7 +6,7 @@
 
 **Architecture:** Replace `import.meta.env.VITE_GOOGLE_SHEETS_URL` env-var read with a hardcoded constant in `Waitlist.jsx`. The form already uses `mode: 'no-cors'` FormData POST — the only missing piece is the URL. After wiring, do a local build to confirm zero errors, then commit, push, create PR, review, merge, and redeploy.
 
-**Tech Stack:** React, Vite, Framer Motion, Fly.io (nginx static host), Google Apps Script web app
+**Tech Stack:** React, Vite, Framer Motion, Vercel, Google Apps Script web app
 
 ---
 
@@ -120,16 +120,16 @@ gh pr merge --squash --delete-branch
 
 ---
 
-### Task 4: Deploy to Fly.io
+### Task 4: Deploy to Vercel
 
 **Step 1: Deploy from main**
 
 ```bash
 cd /Users/sunny/.openclaw/workspace/agentic-k8s-operator/landing
 git pull  # ensure on main with merge commit
-flyctl deploy --remote-only --app agentic-k8s-landing
+npx vercel --prod --yes
 ```
 
 **Step 2: Smoke-test live form**
 
-Navigate to `https://agentic-k8s-landing.fly.dev/#waitlist` and verify the form renders and the submit button is enabled.
+Navigate to the Vercel production URL for the landing app and verify the form renders and the submit button is enabled.

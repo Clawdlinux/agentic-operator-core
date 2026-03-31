@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: agentic-demo
+data:
+  litellm_config.yaml: |
+    model_list:
+      - model_name: "gpt-4"
+        litellm_params:
+          model: "gpt-4-turbo"
+          api_key: "$OPENAI_API_KEY"
+          rpm: 3500
+
+    virtual_keys:
+      # Researcher: $0.10/request, $20/day limit
+      - virtual_key: "sk-researcher-virtual"
+        config:
+          rpm: 100
+          budget_limit: 20  # $ per day
+          model_max: "gpt-4"
+          model_aliases:
+            - "researcher-model"
+
+      # Writer: $0.15/request, $30/day limit
+      - virtual_key: "sk-writer-virtual"
+        config:
+          rpm: 100
+          budget_limit: 30  # $ per day
+          model_max: "gpt-4"
+          model_aliases:
+            - "writer-model"
+
+      # Editor: $0.10/request, $20/day limit
+      - virtual_key: "sk-editor-virtual"
+        config:
+          rpm: 100
+          budget_limit: 20  # $ per day
+          model_max: "gpt-4"
+          model_aliases:
+            - "editor-model"
+
+    logging:
+      file_logging: true
+      file_logging_path: "/logs/litellm.log"
+
+    database_url: "postgresql://litellm:litellm_prod@postgres:5432/litellm"
