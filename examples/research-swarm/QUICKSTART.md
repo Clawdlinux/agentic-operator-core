@@ -7,7 +7,8 @@
 cp .env.example .env
 
 # Edit .env and add your OpenAI API key
-# (Only line needed: OPENAI_API_KEY=sk-proj-your-key-here)
+# Required: OPENAI_API_KEY=sk-proj-your-key-here
+# Recommended: set strong MINIO_ROOT_PASSWORD and POSTGRES_PASSWORD
 
 # Build Docker images
 make build

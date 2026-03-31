@@ -9,7 +9,7 @@ services:
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       LITELLM_LOG: "DEBUG"
-      LITELLM_MASTER_KEY: "sk-master-key"
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-master-key}
     volumes:
       - ./config/litellm_config.yaml:/app/config.yaml
     networks:
@@ -28,8 +28,8 @@ services:
       - "9090:9090"
       - "9000:9000"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
     volumes:
       - minio-data:/data
     command: minio server /data --console-address ":9090"
@@ -47,16 +47,16 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: spans
-      POSTGRES_PASSWORD: spans_dev
-      POSTGRES_DB: spans
+      POSTGRES_USER: ${POSTGRES_USER:-spans}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spans_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-spans}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - research-pipeline
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U spans"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spans}"]
       interval: 5s
       timeout: 3s
       retries: 3
@@ -76,10 +76,10 @@ services:
       LITELLM_PROXY_URL: "http://litellm-proxy:8000"
       LITELLM_KEY: "sk-researcher-virtual"
       MINIO_ENDPOINT: "http://minio:9000"
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
       MINIO_BUCKET: agentic-demo
-      POSTGRES_URL: "postgresql://spans:spans_dev@postgres:5432/spans"
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
       LOG_LEVEL: INFO
     depends_on:
       litellm-proxy:
@@ -111,10 +111,10 @@ services:
       LITELLM_PROXY_URL: "http://litellm-proxy:8000"
       LITELLM_KEY: "sk-writer-virtual"
       MINIO_ENDPOINT: "http://minio:9000"
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
       MINIO_BUCKET: agentic-demo
-      POSTGRES_URL: "postgresql://spans:spans_dev@postgres:5432/spans"
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
       LOG_LEVEL: INFO
     depends_on:
       litellm-proxy:
@@ -146,10 +146,10 @@ services:
       LITELLM_PROXY_URL: "http://litellm-proxy:8000"
       LITELLM_KEY: "sk-editor-virtual"
       MINIO_ENDPOINT: "http://minio:9000"
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
       MINIO_BUCKET: agentic-demo
-      POSTGRES_URL: "postgresql://spans:spans_dev@postgres:5432/spans"
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
       LOG_LEVEL: INFO
     depends_on:
       litellm-proxy:
@@ -179,10 +179,10 @@ services:
       EDITOR_URL: "http://editor:8080"
       LITELLM_SPEND_ENDPOINT: "http://litellm-proxy:8000"
       MINIO_ENDPOINT: "http://minio:9000"
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
       MINIO_BUCKET: agentic-demo
-      POSTGRES_URL: "postgresql://spans:spans_dev@postgres:5432/spans"
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
       LOG_LEVEL: INFO
     depends_on:
       - researcher
