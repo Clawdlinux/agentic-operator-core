@@ -20,10 +20,10 @@ Public roadmap for the Agentic Kubernetes Operator. Updated quarterly.
 
 - [ ] `agentctl` CLI for workload management from terminal
 - [ ] Homebrew tap for agentctl
-- [ ] Agent observability dashboard (Grafana templates)
-- [ ] Cost dashboard with per-workload token spend visualization
+- [x] Agent observability dashboard (Grafana templates)
+- [x] Cost dashboard with per-workload token spend visualization
 - [ ] Webhook admission controller for CRD validation
-- [ ] OPA policy library for common agent guardrails
+- [x] OPA policy library for common agent guardrails
 - [ ] Agent marketplace: community-contributed agent templates
 - [ ] Horizontal pod autoscaling based on queue depth
 

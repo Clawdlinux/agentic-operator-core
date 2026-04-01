@@ -1,11 +1,14 @@
 # LiteLLM Router Configuration for Research Swarm Demo
-# Supports 3 virtual keys for per-agent cost tracking and budget control
+# Uses Azure AI Foundry (Azure OpenAI) + virtual keys for per-agent tracking
 
 model_list:
   - model_name: gpt-4o-mini  # Default model for all agents
     litellm_params:
-      model: openai/gpt-4o-mini
-      api_key: ${OPENAI_API_KEY}
+      # Update this deployment name if your Azure AI Foundry deployment differs.
+      model: azure/gpt-4o-mini
+      api_base: os.environ/AZURE_OPENAI_ENDPOINT
+      api_version: os.environ/AZURE_OPENAI_API_VERSION
+      api_key: os.environ/AZURE_OPENAI_API_KEY
 
 # Virtual keys for agent-level spend tracking and budgeting
 virtual_keys:

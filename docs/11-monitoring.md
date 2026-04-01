@@ -34,6 +34,15 @@ Default dashboards provided:
 - Per-Tenant Usage
 - Quality Metrics
 
+Prebuilt cost templates in this repo:
+- `config/grafana/dashboards/cost-by-workload.json`
+- `config/grafana/prometheus-rule-cost-alerts.yaml`
+
+Import steps:
+1. In Grafana, import `config/grafana/dashboards/cost-by-workload.json`.
+2. Map `DS_PROMETHEUS` and `DS_POSTGRES` datasource variables during import.
+3. Apply alert sample with `kubectl apply -f config/grafana/prometheus-rule-cost-alerts.yaml`.
+
 Access: `http://prometheus.agentic-system:3000`
 
 ## OpenTelemetry Traces

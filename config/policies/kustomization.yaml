@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: agentic-system
+
+configMapGenerator:
+  - name: agentic-opa-policy-library
+    files:
+      - samples/budget-cap.rego
+      - samples/egress-allowlist.rego
+      - samples/model-allowlist.rego
+
+generatorOptions:
+  disableNameSuffixHash: true

@@ -42,6 +42,8 @@ class HTTPAgent:
         self.app = FastAPI(title=f"{config.role.capitalize()} Agent")
         self.tools: Dict[str, Tool] = {}
         self.trace_id = str(uuid.uuid4())
+        self.last_call_cost_usd: float = 0.0
+        self.last_call_tokens: float = 0.0
         self._setup_routes()
 
     def _setup_routes(self):
@@ -111,19 +113,25 @@ class HTTPAgent:
                             {"role": "user", "content": user_message},
                         ],
                         "temperature": temperature,
-                        "api_key": self.config.litellm_key,
                     },
                     timeout=60.0,
                     headers={"Authorization": f"Bearer {self.config.litellm_key}"},
                 )
                 response.raise_for_status()
-                return response.json()
+                payload = response.json()
+                self.last_call_cost_usd = float(response.headers.get("x-litellm-response-cost", 0.0) or 0.0)
+                self.last_call_tokens = float(payload.get("usage", {}).get("total_tokens", 0) or 0)
+                return payload
             except httpx.HTTPError as e:
                 logger.error(f"LLM call failed: {e}")
                 raise
 
     async def query_spend(self) -> Dict[str, float]:
         """Query LiteLLM spend endpoint for this virtual key"""
+        fallback = {
+            "total_cost_usd": self.last_call_cost_usd,
+            "total_tokens": self.last_call_tokens,
+        }
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.get(
@@ -133,14 +141,24 @@ class HTTPAgent:
                 )
                 response.raise_for_status()
                 data = response.json()
+
+                if isinstance(data, dict):
+                    total_cost = float(data.get("total_cost_usd", fallback["total_cost_usd"]) or 0.0)
+                    total_tokens = float(data.get("total_tokens", fallback["total_tokens"]) or 0.0)
+                elif isinstance(data, list):
+                    total_cost = float(sum(float(item.get("cost", 0.0) or 0.0) for item in data))
+                    total_tokens = fallback["total_tokens"]
+                else:
+                    total_cost = fallback["total_cost_usd"]
+                    total_tokens = fallback["total_tokens"]
+
                 return {
-                    "total_cost_usd": data.get("total_cost_usd", 0.0),
-                    "model": data.get("model", "gpt-4o-mini"),
-                    "tokens": data.get("total_tokens", 0),
+                    "total_cost_usd": total_cost,
+                    "total_tokens": total_tokens,
                 }
             except Exception as e:
                 logger.warning(f"Failed to query spend: {e}")
-                return {"total_cost_usd": 0.0, "model": "gpt-4o-mini", "tokens": 0}
+                return fallback
 
     def create_trace_event(
         self,
