@@ -4,7 +4,7 @@ import { BookOpen, Github, Mail, Send } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 const CONTACT_FORM_URL = import.meta.env.VITE_CONTACT_FORM_URL?.trim();
-const CONTACT_FALLBACK_EMAIL = import.meta.env.VITE_CONTACT_FALLBACK_EMAIL?.trim() || 'oss@clawdlinux.org';
+const CONTACT_FALLBACK_EMAIL = import.meta.env.VITE_CONTACT_FALLBACK_EMAIL?.trim() || '007ssancheti@gmail.com';
 
 export default function Waitlist() {
   const { currentTheme, theme } = useTheme();

@@ -31,7 +31,7 @@ To the maximum extent permitted by law, Nine Rewards Solutions Pvt. Ltd. shall n
 We may update these terms from time to time. Continued use after publication of changes constitutes acceptance of the revised terms.
 
 8. Contact
-For questions about these terms, contact: oss@clawdlinux.org`,
+For questions about these terms, contact: 007ssancheti@gmail.com`,
   },
   privacy: {
     title: 'Privacy Policy',
@@ -53,11 +53,11 @@ This website does not knowingly collect personal telemetry from your cluster wor
 Links to GitHub and other external services are governed by those services' own privacy policies.
 
 5. Data Requests
-You may request deletion of support correspondence by emailing: oss@clawdlinux.org
+You may request deletion of support correspondence by emailing: 007ssancheti@gmail.com
 
 6. Contact
 Nine Rewards Solutions Pvt. Ltd.
-Email: oss@clawdlinux.org`,
+Email: 007ssancheti@gmail.com`,
   },
   conduct: {
     title: 'Code of Conduct',
@@ -81,7 +81,7 @@ Enforcement
 Violations may result in a warning, temporary ban, or permanent exclusion from community spaces, at the discretion of the maintainers.
 
 Reporting
-If you experience or witness unacceptable behaviour, please report it to: oss@clawdlinux.org. All reports will be reviewed and investigated promptly and confidentially.
+If you experience or witness unacceptable behaviour, please report it to: 007ssancheti@gmail.com. All reports will be reviewed and investigated promptly and confidentially.
 
 This Code of Conduct is adapted from the Contributor Covenant, version 2.1.`,
   },
@@ -374,7 +374,7 @@ export default function Footer() {
                 </li>
                 <li>
                   <a
-                    href="mailto:oss@clawdlinux.org"
+                    href="mailto:007ssancheti@gmail.com"
                     className="text-sm transition-colors duration-200"
                     style={{ color: currentTheme.text.tertiary, fontFamily: "'DM Sans', sans-serif", textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onMouseEnter={(e) => { e.currentTarget.style.color = currentTheme.accent.teal; }}

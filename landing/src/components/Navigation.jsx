@@ -17,7 +17,7 @@ const NAV_LINKS = [
 
 const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
 const QUICKSTART_URL = 'https://github.com/Clawdlinux/agentic-operator-core/blob/main/docs/01-quickstart.md';
-const DEMO_EMAIL_URL = 'mailto:oss@clawdlinux.org?subject=Agentic%20Operator%20Demo%20Request';
+const DEMO_EMAIL_URL = 'mailto:007ssancheti@gmail.com?subject=Agentic%20Operator%20Demo%20Request';
 const NAV_SCROLL_OFFSET = 88;
 
 export default function Navigation() {
