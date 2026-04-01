@@ -1,6 +1,6 @@
 # Quick reference for common commands
 
-.PHONY: help build up down logs clean cost-report
+.PHONY: help build up down logs clean cost-report validate-e2e
 
 help:
 	@echo "Research Swarm Demo - Make Commands"
@@ -21,17 +21,17 @@ help:
 	@echo "Testing:"
 	@echo "  make run-demo           Run orchestration demo (single request)"
 	@echo "  make cost-report        Show per-agent cost usage (from litellm proxy)"
+	@echo "  make validate-e2e       Run full reproducible quickstart validation"
 	@echo "  make minio-console      Print MinIO console URL"
 	@echo "  make postgres-shell     Connect to PostgreSQL shell (requires psql installed)"
 	@echo ""
 	@echo "Setup:"
-	@echo "  make env                Create .env file (prompts for OPENAI_API_KEY)"
+	@echo "  make env                Create .env file (prompts for Azure AI Foundry vars)"
 	@echo ""
 
 build:
-	docker build -f docker/Dockerfile.agent -t agentic-agent:latest .
-	docker build -f docker/Dockerfile.orchestrator -t agentic-orchestrator:latest .
-	@echo "✅ Images built: agentic-agent:latest, agentic-orchestrator:latest"
+	docker compose -f docker-compose.yml build researcher writer editor orchestrator
+	@echo "✅ Images built via docker compose"
 
 up:
 	docker compose -f docker-compose.yml up -d
@@ -98,6 +98,9 @@ cost-report:
 	@echo "Editor (sk-editor-virtual):"
 	@curl -s 'http://localhost:8000/spend/logs?virtual_key=sk-editor-virtual' | jq '.data[] | {timestamp, total_cost: .cost}' 2>/dev/null || echo "  (no data yet)"
 
+validate-e2e:
+	bash tests/e2e-quickstart-validate.sh
+
 minio-console:
 	@echo "MinIO Console: http://localhost:9090"
 	@echo "Login: minioadmin / minioadmin123"
@@ -111,7 +114,12 @@ env:
 		echo ".env already exists"; \
 	else \
 		echo "Creating .env file..."; \
-		read -p "Enter OpenAI API Key (sk-proj-...): " key; \
-		echo "OPENAI_API_KEY=$$key" > .env; \
+		read -p "Azure OpenAI Endpoint (https://<resource>.openai.azure.com): " endpoint; \
+		read -p "Azure OpenAI API Key: " key; \
+		read -p "Azure OpenAI API Version [2024-10-21]: " version; \
+		if [ -z "$$version" ]; then version="2024-10-21"; fi; \
+		echo "AZURE_OPENAI_ENDPOINT=$$endpoint" > .env; \
+		echo "AZURE_OPENAI_API_KEY=$$key" >> .env; \
+		echo "AZURE_OPENAI_API_VERSION=$$version" >> .env; \
 		echo "✅ .env created"; \
 	fi

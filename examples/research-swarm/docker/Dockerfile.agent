@@ -8,23 +8,20 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy agent base requirements (from ../)
-COPY agents/requirements.txt requirements.txt
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir \
+# Install demo runtime dependencies
+RUN pip install --no-cache-dir \
     fastapi==0.104.1 \
     uvicorn==0.24.0 \
+    httpx==0.25.2 \
+    pydantic==2.8.2 \
     azure-storage-blob==12.19.0 \
     azure-identity==1.14.0 \
     azure-keyvault-secrets==4.7.0
 
-# Copy agent base modules
-COPY agents/ /app/agents/
-
 # Copy this agent's implementation
 ARG AGENT_TYPE=researcher
+RUN mkdir -p /app/agent
+COPY examples/research-swarm/agents/base.py /app/agent/base.py
 COPY examples/research-swarm/agents/${AGENT_TYPE}/ /app/agent/
 
 # Set environment for the agent

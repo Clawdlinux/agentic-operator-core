@@ -1,23 +1,56 @@
-# Google Sheets Waitlist Setup
+# Google Sheets Contact Flow Setup
 
-This document is retained only as a legacy reference.
+The landing contact form in `src/components/Waitlist.jsx` can submit to a Google Apps Script webhook.
 
-The current open-core landing page no longer runs a Google Sheets waitlist flow. The `landing/src/components/Waitlist.jsx` section is now a contribution CTA that sends users to GitHub and docs instead of posting to Apps Script.
+## 1. Create Google Sheet
 
-## If a waitlist flow is reintroduced later
+Create columns in row 1:
 
-Use Vercel for deployment.
+- `submittedAt`
+- `name`
+- `email`
+- `company`
+- `message`
+- `source`
+- `page`
 
-1. Create the target Google Sheet and Apps Script webhook.
-2. Configure the webhook URL through a Vite env var such as `VITE_WAITLIST_WEBHOOK_URL`.
-3. Set the production value in Vercel:
+## 2. Deploy Apps Script webhook
+
+Use a basic `doPost(e)` handler that reads URL-encoded params and appends to the sheet.
+
+Required fields expected by landing:
+
+- `name`
+- `email`
+- `company`
+- `message`
+- `source`
+- `submittedAt`
+- `page`
+
+## 3. Configure env vars
+
+Local:
 
 ```bash
 cd landing
-npx vercel env add VITE_WAITLIST_WEBHOOK_URL production
+cp .env.example .env
+# set VITE_CONTACT_FORM_URL to your Apps Script web app URL
+```
+
+Vercel production:
+
+```bash
+cd landing
+npx vercel env add VITE_CONTACT_FORM_URL production
+npx vercel env add VITE_CONTACT_FALLBACK_EMAIL production
 npx vercel --prod --yes
 ```
 
-## Operational note
+## 4. Verify submission
 
-If a future form uses `mode: 'no-cors'`, browser-side code will not receive Apps Script error payloads. Treat Google Sheets as the source of truth for submission success.
+1. Run `npm run dev`.
+2. Submit the contact form.
+3. Confirm a new row in Google Sheets.
+
+If webhook delivery fails, the UI falls back to a prefilled mailto flow.

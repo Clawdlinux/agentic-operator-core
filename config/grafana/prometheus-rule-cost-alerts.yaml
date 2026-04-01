@@ -1,0 +1,40 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: agentic-cost-alerts
+  namespace: agentic-system
+  labels:
+    app.kubernetes.io/name: agentic-operator
+spec:
+  groups:
+    - name: agentic.cost.rules
+      rules:
+        - alert: AgenticProviderCostHigh
+          expr: sum(agentic_estimated_cost_usd) by (provider) > 100
+          for: 15m
+          labels:
+            severity: warning
+            category: cost
+          annotations:
+            summary: "Estimated provider cost is high"
+            description: "Provider {{ $labels.provider }} exceeded 100 USD estimated spend."
+
+        - alert: AgenticTokenRateSpike
+          expr: sum(rate(agentic_tokens_used_total[15m])) > 2000
+          for: 10m
+          labels:
+            severity: warning
+            category: cost
+          annotations:
+            summary: "Token usage growth spike detected"
+            description: "Token usage rate exceeded 2000 tokens/sec for at least 10 minutes."
+
+        - alert: AgenticRoutingErrorsBurst
+          expr: increase(agentic_model_routing_total{task_category="error"}[10m]) > 5
+          for: 5m
+          labels:
+            severity: critical
+            category: reliability
+          annotations:
+            summary: "Model routing errors are increasing"
+            description: "More than 5 routing errors were recorded in the last 10 minutes."

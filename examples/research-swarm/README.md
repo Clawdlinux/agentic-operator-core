@@ -18,7 +18,7 @@ This demo demonstrates core operator capab ilities:
 ## Prerequisites
 
 - **Docker Desktop** (with `docker compose` support)
-- **OpenAI API key** (for LLM calls via LiteLLM proxy)
+- **Azure AI Foundry deployment + API key** (for LLM calls via LiteLLM proxy)
 - **A modern shell** (bash, zsh, fish)
 - **curl** (for health checks)
 
@@ -29,8 +29,8 @@ This demo demonstrates core operator capab ilities:
 git clone https://github.com/Clawdlinux/agentic-operator-core
 cd examples/research-swarm
 
-# 2. Create .env with your OpenAI key
-echo "OPENAI_API_KEY=sk-proj-your-key-here" > .env
+# 2. Create .env from template and fill Azure AI Foundry values
+cp .env.example .env
 
 # 3. Start the stack
 docker compose up -d
@@ -112,7 +112,7 @@ orchestrator (PORT 9000)
     ├─ researcher (PORT 9001)
     ├─ writer (PORT 9002)
     ├─ editor (PORT 9003)
-    ├─ litellm-proxy (PORT 8000) ──────┬─── OpenAI API
+  ├─ litellm-proxy (PORT 8000) ──────┬─── Azure AI Foundry model endpoint
     ├─ minio (PORT 9090, S3:9000) ─────┤
     └─ postgres (PORT 5432) ───────────┘
 ```
@@ -173,8 +173,10 @@ Edit `config/litellm_config.yaml`:
 model_list:
   - model_name: gpt-4o-mini    # change to: gpt-4, gpt-4-turbo, etc
     litellm_params:
-      model: openai/gpt-4o-mini
-      api_key: ${OPENAI_API_KEY}
+      model: azure/gpt-4o-mini
+      api_base: os.environ/AZURE_OPENAI_ENDPOINT
+      api_version: os.environ/AZURE_OPENAI_API_VERSION
+      api_key: os.environ/AZURE_OPENAI_API_KEY
 ```
 
 Then restart: `docker compose restart litellm-proxy`
@@ -226,9 +228,9 @@ az storage account create --name agenticdemo --resource-group agentic-demo \
 # Create Key Vault for secrets (replaces K8s Secrets)
 az keyvault create --name agentic-demo-kv --resource-group agentic-demo
 
-# Store OpenAI key in Key Vault
+# Store Azure AI Foundry key in Key Vault
 az keyvault secret set --vault-name agentic-demo-kv \
-  --name openai-api-key --value "sk-proj-..."
+  --name azure-openai-api-key --value "<azure-api-key>"
 
 # Create PostgreSQL for spans tracing
 az postgres server create --resource-group agentic-demo \
@@ -311,14 +313,20 @@ Ensure Docker Desktop is installed with `docker compose` plugin:
 docker compose version  # should show Docker Compose v2.x+
 ```
 
-### "OPENAI_API_KEY not set"
+### "AZURE_OPENAI_* not set"
 
 ```bash
 # Add to .env
-echo "OPENAI_API_KEY=sk-proj-your-actual-key" >> .env
+cat >> .env <<EOF
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+AZURE_OPENAI_API_KEY=<api-key>
+AZURE_OPENAI_API_VERSION=2024-10-21
+EOF
 
 # Or set in shell
-export OPENAI_API_KEY=sk-proj-...
+export AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+export AZURE_OPENAI_API_KEY=<api-key>
+export AZURE_OPENAI_API_VERSION=2024-10-21
 docker compose up
 ```
 

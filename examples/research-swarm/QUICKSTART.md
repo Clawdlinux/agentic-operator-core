@@ -6,8 +6,11 @@
 # Copy example environment
 cp .env.example .env
 
-# Edit .env and add your OpenAI API key
-# Required: OPENAI_API_KEY=sk-proj-your-key-here
+# Edit .env and add your Azure AI Foundry values
+# Required:
+#   AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+#   AZURE_OPENAI_API_KEY=<api-key>
+#   AZURE_OPENAI_API_VERSION=2024-10-21
 # Recommended: set strong MINIO_ROOT_PASSWORD and POSTGRES_PASSWORD
 
 # Build Docker images
@@ -59,6 +62,15 @@ make down          # Stop without removing data
 make clean         # Stop + remove everything (WARNING)
 ```
 
+## Reproducible Validation (recommended)
+
+```bash
+make validate-e2e
+```
+
+This runs a clean, end-to-end verification and confirms all three stages complete with non-zero cost output.
+Detailed steps: `docs/VALIDATION_RUNBOOK.md`.
+
 ## Customization
 
 Edit these to customize behavior:
@@ -66,7 +78,7 @@ Edit these to customize behavior:
 | File | What | How |
 |------|------|-----|
 | `docker-compose.yml` | Agent env vars | Change `AGENT_ROLE`, `AGENT_TONE`, topics |
-| `config/litellm_config.yaml` | LLM models | Switch model_name to `gpt-4`, `gpt-4-turbo`, etc |
+| `config/litellm_config.yaml` | LLM models | Switch `model: azure/<your-deployment>` and `model_name` alias |
 | `agents/researcher/main.py` | Research logic | Add real web_search, modify prompts |
 | `agents/writer/main.py` | Writing logic | Change prose style, length, format |
 | `agents/editor/main.py` | Editing logic | Modify quality criteria, fact-check |

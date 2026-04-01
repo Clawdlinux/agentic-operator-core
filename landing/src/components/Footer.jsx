@@ -38,10 +38,10 @@ For questions about these terms, contact: oss@clawdlinux.org`,
     content: `Last updated: March 2026
 
 1. Information We Collect
-This website does not run a waitlist or marketing signup form. If you email us, we receive the information you include in that message.
+  This website provides a contact request form. When you submit it, we receive the details you provide (name, work email, company, and request message). If webhook delivery is unavailable, we may also receive information through email fallback.
 
 2. How We Use Information
-We use inbound email and support requests to:
+  We use inbound requests to:
 • Respond to OSS and documentation questions
 • Coordinate enterprise follow-up when requested
 • Improve project guidance and support materials

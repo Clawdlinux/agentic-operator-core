@@ -56,8 +56,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
     minio_path VARCHAR(255) NOT NULL UNIQUE,
     content_hash VARCHAR(64),
     size_bytes INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (trace_id) REFERENCES spans_trace(trace_id)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX artifacts_trace_id ON artifacts(trace_id);
