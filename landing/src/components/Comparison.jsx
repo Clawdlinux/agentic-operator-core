@@ -4,7 +4,7 @@ import { CheckCircle2, XCircle, Zap, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 const Comparison = () => {
-  const { currentTheme, theme } = useTheme();
+  const { currentTheme } = useTheme();
 
   const containerVariants = {
     hidden: {},
@@ -44,7 +44,7 @@ const Comparison = () => {
     },
     {
       name: 'Outcome-Based Billing',
-      agentic: 'OpenMeter per-workload token metering',
+      agentic: 'Per-workload cost tracking and budget controls',
       kagent: 'No cost metering or budget enforcement',
       agenticWins: true,
       description: 'Chargeback to business units',

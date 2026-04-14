@@ -6,7 +6,7 @@ import { useTheme } from '../hooks/useTheme';
 
 const USE_CASES = [
   'The only Kubernetes agent platform built for zero-egress, regulated environments.',
-  'Air-gapped by default — no cloud callbacks, no telemetry, no egress required.',
+  'Air-gapped capable — can run with zero cloud egress, no telemetry, no licensing callbacks.',
   'Argo Workflows executes agent steps as observable DAGs with retries.',
   'Per-tenant cost attribution with OpenMeter — chargeback to any business unit.',
   'FedRAMP, HIPAA, and sovereign cloud deployments supported out of the box.',

@@ -56,9 +56,9 @@ const features = [
   },
   {
     icon: Receipt,
-    title: "Outcome-Based Billing",
+    title: "Per-Workload Cost Tracking",
     description:
-      "OpenMeter integration meters token usage per workload and per tenant, enabling precise chargeback to business units without manual tracking.",
+      "Track token usage per workload and per tenant, enabling precise cost attribution and chargeback to business units without manual tracking.",
   },
 ];
 

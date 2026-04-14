@@ -20,7 +20,7 @@ const COMMUNITY_FEATURES = [
   'Cilium FQDN egress policies',
   'Argo Workflows DAG orchestration',
   'MinIO artifact retention',
-  'OpenMeter per-workload billing',
+  'Per-workload cost tracking and attribution',
   'Air-gapped deployment support',
   'Multi-tenant namespace isolation',
   'LiteLLM model routing',

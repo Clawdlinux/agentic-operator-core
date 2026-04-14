@@ -161,7 +161,7 @@ flowchart LR
 | **LiteLLM Routing** | Cost-aware model selection across providers (OpenAI, Anthropic, Cloudflare) |
 | **MinIO Artifacts** | Per-workload bucket for prompts, logs, outputs, audit trails |
 | **Multi-tenancy** | Namespace isolation with quota enforcement per tenant |
-| **OpenMeter Billing** | Per-workload token metering and chargeback to business units |
+| **Cost Attribution** | Per-workload usage metering and cost-attribution hooks for chargeback reporting |
 | **Python Agent Runtime** | Batteries-included agent framework with tool integrations |
 
 ---
@@ -176,7 +176,7 @@ flowchart LR
 | **AgentWorkload CRD** | ✅ | ✅ |
 | **Argo DAG orchestration** | ✅ | ✅ |
 | **Cilium egress policies** | ✅ | ✅ |
-| **OpenMeter billing** | ✅ | ✅ |
+| **Cost attribution hooks** | ✅ | ✅ |
 | **Managed upgrades** | — | ✅ |
 | **Dedicated control plane** | — | ✅ |
 | **Private registry & SSO** | — | ✅ |
@@ -223,9 +223,9 @@ assets/                 Branding assets (logo, etc.)
 
 This repository is the **open-source core**. It contains everything needed to run agent workloads on Kubernetes, including full air-gapped support.
 
-The [private companion](https://github.com/Clawdlinux/agentic-operator-private) adds enterprise features:
+The [private companion](https://github.com/Clawdlinux/agentic-operator-private) adds enterprise features built on top of the core's cost-attribution primitives:
 - License validation and trial enforcement
-- Usage metering and billing integration
+- External billing system integrations (e.g. OpenMeter, Stripe, internal chargebacks)
 - Production DOKS deployment overlays
 - FedRAMP / HIPAA compliance overlays
 
