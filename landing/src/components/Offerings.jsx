@@ -6,6 +6,8 @@ import {
   Lock,
   GitBranch,
   Layers,
+  WifiOff,
+  Receipt,
 } from "lucide-react";
 import { useTheme } from "../hooks/useTheme";
 
@@ -45,6 +47,18 @@ const features = [
     title: "Artifacts & State Layers",
     description:
       "Persist prompts, outputs, and workflow artifacts to MinIO so operators can inspect every run after completion.",
+  },
+  {
+    icon: WifiOff,
+    title: "Air-Gapped Deployments",
+    description:
+      "Run in fully offline environments with no cloud egress, no licensing callbacks, and no telemetry — built for FedRAMP, HIPAA, and sovereign cloud constraints.",
+  },
+  {
+    icon: Receipt,
+    title: "Per-Workload Cost Tracking",
+    description:
+      "Track token usage per workload and per tenant, enabling precise cost attribution and chargeback to business units without manual tracking.",
   },
 ];
 
@@ -170,7 +184,7 @@ export default function Offerings() {
                 backgroundClip: "text",
               }}
             >
-              Agent Isolation on Kubernetes
+              Zero-Egress Agent Workloads
             </span>
           </h2>
         </motion.div>

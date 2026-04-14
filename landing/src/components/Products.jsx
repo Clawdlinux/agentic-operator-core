@@ -8,8 +8,25 @@ import {
   Sparkles,
   Building2,
   Lock,
+  CheckCircle2,
+  Boxes,
+  WifiOff,
+  BadgeCheck,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
+
+const COMMUNITY_FEATURES = [
+  'AgentWorkload CRD — full spec',
+  'Cilium FQDN egress policies',
+  'Argo Workflows DAG orchestration',
+  'MinIO artifact retention',
+  'Per-workload cost tracking and attribution',
+  'Air-gapped deployment support',
+  'Multi-tenant namespace isolation',
+  'LiteLLM model routing',
+  'Python agent runtime',
+  'Apache 2.0 — self-hostable forever',
+];
 
 const ENTERPRISE_BENEFITS = [
   {
@@ -48,6 +65,20 @@ const ENTERPRISE_ADD_ONS = [
     description:
       'Private images, enterprise identity integration, and hardened delivery workflows for internal agent platforms.',
     color: '#06b6d4',
+  },
+  {
+    icon: WifiOff,
+    title: 'Air-Gapped & FedRAMP Overlays',
+    description:
+      'Deployment overlays and advisory support for FedRAMP High, HIPAA, and sovereign cloud constraints.',
+    color: '#00d4aa',
+  },
+  {
+    icon: BadgeCheck,
+    title: 'SLA & Compliance Advisory',
+    description:
+      'Formal SLA, audit artifact support, and compliance advisory for regulated industries.',
+    color: '#ec4899',
   },
 ];
 
@@ -92,7 +123,7 @@ function BenefitRow({ benefit, currentTheme }) {
   );
 }
 
-function ComingSoonCard({ product, currentTheme }) {
+function AddOnCard({ product, currentTheme }) {
   const Icon = product.icon;
   return (
     <motion.div
@@ -162,7 +193,7 @@ export default function Products() {
       <div
         className="absolute pointer-events-none"
         style={{
-          top: '20%',
+          top: '10%',
           left: '50%',
           transform: 'translateX(-50%)',
           width: 800,
@@ -192,7 +223,7 @@ export default function Products() {
               fontFamily: "'IBM Plex Mono', monospace",
             }}
           >
-            Managed Offering
+            Product Editions
             <Sparkles size={14} />
           </div>
           <h2
@@ -207,125 +238,190 @@ export default function Products() {
                 backgroundClip: 'text',
               }}
             >
-              Enterprise Support
+              Open Source
+            </span>{' '}
+            &{' '}
+            <span
+              style={{
+                background: `linear-gradient(135deg, ${currentTheme.accent.indigo}, #ec4899)`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              Enterprise
             </span>
           </h2>
           <p
             className="text-base sm:text-lg max-w-2xl mx-auto"
             style={{ fontFamily: "'DM Sans', sans-serif", color: currentTheme.text.tertiary }}
           >
-            For teams deploying Agentic Operator in production with managed support and hardened cluster coordination.
+            Start free with the full open-source core. Add enterprise support when you&apos;re ready for production.
           </p>
         </motion.div>
 
-          {/* Enterprise managed support offering */}
+        {/* Tier comparison cards */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-60px' }}
+          className="grid lg:grid-cols-2 gap-6 mb-14"
+        >
+          {/* Community tier */}
+          <motion.div
+            variants={itemVariants}
+            className="rounded-2xl p-8"
+            style={{
+              background: `${currentTheme.bg.secondary}CC`,
+              border: `1px solid ${currentTheme.border.light}`,
+            }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: `${currentTheme.accent.teal}1A`, border: `1px solid ${currentTheme.accent.teal}33` }}
+              >
+                <Boxes size={20} color={currentTheme.accent.teal} strokeWidth={1.5} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold" style={{ fontFamily: "'Syne', sans-serif", color: currentTheme.text.primary }}>
+                  Community
+                </h3>
+                <span
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: currentTheme.accent.teal, fontFamily: "'IBM Plex Mono', monospace" }}
+                >
+                  Free · Apache 2.0
+                </span>
+              </div>
+            </div>
+
+            <p className="text-sm mb-6 mt-3" style={{ color: currentTheme.text.tertiary, fontFamily: "'DM Sans', sans-serif" }}>
+              Everything you need to run AI agents on Kubernetes — including full air-gapped support. Self-hostable forever.
+            </p>
+
+            <div className="space-y-2.5 mb-7">
+              {COMMUNITY_FEATURES.map((feat) => (
+                <div key={feat} className="flex items-center gap-2.5">
+                  <CheckCircle2 size={15} style={{ color: currentTheme.accent.teal, flexShrink: 0 }} />
+                  <span className="text-sm" style={{ color: currentTheme.text.secondary, fontFamily: "'DM Sans', sans-serif" }}>
+                    {feat}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <a
+              href="https://github.com/Clawdlinux/agentic-operator-core"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200"
+              style={{
+                border: `1px solid ${currentTheme.accent.teal}66`,
+                color: currentTheme.accent.teal,
+                background: `${currentTheme.accent.teal}10`,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = `${currentTheme.accent.teal}1A`; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = `${currentTheme.accent.teal}10`; }}
+            >
+              View on GitHub
+              <ArrowRight size={15} />
+            </a>
+          </motion.div>
+
+          {/* Enterprise tier */}
+          <motion.div
+            variants={itemVariants}
+            className="rounded-2xl p-px"
+            style={{
+              background: `linear-gradient(135deg, ${currentTheme.accent.teal}59, ${currentTheme.accent.indigo}40, ${currentTheme.accent.teal}1A)`,
+            }}
+          >
+            <div
+              className="rounded-2xl p-8 h-full"
+              style={{ background: currentTheme.bg.overlay }}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{
+                    background: `linear-gradient(135deg, ${currentTheme.accent.teal}33, ${currentTheme.accent.indigo}26)`,
+                    border: `1px solid ${currentTheme.accent.teal}40`,
+                  }}
+                >
+                  <Shield size={20} color={currentTheme.accent.teal} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold" style={{ fontFamily: "'Syne', sans-serif", color: currentTheme.text.primary }}>
+                    Enterprise
+                  </h3>
+                  <span
+                    className="text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: currentTheme.accent.teal, fontFamily: "'IBM Plex Mono', monospace" }}
+                  >
+                    Managed Support
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-sm mb-6 mt-3" style={{ color: currentTheme.text.tertiary, fontFamily: "'DM Sans', sans-serif" }}>
+                Everything in Community, plus expert support for production deployments — including air-gapped, FedRAMP, and sovereign cloud environments.
+              </p>
+
+              <div className="flex flex-col gap-4 mb-7">
+                {ENTERPRISE_BENEFITS.map((benefit) => (
+                  <BenefitRow key={benefit.title} benefit={benefit} currentTheme={currentTheme} />
+                ))}
+              </div>
+
+              <p
+                className="text-xs mb-4"
+                style={{ color: currentTheme.text.muted, fontFamily: "'DM Sans', sans-serif" }}
+              >
+                Enterprise inquiries:{' '}
+                <a
+                  href="mailto:shreyanshsancheti09@gmail.com?subject=Enterprise%20Support%20Inquiry"
+                  className="underline"
+                  style={{ color: currentTheme.accent.teal }}
+                >
+                  shreyanshsancheti09@gmail.com
+                </a>
+              </p>
+
+              <a
+                href="mailto:shreyanshsancheti09@gmail.com?subject=Enterprise%20Support%20Inquiry"
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 hover:brightness-110"
+                style={{
+                  background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #00b894 100%)`,
+                  color: '#03231d',
+                }}
+              >
+                Get in Touch
+                <ArrowRight size={15} />
+              </a>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Enterprise add-ons */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-60px' }}
         >
-          <motion.div
-            variants={itemVariants}
-            className="rounded-2xl p-px mb-10"
-            style={{
-              background: `linear-gradient(135deg, ${currentTheme.accent.teal}59, ${currentTheme.accent.indigo}40, ${currentTheme.accent.teal}1A)`,
-            }}
-          >
-            <div
-              className="rounded-2xl p-8 sm:p-10"
-              style={{ background: currentTheme.bg.overlay }}
-            >
-              <div className="grid lg:grid-cols-2 gap-10 items-start">
-                {/* Left: product info */}
-                <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center"
-                      style={{
-                        background: `linear-gradient(135deg, ${currentTheme.accent.teal}33, ${currentTheme.accent.indigo}26)`,
-                        border: `1px solid ${currentTheme.accent.teal}40`,
-                      }}
-                    >
-                      <Shield size={24} color={currentTheme.accent.teal} strokeWidth={1.5} />
-                    </div>
-                    <div>
-                      <h3
-                        className="text-xl sm:text-2xl font-bold"
-                        style={{ fontFamily: "'Syne', sans-serif", color: currentTheme.text.primary }}
-                      >
-                        Managed Support
-                      </h3>
-                      <span
-                        className="text-xs font-semibold uppercase tracking-wider"
-                        style={{ color: currentTheme.accent.teal, fontFamily: "'IBM Plex Mono', monospace" }}
-                      >
-                        Enterprise
-                      </span>
-                    </div>
-                  </div>
-
-                  <p
-                    className="text-base sm:text-lg mb-6 leading-relaxed"
-                    style={{ fontFamily: "'DM Sans', sans-serif", color: currentTheme.text.tertiary }}
-                  >
-                    Platform teams can get expert support for deploying Agentic Operator in production with managed upgrades, workload design guidance, incident response, and hardened cluster coordination.
-                  </p>
-
-                  <p
-                    className="text-sm mb-6"
-                    style={{ color: currentTheme.text.tertiary, fontFamily: "'DM Sans', sans-serif" }}
-                  >
-                    For enterprise support inquiries, reach out at{' '}
-                    <a
-                      href="mailto:shreyanshsancheti09@gmail.com?subject=Enterprise%20Support%20Inquiry"
-                      className="underline"
-                      style={{ color: currentTheme.accent.teal }}
-                    >
-                      shreyanshsancheti09@gmail.com
-                    </a>
-                    .
-                  </p>
-
-                  {/* CTA */}
-                  <a
-                    href="mailto:shreyanshsancheti09@gmail.com?subject=Enterprise%20Support%20Inquiry"
-                    className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-[0.97]"
-                    style={{
-                      background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #00b894 100%)`,
-                      color: '#03231d',
-                    }}
-                  >
-                    Get in Touch
-                    <ArrowRight size={16} />
-                  </a>
-                </div>
-
-                {/* Right: benefits list */}
-                <div className="flex flex-col gap-5">
-                  {ENTERPRISE_BENEFITS.map((benefit) => (
-                    <BenefitRow key={benefit.title} benefit={benefit} currentTheme={currentTheme} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Additional enterprise services */}
-          <motion.div
-            variants={itemVariants}
-            className="mb-4"
-          >
+          <motion.div variants={itemVariants} className="mb-5">
             <p
-              className="text-xs font-semibold uppercase tracking-widest text-center mb-5"
+              className="text-xs font-semibold uppercase tracking-widest text-center"
               style={{ color: currentTheme.text.muted, fontFamily: "'IBM Plex Mono', monospace" }}
             >
-              Additional Services
+              Enterprise Add-ons
             </p>
           </motion.div>
-          <div className="grid sm:grid-cols-2 gap-5">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {ENTERPRISE_ADD_ONS.map((product) => (
-              <ComingSoonCard key={product.title} product={product} currentTheme={currentTheme} />
+              <AddOnCard key={product.title} product={product} currentTheme={currentTheme} />
             ))}
           </div>
         </motion.div>
