@@ -225,8 +225,8 @@ const Comparison = () => {
             <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: currentTheme.accent.teal }} />
             <p className="text-sm leading-relaxed" style={{ color: currentTheme.text.tertiary }}>
               <span className="font-semibold" style={{ color: currentTheme.text.primary }}>kagent validates this market.</span>{' '}
-              When Google, Microsoft, IBM, and Red Hat all contribute to a Kubernetes agent runtime, you don't need to convince anyone the category is real. But their enterprise revenue depends on telemetry, licensing callbacks, and managed control planes — a structural conflict with air-gapped and regulated buyers.{' '}
-              <span className="font-semibold" style={{ color: currentTheme.accent.teal }}>These are different buyers. That's our market.</span>
+              When Google, Microsoft, IBM, and Red Hat all contribute to a Kubernetes agent runtime, you don&apos;t need to convince anyone the category is real. But their enterprise revenue depends on telemetry, licensing callbacks, and managed control planes — a structural conflict with air-gapped and regulated buyers.{' '}
+              <span className="font-semibold" style={{ color: currentTheme.accent.teal }}>These are different buyers. That&apos;s our market.</span>
             </p>
           </div>
         </motion.div>

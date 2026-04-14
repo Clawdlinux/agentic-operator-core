@@ -256,7 +256,7 @@ export default function Products() {
             className="text-base sm:text-lg max-w-2xl mx-auto"
             style={{ fontFamily: "'DM Sans', sans-serif", color: currentTheme.text.tertiary }}
           >
-            Start free with the full open-source core. Add enterprise support when you're ready for production.
+            Start free with the full open-source core. Add enterprise support when you&apos;re ready for production.
           </p>
         </motion.div>
 
