@@ -5,11 +5,11 @@ import ParticleNetwork from '../utils/particleNetwork';
 import { useTheme } from '../hooks/useTheme';
 
 const USE_CASES = [
-  'Run autonomous agents in isolated namespaces from a single AgentWorkload manifest.',
-  'Cilium FQDN policies lock outbound traffic to approved destinations.',
+  'The only Kubernetes agent platform built for zero-egress, regulated environments.',
+  'Air-gapped capable — can run with zero cloud egress, no telemetry, no licensing callbacks.',
   'Argo Workflows executes agent steps as observable DAGs with retries.',
-  'MinIO stores artifacts, prompts, logs, and outputs per workload.',
-  'Built for platform teams standardizing AI workloads on Kubernetes.',
+  'Per-tenant cost attribution with OpenMeter — chargeback to any business unit.',
+  'FedRAMP, HIPAA, and sovereign cloud deployments supported out of the box.',
 ];
 
 const QUICKSTART_URL = 'https://github.com/Clawdlinux/agentic-operator-core/blob/main/docs/01-quickstart.md';
@@ -273,7 +273,7 @@ export default function Hero() {
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: currentTheme.accent.teal }} />
-            Kubernetes Operator · Open Source · Apache 2.0
+            Zero-Egress Ready · Air-Gapped · Apache 2.0
           </div>
         </motion.div>
 
@@ -290,12 +290,12 @@ export default function Hero() {
             style={{ fontFamily: "'Syne', sans-serif" }}
           >
             <div className="flex flex-wrap justify-center gap-x-3 mb-2">
-              {['Policy-Aware', 'Agent'].map((word) => (
+              {['Zero-Egress', 'Agent'].map((word) => (
                 <motion.span
                   key={word}
                   variants={wordVariant}
-                  className={word === 'Policy-Aware' ? 'text-gradient' : ''}
-                  style={word === 'Policy-Aware' ? undefined : { color: currentTheme.text.primary }}
+                  className={word === 'Zero-Egress' ? 'text-gradient' : ''}
+                  style={word === 'Zero-Egress' ? undefined : { color: currentTheme.text.primary }}
                 >
                   {word}
                 </motion.span>
@@ -303,7 +303,7 @@ export default function Hero() {
             </div>
             {/* Line 2 */}
             <div className="flex flex-wrap justify-center gap-x-3">
-              {['Isolation', 'for', 'Kubernetes.'].map((word) => (
+              {['Platform', 'for', 'Kubernetes.'].map((word) => (
                 <motion.span key={word} variants={wordVariant} style={{ color: currentTheme.text.primary }}>
                   {word}
                 </motion.span>
@@ -419,7 +419,7 @@ export default function Hero() {
               color: currentTheme.text.muted,
             }}
           >
-            Apache 2.0 licensed · Argo DAG orchestration · Cilium egress guardrails
+            Apache 2.0 · Air-gapped · Argo DAG orchestration · Cilium egress guardrails
           </span>
         </motion.div>
 
