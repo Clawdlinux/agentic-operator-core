@@ -273,3 +273,83 @@ func TestValidateMCPEndpoint(t *testing.T) {
 		}
 	}
 }
+
+// TestWebhook_RejectPlaintextCredential guards the sensitive-by-default
+// contract documented in docs/security/threat-model.md. A reviewer who adds
+// a plaintext credential to providers[].customConfig — by accident or as a
+// "temporary" shortcut — must be stopped at admission, not at runtime.
+func TestWebhook_RejectPlaintextCredential(t *testing.T) {
+	workload := &AgentWorkload{
+		Spec: AgentWorkloadSpec{
+			WorkloadType:      stringPtr("generic"),
+			MCPServerEndpoint: stringPtr("https://mcp.example.com:8000"),
+			Objective:         stringPtr("test"),
+			Agents:            []string{"agent1"},
+			Providers: []LLMProvider{
+				{
+					Name: "openai",
+					Type: "openai-compatible",
+					CustomConfig: map[string]string{
+						"api_key": "sk-this-is-a-raw-secret-do-not-commit",
+					},
+				},
+			},
+		},
+	}
+	if err := workload.ValidateCreate(); err == nil {
+		t.Fatal("expected plaintext credential in customConfig to be rejected")
+	}
+}
+
+// TestWebhook_AcceptSecretReference confirms the accepted alternatives —
+// apiKeySecret, or an env-reference string prefix — pass validation.
+func TestWebhook_AcceptSecretReference(t *testing.T) {
+	keyName := "api-key"
+	workload := &AgentWorkload{
+		Spec: AgentWorkloadSpec{
+			WorkloadType:      stringPtr("generic"),
+			MCPServerEndpoint: stringPtr("https://mcp.example.com:8000"),
+			Objective:         stringPtr("test"),
+			Agents:            []string{"agent1"},
+			Providers: []LLMProvider{
+				{
+					Name: "openai",
+					Type: "openai-compatible",
+					APIKeySecret: &SecretKeyRef{
+						Name: "openai-credentials",
+						Key:  &keyName,
+					},
+					CustomConfig: map[string]string{
+						"api_key": "os.environ/OPENAI_API_KEY",
+					},
+				},
+			},
+		},
+	}
+	if err := workload.ValidateCreate(); err != nil {
+		t.Fatalf("expected secret-reference provider to pass validation, got: %v", err)
+	}
+}
+
+// TestWebhook_RejectCredentialInURL catches the other exfiltration shape:
+// a credential baked into the provider endpoint itself.
+func TestWebhook_RejectCredentialInURL(t *testing.T) {
+	workload := &AgentWorkload{
+		Spec: AgentWorkloadSpec{
+			WorkloadType:      stringPtr("generic"),
+			MCPServerEndpoint: stringPtr("https://mcp.example.com:8000"),
+			Objective:         stringPtr("test"),
+			Agents:            []string{"agent1"},
+			Providers: []LLMProvider{
+				{
+					Name:     "anthropic",
+					Type:     "openai-compatible",
+					Endpoint: stringPtr("https://user:sk-leak@api.anthropic.com/v1"),
+				},
+			},
+		},
+	}
+	if err := workload.ValidateCreate(); err == nil {
+		t.Fatal("expected credential embedded in provider endpoint to be rejected")
+	}
+}

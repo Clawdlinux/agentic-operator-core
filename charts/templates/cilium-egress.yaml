@@ -1,0 +1,76 @@
+{{- if .Values.security.egress.strictMode }}
+{{/*
+Default-deny FQDN egress policy for agent namespaces.
+
+Every agent pod in the operator's namespace starts denied. The only
+allowed destinations are:
+
+  - kube-dns (so FQDN resolution works)
+  - the LiteLLM proxy Service (model calls go through one audited hop)
+  - the agentic-operator Service (reconciliation heartbeats)
+  - FQDNs listed in .Values.security.egress.allowedFQDNs
+
+Operators add further destinations by creating an FQDNAllowlist CR in the
+agent namespace, NEVER by mutating pod specs. Keeping the allowlist in a
+separate CR lets the security team review network grants without reading
+every workload manifest.
+
+If your cluster does not run Cilium, install a vanilla NetworkPolicy-based
+equivalent alongside this (see docs/security/threat-model.md#egress-control).
+*/}}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-default-deny-egress
+  namespace: {{ include "agentic-operator.namespace" . }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: egress-policy
+  annotations:
+    nine-vigil.security/posture: default-deny
+    nine-vigil.security/threat-model: docs/security/threat-model.md
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: agentic-operator
+  egress:
+    # Allow kube-dns — FQDN policies require DNS.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+          rules:
+            dns:
+              - matchPattern: "*"
+    # Allow the LiteLLM proxy — every model call goes through here.
+    {{- if .Values.litellm.enabled }}
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: litellm
+            app.kubernetes.io/instance: {{ .Release.Name }}
+      toPorts:
+        - ports:
+            - port: "{{ .Values.litellm.service.port }}"
+              protocol: TCP
+    {{- end }}
+    # Allow intra-namespace traffic (operator → webhook, etc.).
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ include "agentic-operator.namespace" . }}
+    # Operator-supplied FQDN allowlist (keep short; prefer LiteLLM routing).
+    {{- with .Values.security.egress.allowedFQDNs }}
+    - toFQDNs:
+        {{- range . }}
+        - matchPattern: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    {{- end }}
+{{- end }}

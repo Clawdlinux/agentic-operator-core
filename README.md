@@ -41,6 +41,20 @@
 
 ---
 
+## Security Posture
+
+> **NineVigil is architected so that the April 2026 Vercel / Context.ai breach class is structurally impossible.**
+>
+> - **No third-party OAuth grants.** Agents run inside your cluster. There is no `/auth/google` flow and no vendor integration holding long-lived scopes on your behalf.
+> - **All secrets are sensitive by default.** There is no non-sensitive mode. The validating webhook rejects plaintext credentials in `AgentWorkload` specs; the Helm chart refuses to render if a subchart carries an inline credential.
+> - **All egress is default-deny.** Every outbound FQDN is allowlisted in a cluster-scoped CR. A compromised agent cannot dial attacker infrastructure.
+> - **Every MCP server is sandboxed.** Pod Security Admission `restricted` is enforced at the namespace boundary. Blast radius of a compromised tool is one namespace.
+> - **Every action is audit-logged.** Dwell time is bounded by your retention policy, not by OAuth app discovery.
+>
+> Full threat model: **[docs/security/threat-model.md](docs/security/threat-model.md)**.
+
+---
+
 ## Why Agentic Operator?
 
 kagent (Solo.io, CNCF Sandbox) validates this market completely. When Google, Microsoft, IBM, and Red Hat contribute to a Kubernetes agent runtime, the category is real.
@@ -215,6 +229,7 @@ assets/                 Branding assets (logo, etc.)
 | [Multi-tenancy](docs/05-multi-tenancy.md) | Tenant isolation and quota enforcement |
 | [Cost Management](docs/06-cost-management.md) | Per-workload billing and chargeback |
 | [Security](docs/07-security.md) | Cilium, OPA, RBAC, and egress hardening |
+| [Threat Model](docs/security/threat-model.md) | Why NineVigil is structurally immune to the Context.ai / Vercel attack class |
 | [Troubleshooting](docs/10-troubleshooting.md) | Common issues and fixes |
 
 ---

@@ -22,6 +22,71 @@ license:
   tier: trial       # One of: trial | basic | pro | enterprise
 
 # ---------------------------------------------------------------------------
+# Security posture (sensitive-by-default)
+#
+# These controls exist to make the April 2026 Vercel / Context.ai breach class
+# structurally impossible in NineVigil. See docs/security/threat-model.md.
+#
+# Defaults are deliberately strict. Loosening any value below widens the blast
+# radius of a compromised tool, model, or operator credential — do it only
+# with an explicit risk acceptance.
+# ---------------------------------------------------------------------------
+security:
+  secrets:
+    # When true (default), the chart refuses to render if any subchart has a
+    # plaintext credential in values. Callers must supply `existingSecret`
+    # instead. This mirrors the AgentWorkload validating webhook, which
+    # rejects plaintext credentials in CR specs.
+    requireExistingSecret: true
+  egress:
+    # When true (default), every agent namespace gets a default-deny
+    # CiliumNetworkPolicy that only allows traffic to the LiteLLM proxy,
+    # kube-dns, and the operator's own metrics endpoint. External FQDNs
+    # must be added via the FQDNAllowlist CRD, not inline on pod specs.
+    strictMode: true
+    # Additional FQDNs the agent namespace is allowed to reach. Each entry
+    # is a Cilium matchPattern / matchName. Keep this list short; prefer
+    # routing traffic through LiteLLM so model endpoints are centrally
+    # allowlisted and audit-logged.
+    allowedFQDNs: []
+    # When true, refuse to render if any pod in the chart has unrestricted
+    # egress (missing CiliumNetworkPolicy / NetworkPolicy selector).
+    enforceOnRender: true
+  podSecurity:
+    # Kubernetes Pod Security Admission level for agent namespaces.
+    # "restricted" is the default: no hostPath, no hostNetwork, no
+    # privilege escalation, dropped capabilities, read-only rootfs.
+    # MCP servers — which the operator treats as untrusted — run here.
+    enforce: restricted
+    audit: restricted
+    warn: restricted
+  audit:
+    # Append-only audit sink. When enabled, every agent action, tool call,
+    # LLM request, and secret access is forwarded to the configured sink.
+    # Dwell time in NineVigil is bounded by this retention, not by
+    # third-party OAuth app discovery.
+    #
+    # NOTE: Actual wiring lives under the `agentic-operator:` subchart
+    # block below — this entry is the documented user-facing knob and the
+    # value the render-time assertions read. Keep the two in sync when
+    # changing defaults.
+    enabled: true
+    # Sink type: "loki" | "vector" | "stdout" (dev only).
+    sink: stdout
+    # For loki: endpoint of a Loki instance with retention configured.
+    lokiEndpoint: ""
+    # For vector: a Secret containing a Vector config with append-only
+    # SIEM forwarding. The operator mounts this into its own pod.
+    vectorConfigSecret: ""
+  # External OAuth to third-party SaaS (Google Workspace, Slack, GitHub, etc.)
+  # is deliberately disabled. No component in agentic-operator-core performs
+  # OAuth against an external SaaS on behalf of the cluster operator. The
+  # flag exists so that downstream operators who add such integrations in
+  # a fork must opt in explicitly and can be audited grep-side.
+  experimental:
+    externalOAuth: false
+
+# ---------------------------------------------------------------------------
 # Main agentic-operator subchart
 # ---------------------------------------------------------------------------
 agenticOperator:
@@ -76,13 +141,26 @@ agenticOperator:
   modelRouting:
     defaultStrategy: "fixed" # "fixed" or "cost-aware"
 
+# Subchart overrides — values under this key flow into the `agentic-operator`
+# subchart (Chart.yaml dependency name). Keep audit.* in sync with
+# security.audit.* above.
+agentic-operator:
+  audit:
+    enabled: true
+    sink: stdout
+    lokiEndpoint: ""
+    vectorConfigSecret: ""
+
 # ---------------------------------------------------------------------------
 # Cloudflare Workers AI (optional LLM provider)
 # ---------------------------------------------------------------------------
 cloudflareAI:
   enabled: false
   accountId: ""              # Your Cloudflare Account ID
-  apiToken: ""               # API token (prefer existingSecret below)
+  # API token MUST come from an existing Secret when
+  # security.secrets.requireExistingSecret is true (the default). Inline
+  # apiToken values are rejected at render-time.
+  apiToken: ""
   existingSecret: ""         # Name of existing Secret containing 'api-token' key
   defaultModel: "@cf/meta/llama-2-7b-chat-int8"
 
@@ -148,7 +226,11 @@ browserless:
     port: 3000
   concurrentSessions: 5
   timeout: 30000       # ms
-  token: ""            # optional auth token
+  # Auth token. Leave `token` empty and set `existingSecret` to the name of
+  # a pre-created Kubernetes Secret with key `token`. Passing the token
+  # inline is rejected when security.secrets.requireExistingSecret is true.
+  token: ""
+  existingSecret: ""
 
 # ---------------------------------------------------------------------------
 # LiteLLM proxy
@@ -170,8 +252,13 @@ litellm:
   service:
     type: ClusterIP
     port: 4000
-  openaiKey: ""     # REQUIRED when litellm.enabled=true
-  masterKey: ""     # LiteLLM master API key (leave blank to auto-generate)
+  # LLM provider credentials. With security.secrets.requireExistingSecret=true
+  # (default), openaiKey and masterKey MUST come from a pre-created Secret.
+  # Set `existingSecret` to the Secret name and provide keys `OPENAI_API_KEY`
+  # and `LITELLM_MASTER_KEY`.
+  openaiKey: ""
+  masterKey: ""
+  existingSecret: ""
   models: []        # Extra model definitions passed to config.yaml
   # Example:
   # models:
@@ -205,8 +292,13 @@ minio:
     enabled: true
     size: 10Gi
     storageClass: ""
-  rootUser: ""     # auto-generated if left empty
-  rootPassword: ""   # auto-generated if left empty
+  # Root credentials. Leave blank to auto-generate (sealed — the chart creates
+  # a Secret with random values). To BYO, set `existingSecret` to a Secret
+  # with keys `rootUser` and `rootPassword`. Plaintext values here are
+  # rejected when security.secrets.requireExistingSecret is true.
+  rootUser: ""
+  rootPassword: ""
+  existingSecret: ""
   defaultBuckets: "agent-artifacts,agent-logs"
 
 # ---------------------------------------------------------------------------
@@ -236,8 +328,13 @@ postgresql:
   auth:
     database: agentdb
     username: agentuser
-    password: ""   # auto-generated if left empty
-    postgresPassword: ""   # auto-generated if left empty
+    # Leave both passwords blank to auto-generate (sealed). To BYO, set
+    # `existingSecret` to a Secret with keys `password` and `postgresPassword`.
+    # Plaintext values here are rejected when
+    # security.secrets.requireExistingSecret is true.
+    password: ""
+    postgresPassword: ""
+    existingSecret: ""
 
 # ---------------------------------------------------------------------------
 # Ingress (optional — routes to relevant services)

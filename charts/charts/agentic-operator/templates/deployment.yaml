@@ -51,6 +51,20 @@ spec:
                   name: {{ include "agentic-operator-sub.licenseName" . }}
                   key: LICENSE_PUBLIC_KEY_B64
                   optional: true
+            {{- with .Values.audit }}
+            - name: AUDIT_ENABLED
+              value: {{ .enabled | quote }}
+            - name: AUDIT_SINK
+              value: {{ .sink | quote }}
+            {{- if .lokiEndpoint }}
+            - name: AUDIT_LOKI_ENDPOINT
+              value: {{ .lokiEndpoint | quote }}
+            {{- end }}
+            {{- if .vectorConfigSecret }}
+            - name: AUDIT_VECTOR_CONFIG_SECRET
+              value: {{ .vectorConfigSecret | quote }}
+            {{- end }}
+            {{- end }}
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}

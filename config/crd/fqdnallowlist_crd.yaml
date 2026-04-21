@@ -1,0 +1,102 @@
+---
+# FQDNAllowlist — the ONLY surface where cluster operators grant an agent
+# namespace permission to reach an external FQDN.
+#
+# Rationale (see docs/security/threat-model.md#egress-control):
+# - Pod-spec-level egress grants scatter network trust across dozens of
+#   manifests. One compromised AgentWorkload reviewer approves a pod that
+#   talks to attacker-controlled infra and nobody notices.
+# - A single cluster-scoped CR with its own RBAC lets the security team
+#   own network trust explicitly and grep it in one place.
+# - The controller renders each FQDNAllowlist into a CiliumNetworkPolicy
+#   owned by this CR; deleting the CR revokes the grant.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: fqdnallowlists.agentic.clawdlinux.org
+  annotations:
+    nine-vigil.security/threat-model: docs/security/threat-model.md
+spec:
+  group: agentic.clawdlinux.org
+  names:
+    kind: FQDNAllowlist
+    listKind: FQDNAllowlistList
+    plural: fqdnallowlists
+    singular: fqdnallowlist
+    shortNames:
+      - fqdnal
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [namespaceSelector, fqdns]
+              properties:
+                namespaceSelector:
+                  description: |
+                    Namespaces this allowlist applies to. Use a labelSelector;
+                    the empty selector is rejected so operators cannot
+                    accidentally grant egress cluster-wide.
+                  type: object
+                  properties:
+                    matchLabels:
+                      type: object
+                      additionalProperties:
+                        type: string
+                fqdns:
+                  description: |
+                    Explicit list of FQDNs (exact match or Cilium matchPattern)
+                    that pods in the selected namespace may reach. Wildcards
+                    that match "*" or an empty string are rejected by the
+                    validating webhook.
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                    minLength: 1
+                ports:
+                  description: |
+                    TCP ports allowed for every FQDN in this allowlist.
+                    Defaults to [443]. Adding port 80 is strongly discouraged.
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                    maximum: 65535
+                justification:
+                  description: |
+                    Free-text justification captured in audit logs. Required
+                    so every grant has an explicit owner and reason.
+                  type: string
+                  minLength: 8
+                  maxLength: 500
+              additionalProperties: false
+            status:
+              type: object
+              properties:
+                appliedPolicies:
+                  type: array
+                  items:
+                    type: string
+                lastReconcileTime:
+                  type: string
+                  format: date-time
+      additionalPrinterColumns:
+        - name: FQDNs
+          type: integer
+          jsonPath: .spec.fqdns
+        - name: Justification
+          type: string
+          jsonPath: .spec.justification
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}

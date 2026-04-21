@@ -7,4 +7,15 @@ metadata:
   labels:
     {{- include "agentic-operator.labels" . | nindent 4 }}
     app.kubernetes.io/component: namespace
+    # Pod Security Admission — restricted by default. MCP servers are
+    # treated as untrusted; the restricted profile denies hostPath,
+    # hostNetwork, privilege escalation, and non-default capabilities.
+    # See docs/security/threat-model.md#mcp-server-sandboxing.
+    pod-security.kubernetes.io/enforce: {{ .Values.security.podSecurity.enforce | quote }}
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: {{ .Values.security.podSecurity.audit | quote }}
+    pod-security.kubernetes.io/warn: {{ .Values.security.podSecurity.warn | quote }}
+  annotations:
+    nine-vigil.security/posture: sensitive-by-default
+    nine-vigil.security/threat-model: docs/security/threat-model.md
 {{- end }}

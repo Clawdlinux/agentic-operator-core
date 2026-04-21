@@ -178,6 +178,21 @@ func (r *AgentWorkload) validate() error {
 		}
 	}
 
+	// 7. Reject any plaintext credential in spec. NineVigil's contract is that
+	// credentials live in Kubernetes Secrets (referenced via apiKeySecret),
+	// never inline in the CR. This closes the Context.ai-class exposure where
+	// a third-party reader of the control plane could exfiltrate raw tokens.
+	for i, p := range r.Spec.Providers {
+		if p.APIKeySecret == nil && looksLikeCredentialValue(p.Endpoint) {
+			allErrs = append(allErrs, fmt.Sprintf("providers[%d] (%q): endpoint looks like it embeds a credential; use apiKeySecret to reference a Kubernetes Secret", i, p.Name))
+		}
+		for k, v := range p.CustomConfig {
+			if looksLikeCredentialKey(k) && !isSecretReference(v) {
+				allErrs = append(allErrs, fmt.Sprintf("providers[%d].customConfig[%q]: plaintext credential is not permitted; reference a Kubernetes Secret via apiKeySecret or env var syntax (e.g. \"os.environ/OPENAI_API_KEY\")", i, k))
+			}
+		}
+	}
+
 	// Combine errors
 	if len(allErrs) > 0 {
 		errMsg := strings.Join(allErrs, "; ")
@@ -268,6 +283,44 @@ func isStringInSlice(s string, slice []string) bool {
 // stringPtr returns a pointer to a string
 func stringPtr(s string) *string {
 	return &s
+}
+
+// credentialKeyPattern matches config keys that almost certainly hold a secret.
+// Keep this intentionally broad — it's a backstop, not the primary control.
+var credentialKeyPattern = regexp.MustCompile(`(?i)(^|[_\-.])(api[_\-]?key|token|secret|password|passwd|credential|auth|bearer)($|[_\-.])`)
+
+// looksLikeCredentialKey returns true when a customConfig map key names a secret.
+func looksLikeCredentialKey(key string) bool {
+	return credentialKeyPattern.MatchString(key)
+}
+
+// isSecretReference returns true when a value is clearly not a raw credential
+// but a pointer to one (LiteLLM's os.environ/ convention, a K8s secret ref
+// templated by the caller, or an empty placeholder).
+func isSecretReference(v string) bool {
+	if v == "" {
+		return true
+	}
+	prefixes := []string{"os.environ/", "env:", "secretRef:", "vault:", "sops:", "${", "{{"}
+	for _, p := range prefixes {
+		if strings.HasPrefix(v, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// looksLikeCredentialValue returns true when a string pointer contains what
+// appears to be an inline credential (e.g. a URL with embedded basic auth).
+func looksLikeCredentialValue(s *string) bool {
+	if s == nil {
+		return false
+	}
+	u, err := url.Parse(*s)
+	if err != nil {
+		return false
+	}
+	return u.User != nil && u.User.String() != ""
 }
 
 // stringPtrEqual compares two string pointers for equality

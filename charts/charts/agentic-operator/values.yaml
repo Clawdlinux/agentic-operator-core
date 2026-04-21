@@ -17,3 +17,12 @@ resources:
 leaderElection: true
 logLevel: info
 env: {}
+
+# Audit sink defaults. Overridden by the umbrella chart from
+# .Values.security.audit. Enabled by default so dwell time is bounded
+# by log retention rather than by OAuth app discovery.
+audit:
+  enabled: true
+  sink: stdout
+  lokiEndpoint: ""
+  vectorConfigSecret: ""

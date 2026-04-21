@@ -1,0 +1,26 @@
+{{/*
+This file exists solely to run the render-time security assertions defined
+in _security.tpl. A failed assertion aborts `helm template` before any
+manifest reaches the API server — see docs/security/threat-model.md.
+
+The emitted ConfigMap is a no-op marker; operators can grep for it to
+confirm which security profile a release was rendered under.
+*/}}
+{{- include "agentic-operator.runSecurityAssertions" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-security-posture
+  namespace: {{ include "agentic-operator.namespace" . }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-posture
+data:
+  secrets.requireExistingSecret: {{ .Values.security.secrets.requireExistingSecret | quote }}
+  egress.strictMode: {{ .Values.security.egress.strictMode | quote }}
+  egress.enforceOnRender: {{ .Values.security.egress.enforceOnRender | quote }}
+  podSecurity.enforce: {{ .Values.security.podSecurity.enforce | quote }}
+  audit.enabled: {{ .Values.security.audit.enabled | quote }}
+  audit.sink: {{ .Values.security.audit.sink | quote }}
+  experimental.externalOAuth: {{ .Values.security.experimental.externalOAuth | quote }}
+  threatModelRef: "docs/security/threat-model.md"
