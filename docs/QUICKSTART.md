@@ -12,15 +12,14 @@ Get the Agentic Kubernetes Operator running in your cluster in under 5 minutes.
 ## 1. Install the Operator
 
 ```bash
-# Add the Helm repo
-helm repo add agentic https://charts.agentic-k8s.dev
-helm repo update
+# Clone and install from local chart
+git clone https://github.com/Clawdlinux/agentic-operator-core.git
+cd agentic-operator-core
 
-# Install with default config
-helm install agentic-operator agentic/agentic-operator \
+# Install with default config (license key optional for OSS)
+helm install agentic-operator ./charts/agentic-operator \
   --namespace agentic-system \
-  --create-namespace \
-  --set license.key="$LICENSE_JWT"
+  --create-namespace
 ```
 
 ## 2. Configure an LLM Provider

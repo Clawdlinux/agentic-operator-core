@@ -11,12 +11,12 @@ Get the Agentic Operator running in 5 minutes.
 ## Installation
 
 ```bash
-# Add Helm repository
-helm repo add agentic https://helm.agentic.io
-helm repo update
+# Clone and install from local chart
+git clone https://github.com/Clawdlinux/agentic-operator-core.git
+cd agentic-operator-core
 
 # Install operator
-helm install agentic-operator agentic/agentic-operator \
+helm install agentic-operator ./charts/agentic-operator \
   --namespace agentic-system \
   --create-namespace
 ```
