@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y curl gcc && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir fastapi==0.104.1 uvicorn==0.24.0 httpx==0.25.2 pydantic==2.8.2
+
+ARG AGENT_TYPE=lead_sre
+RUN mkdir -p /app/agent
+COPY examples/sre-incident-response/agents/base.py /app/agent/base.py
+COPY examples/sre-incident-response/agents/${AGENT_TYPE}/ /app/agent/
+
+ENV AGENT_TYPE=${AGENT_TYPE}
+ENV PYTHONUNBUFFERED=1
+
+HEALTHCHECK --interval=5s --timeout=3s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+CMD ["python", "-m", "uvicorn", "agent.main:app", "--host", "0.0.0.0", "--port", "8080"]
