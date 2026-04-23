@@ -17,10 +17,11 @@ services:
       - swarm-net
     command: --config /app/config.yaml --port 8000
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      test: ["CMD-SHELL", "python -c \"import urllib.request; r=urllib.request.Request('http://localhost:8000/health/liveliness'); urllib.request.urlopen(r).read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   postgres:
     image: postgres:15-alpine

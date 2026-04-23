@@ -3,7 +3,14 @@
 
 .PHONY: help build up down logs health run-demo clean demo verify
 
-COMPOSE_CMD = docker compose -f docker-compose.yml
+-include .env
+INFERENCE_PROVIDER ?= ollama
+
+ifeq ($(INFERENCE_PROVIDER),ollama)
+  COMPOSE_CMD = docker compose -f docker-compose.yml -f docker-compose.local.yml
+else
+  COMPOSE_CMD = docker compose -f docker-compose.yml
+endif
 
 help:
 	@echo "Multi-Agent Swarm Demo"
