@@ -2,13 +2,12 @@
 # Extends multi-agent-swarm base with cost-aware model routing and delegation support
 
 import logging
-import os
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Set
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +42,7 @@ class A2ATask(BaseModel):
 
 class ToolCall(BaseModel):
     tool_name: str
-    arguments: Dict[str, Any] = {}
+    arguments: Dict[str, Any] = Field(default_factory=dict)
     estimated_cost_usd: float = 0.0
     confidence: float = 1.0
 
@@ -62,7 +61,7 @@ class AgentConfig(BaseModel):
     role: str
     tone: str
     memory_scope: str = "isolated"
-    tool_profile: List[str] = []
+    tool_profile: List[str] = Field(default_factory=list)
     system_prompt_append: str = ""
     litellm_proxy_url: str = "http://localhost:8000"
     litellm_key: str = ""
@@ -157,11 +156,6 @@ class SREAgent:
             arguments = request.get("arguments", {})
             confidence = request.get("confidence", 1.0)
             estimated_cost = request.get("estimated_cost_usd", 0.0)
-
-            tool_call = ToolCall(
-                tool_name=tool_name, arguments=arguments,
-                estimated_cost_usd=estimated_cost, confidence=confidence,
-            )
 
             # Gate 1: Persona tool_profile
             if self._tool_profile_set and tool_name not in self._tool_profile_set:

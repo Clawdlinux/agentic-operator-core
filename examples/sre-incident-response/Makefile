@@ -100,7 +100,7 @@ run-demo-node:
 		-d '{"alert_type":"NodeNotReady","namespace":"kube-system","resource":"node-3"}' | python3 -m json.tool
 
 run-demo-tool-block:
-	@echo "⛔ Demo: Diagnostician tries kubectl_exec (NOT in diagnostician tool_profile)"
+	@echo "⛔ Demo: Diagnostician tries restart_pod (NOT in diagnostician tool_profile)"
 	@curl -s -X POST http://localhost:9011/invoke \
 		-H "Content-Type: application/json" \
 		-d '{"tool_name":"restart_pod","arguments":{"deployment":"app-server"},"confidence":0.99,"estimated_cost_usd":0}' | python3 -m json.tool

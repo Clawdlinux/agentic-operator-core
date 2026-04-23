@@ -50,12 +50,12 @@ delegates diagnosis to cheap models, and escalates remediation to reasoning mode
               │                │  │   (challenges actions)│
               │ Tools:         │  │   Tools:             │
               │  - log_search  │  │    - kubectl_exec    │
-              │  - metric_query│  │    - scale_deploy    │
+              │  - metric_query│  │    - scale_deployment│
               │  - trace_lookup│  │    - restart_pod     │
               └────────────────┘  └──────────────────────┘
                                           │
                                     ┌─────▼─────┐
-                                    │ OPA Gate  │
+                                    │Governance │
                                     │ Budget $50│
                                     │ Approval  │
                                     │ ≥ 0.90    │
@@ -87,7 +87,7 @@ make demo
 | Diagnostician | http://localhost:9011 | Log/metric analysis |
 | Remediator | http://localhost:9012 | Remediation actions |
 | LiteLLM Proxy | http://localhost:8000 | Inference gateway |
-| PostgreSQL | localhost:5432 | Spans + A2A tasks |
+| PostgreSQL | localhost:5432 | A2A task store (future) |
 
 ## Closes
 

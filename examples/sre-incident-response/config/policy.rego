@@ -35,7 +35,7 @@ deny contains msg if {
     )
 }
 
-# Warn on destructive operations in non-prod namespaces
+# Warn on destructive operations in production namespace
 warn contains msg if {
     input.action.tool_name in {"restart_pod", "scale_deployment", "kubectl_exec"}
     input.action.namespace == "production"

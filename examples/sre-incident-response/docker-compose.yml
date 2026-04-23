@@ -10,6 +10,11 @@ services:
       LITELLM_LOG: "DEBUG"
     volumes:
       - ./config/litellm_config_local.yaml:/app/config.yaml
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     networks:
       - sre-net
     command: --config /app/config.yaml --port 8000
