@@ -1,0 +1,169 @@
+services:
+  # ── Infrastructure ────────────────────────────────────────────────
+
+  litellm-proxy:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: swarm-litellm
+    ports:
+      - "8000:8000"
+    environment:
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-}
+      LITELLM_LOG: "DEBUG"
+    volumes:
+      - ./config/litellm_config.yaml:/app/config.yaml
+    networks:
+      - swarm-net
+    command: --config /app/config.yaml --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: swarm-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spans}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spans_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-spans}
+    volumes:
+      - swarm-pg-data:/var/lib/postgresql/data
+      - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - swarm-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spans}"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  minio:
+    image: minio/minio:latest
+    container_name: swarm-minio
+    ports:
+      - "9090:9090"
+      - "9004:9000"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - swarm-minio-data:/data
+    command: minio server /data --console-address ":9090"
+    networks:
+      - swarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # ── Agents (collaborationMode: team) ──────────────────────────────
+
+  analyst:
+    build:
+      context: ../..
+      dockerfile: examples/multi-agent-swarm/docker/Dockerfile.agent
+      args:
+        AGENT_TYPE: analyst
+    container_name: analyst-agent
+    ports:
+      - "9001:8080"
+    environment:
+      AGENT_ROLE: analyst
+      AGENT_TONE: neutral_academic
+      LITELLM_PROXY_URL: "http://litellm-proxy:8000"
+      LITELLM_KEY: "sk-analyst-virtual"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_BUCKET: agentic-demo
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
+      STRATEGIST_URL: "http://strategist:8080"
+      AUTO_APPROVE_THRESHOLD: "${AUTO_APPROVE_THRESHOLD:-0.95}"
+      OPA_POLICY_MODE: "${OPA_POLICY_MODE:-strict}"
+      AGENT_BUDGET_LIMIT_USD: "${AGENT_BUDGET_LIMIT_USD:-25.0}"
+      LOG_LEVEL: INFO
+    depends_on:
+      litellm-proxy:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - swarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  strategist:
+    build:
+      context: ../..
+      dockerfile: examples/multi-agent-swarm/docker/Dockerfile.agent
+      args:
+        AGENT_TYPE: strategist
+    container_name: strategist-agent
+    ports:
+      - "9002:8080"
+    environment:
+      AGENT_ROLE: strategist
+      AGENT_TONE: decisive_professional
+      LITELLM_PROXY_URL: "http://litellm-proxy:8000"
+      LITELLM_KEY: "sk-strategist-virtual"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_BUCKET: agentic-demo
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
+      AUTO_APPROVE_THRESHOLD: "${AUTO_APPROVE_THRESHOLD:-0.95}"
+      OPA_POLICY_MODE: "${OPA_POLICY_MODE:-strict}"
+      AGENT_BUDGET_LIMIT_USD: "${AGENT_BUDGET_LIMIT_USD:-25.0}"
+      LOG_LEVEL: INFO
+    depends_on:
+      litellm-proxy:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - swarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # ── Orchestrator ──────────────────────────────────────────────────
+
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: examples/multi-agent-swarm/docker/Dockerfile.orchestrator
+    container_name: swarm-orchestrator
+    ports:
+      - "9000:9000"
+    environment:
+      ANALYST_URL: "http://analyst:8080"
+      STRATEGIST_URL: "http://strategist:8080"
+      STAGE_TIMEOUT: "60"
+      LOG_LEVEL: INFO
+    depends_on:
+      analyst:
+        condition: service_healthy
+      strategist:
+        condition: service_healthy
+    networks:
+      - swarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  swarm-pg-data:
+  swarm-minio-data:
+
+networks:
+  swarm-net:
+    driver: bridge
