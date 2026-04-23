@@ -1,17 +1,13 @@
 # Multi-Agent Swarm Demo - Base Agent with A2A, Persona, Approval, OPA
 # Exercises: tool_profile blocking, autoApproveThreshold, OPA policy, A2A discovery
 
-import asyncio
-import json
 import logging
-import os
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Set
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -55,12 +51,12 @@ class ApprovalDecision(BaseModel):
 
 class OPAResult(BaseModel):
     allowed: bool
-    violations: List[str] = []
+    violations: List[str] = Field(default_factory=list)
 
 
 class ToolCall(BaseModel):
     tool_name: str
-    arguments: Dict[str, Any] = {}
+    arguments: Dict[str, Any] = Field(default_factory=dict)
     estimated_cost_usd: float = 0.0
     confidence: float = 1.0
 
@@ -72,7 +68,7 @@ class AgentConfig(BaseModel):
     role: str
     tone: str
     memory_scope: str = "shared"
-    tool_profile: List[str] = []
+    tool_profile: List[str] = Field(default_factory=list)
     system_prompt_append: str = ""
     litellm_proxy_url: str = "http://localhost:8000"
     litellm_key: str = ""

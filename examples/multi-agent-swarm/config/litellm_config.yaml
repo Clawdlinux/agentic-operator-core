@@ -1,8 +1,10 @@
 model_list:
   - model_name: "default"
     litellm_params:
-      model: "ollama/gemma3:1b"
-      api_base: "http://ollama:11434"
+      model: "azure/gpt-4o-mini"
+      api_base: "os.environ/AZURE_OPENAI_ENDPOINT"
+      api_key: "os.environ/AZURE_OPENAI_API_KEY"
+      api_version: "os.environ/AZURE_OPENAI_API_VERSION"
       stream: true
 
 general_settings:

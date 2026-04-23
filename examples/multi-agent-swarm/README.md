@@ -44,13 +44,10 @@ This example demonstrates the core primitives of the agentic-operator:
 ## Quick Start
 
 ```bash
-# 1. Configure backend (ollama/vllm/openai/azure)
-./configure
+cp .env.example .env
+make demo
 
-# 2. Run the full demo
-./demo
-
-# Or manually:
+# Or step by step:
 make build
 make up
 make run-demo
@@ -76,7 +73,7 @@ Actions with confidence < 0.95 are held for approval:
 ```
 
 ### 4. OPA Policy Enforcement
-The OPA sidecar evaluates actions against policy. A budget-exceeding action is rejected:
+The inline OPA-style policy engine evaluates actions against budget rules. A budget-exceeding action is rejected:
 ```
 🚫 OPA DENY: action exceeds per-agent budget limit ($50.00 > $25.00 max)
 ```
@@ -92,8 +89,8 @@ Both agents work on the same objective, sharing results via A2A tasks.
 | Analyst Agent | http://localhost:9001 | Research agent |
 | Strategist Agent | http://localhost:9002 | Strategy agent |
 | LiteLLM Proxy | http://localhost:8000 | Inference gateway |
-| MinIO Console | http://localhost:9090 | Artifact browser |
-| PostgreSQL | localhost:5432 | Spans + A2A tasks |
+| MinIO Console | http://localhost:9090 | Artifact storage (future) |
+| PostgreSQL | localhost:5432 | A2A task store (future) |
 
 ## Closes
 
