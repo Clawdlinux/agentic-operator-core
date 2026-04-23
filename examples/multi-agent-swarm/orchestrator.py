@@ -1,9 +1,7 @@
 # Multi-Agent Swarm Orchestrator
 # Demonstrates: A2A discovery, task delegation, tool blocking, approval gating, OPA
 
-import json
 import logging
-import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
