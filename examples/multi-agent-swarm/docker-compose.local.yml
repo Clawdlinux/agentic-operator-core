@@ -1,0 +1,59 @@
+# Local-only override for Docker Compose
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+# No cloud API keys needed — uses Ollama with gemma3:1b (~1GB model)
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: swarm-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - swarm-ollama-data:/root/.ollama
+    networks:
+      - swarm-net
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: swarm-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - swarm-net
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "Pulling gemma3:1b model (~1GB)..."
+        OLLAMA_HOST=http://ollama:11434 ollama pull gemma3:1b
+        echo "Model ready."
+    restart: "no"
+
+  litellm-proxy:
+    volumes:
+      - ./config/litellm_config_local.yaml:/app/config.yaml
+    environment:
+      AZURE_OPENAI_ENDPOINT: "unused"
+      AZURE_OPENAI_API_KEY: "unused"
+      AZURE_OPENAI_API_VERSION: "unused"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; r=urllib.request.Request('http://localhost:8000/health/liveliness'); urllib.request.urlopen(r).read()\""]
+      interval: 10s
+      timeout: 30s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  swarm-ollama-data:

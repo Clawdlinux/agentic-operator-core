@@ -1,0 +1,17 @@
+model_list:
+  - model_name: "default"
+    litellm_params:
+      model: "azure/gpt-4o-mini"
+      api_base: "os.environ/AZURE_OPENAI_ENDPOINT"
+      api_key: "os.environ/AZURE_OPENAI_API_KEY"
+      api_version: "os.environ/AZURE_OPENAI_API_VERSION"
+      stream: true
+
+general_settings:
+  master_key: "sk-swarm-master"
+
+litellm_settings:
+  drop_params: true
+  set_verbose: true
+  num_retries: 2
+  request_timeout: 120

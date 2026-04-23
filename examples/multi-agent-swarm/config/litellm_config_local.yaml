@@ -1,0 +1,15 @@
+model_list:
+  - model_name: "default"
+    litellm_params:
+      model: "ollama/gemma3:1b"
+      api_base: "http://ollama:11434"
+      stream: true
+
+general_settings:
+  master_key: "sk-swarm-master"
+
+litellm_settings:
+  drop_params: true
+  set_verbose: true
+  num_retries: 2
+  request_timeout: 120

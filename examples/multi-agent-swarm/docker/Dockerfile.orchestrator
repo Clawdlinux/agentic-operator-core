@@ -1,0 +1,20 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y curl gcc && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    fastapi==0.104.1 \
+    uvicorn==0.24.0 \
+    httpx==0.25.2 \
+    pydantic==2.8.2
+
+COPY examples/multi-agent-swarm/orchestrator.py /app/orchestrator.py
+
+ENV PYTHONUNBUFFERED=1
+
+HEALTHCHECK --interval=5s --timeout=3s --retries=3 \
+    CMD curl -f http://localhost:9000/health || exit 1
+
+CMD ["python", "-m", "uvicorn", "orchestrator:app", "--host", "0.0.0.0", "--port", "9000"]
