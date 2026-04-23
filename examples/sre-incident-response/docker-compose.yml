@@ -1,0 +1,170 @@
+services:
+  # ── Infrastructure ────────────────────────────────────────────────
+
+  litellm-proxy:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: sre-litellm
+    ports:
+      - "8000:8000"
+    environment:
+      LITELLM_LOG: "DEBUG"
+    volumes:
+      - ./config/litellm_config_local.yaml:/app/config.yaml
+    networks:
+      - sre-net
+    command: --config /app/config.yaml --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; r=urllib.request.Request('http://localhost:8000/health/liveliness'); urllib.request.urlopen(r).read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: sre-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spans}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spans_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-spans}
+    volumes:
+      - sre-pg-data:/var/lib/postgresql/data
+      - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sre-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spans}"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sre-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - sre-ollama-data:/root/.ollama
+    networks:
+      - sre-net
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: sre-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - sre-net
+    entrypoint: ["/bin/sh", "-c", "OLLAMA_HOST=http://ollama:11434 ollama pull gemma3:1b && echo 'Model ready.'"]
+    restart: "no"
+
+  # ── Agents (collaborationMode: delegation) ────────────────────────
+
+  lead-sre:
+    build:
+      context: ../..
+      dockerfile: examples/sre-incident-response/docker/Dockerfile.agent
+      args:
+        AGENT_TYPE: lead_sre
+    container_name: lead-sre-agent
+    ports:
+      - "9010:8080"
+    environment:
+      LITELLM_PROXY_URL: "http://litellm-proxy:8000"
+      LITELLM_KEY: "sk-lead-sre-virtual"
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
+      DIAGNOSTICIAN_URL: "http://diagnostician:8080"
+      REMEDIATOR_URL: "http://remediator:8080"
+      AUTO_APPROVE_THRESHOLD: "${AUTO_APPROVE_THRESHOLD:-0.90}"
+      OPA_POLICY_MODE: "${OPA_POLICY_MODE:-strict}"
+      AGENT_BUDGET_LIMIT_USD: "${AGENT_BUDGET_LIMIT_USD:-50.0}"
+      LOG_LEVEL: INFO
+    depends_on:
+      litellm-proxy:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - sre-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  diagnostician:
+    build:
+      context: ../..
+      dockerfile: examples/sre-incident-response/docker/Dockerfile.agent
+      args:
+        AGENT_TYPE: diagnostician
+    container_name: diagnostician-agent
+    ports:
+      - "9011:8080"
+    environment:
+      LITELLM_PROXY_URL: "http://litellm-proxy:8000"
+      LITELLM_KEY: "sk-diagnostician-virtual"
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
+      AUTO_APPROVE_THRESHOLD: "${AUTO_APPROVE_THRESHOLD:-0.90}"
+      OPA_POLICY_MODE: "${OPA_POLICY_MODE:-strict}"
+      AGENT_BUDGET_LIMIT_USD: "${AGENT_BUDGET_LIMIT_USD:-50.0}"
+      LOG_LEVEL: INFO
+    depends_on:
+      litellm-proxy:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - sre-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  remediator:
+    build:
+      context: ../..
+      dockerfile: examples/sre-incident-response/docker/Dockerfile.agent
+      args:
+        AGENT_TYPE: remediator
+    container_name: remediator-agent
+    ports:
+      - "9012:8080"
+    environment:
+      LITELLM_PROXY_URL: "http://litellm-proxy:8000"
+      LITELLM_KEY: "sk-remediator-virtual"
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-spans}:${POSTGRES_PASSWORD:-spans_dev}@postgres:5432/${POSTGRES_DB:-spans}"
+      AUTO_APPROVE_THRESHOLD: "${AUTO_APPROVE_THRESHOLD:-0.90}"
+      OPA_POLICY_MODE: "${OPA_POLICY_MODE:-strict}"
+      AGENT_BUDGET_LIMIT_USD: "${AGENT_BUDGET_LIMIT_USD:-50.0}"
+      LOG_LEVEL: INFO
+    depends_on:
+      litellm-proxy:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - sre-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  sre-pg-data:
+  sre-ollama-data:
+
+networks:
+  sre-net:
+    driver: bridge
