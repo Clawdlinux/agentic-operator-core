@@ -1,0 +1,409 @@
+package main
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/olekukonko/tablewriter"
+	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+)
+
+// ── init ────────────────────────────────────────────────────────────────────
+
+func newInitCommand(opts *cliOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Interactive onboarding — check cluster, install CRDs, create first workload",
+		Long: `Walk through cluster setup and create your first AgentWorkload.
+
+Checks:
+  1. Kubernetes cluster connection
+  2. CRD installation (AgentWorkload, AgentCard, Tenant)
+  3. Operator deployment
+  4. LiteLLM proxy
+  5. Argo Workflows
+
+Then helps you create and deploy your first workload.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runInit(cmd.Context(), opts, cmd)
+		},
+	}
+	return cmd
+}
+
+func runInit(ctx context.Context, opts *cliOptions, cmd *cobra.Command) error {
+	w := cmd.OutOrStdout()
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  ╔══════════════════════════════════════════╗")
+	fmt.Fprintln(w, "  ║     agentctl init — Cluster Onboarding   ║")
+	fmt.Fprintln(w, "  ╚══════════════════════════════════════════╝")
+	fmt.Fprintln(w, "")
+
+	// Step 1: Cluster connection
+	fmt.Fprint(w, "  ✓ Checking cluster connection... ")
+	sv, err := opts.discovery.ServerVersion()
+	if err != nil {
+		fmt.Fprintln(w, "✗ FAILED")
+		return fmt.Errorf("cannot connect to cluster: %w", err)
+	}
+	clusterName := opts.rawConfig.CurrentContext
+	fmt.Fprintf(w, "%s (%s)\n", clusterName, sv.GitVersion)
+
+	// Step 2: CRDs
+	fmt.Fprint(w, "  ✓ Checking CRD installation... ")
+	crds := []string{"agentworkloads", "agentcards", "tenants"}
+	crdMissing := []string{}
+	for _, crd := range crds {
+		gvr := agentWorkloadGVR
+		gvr.Resource = crd
+		_, err := opts.dynamic.Resource(gvr).List(ctx, metav1.ListOptions{Limit: 1})
+		if err != nil {
+			crdMissing = append(crdMissing, crd)
+		}
+	}
+	if len(crdMissing) > 0 {
+		fmt.Fprintf(w, "⚠ Missing: %s\n", strings.Join(crdMissing, ", "))
+		fmt.Fprintln(w, "    Run: kubectl apply -f config/crd/")
+	} else {
+		fmt.Fprintln(w, "all CRDs found")
+	}
+
+	// Step 3: Operator deployment
+	fmt.Fprint(w, "  ✓ Checking operator... ")
+	if tag, ref := opts.operatorVersion(ctx); tag != "" {
+		fmt.Fprintf(w, "%s (%s)\n", tag, ref)
+	} else {
+		fmt.Fprintln(w, "⚠ operator deployment not found")
+		fmt.Fprintln(w, "    Run: helm install agentic-operator charts/")
+	}
+
+	// Step 4: LiteLLM
+	fmt.Fprint(w, "  ✓ Checking LiteLLM proxy... ")
+	litellmFound := false
+	svcs, _ := opts.kube.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	if svcs != nil {
+		for _, svc := range svcs.Items {
+			if strings.Contains(svc.Name, "litellm") {
+				fmt.Fprintf(w, "%s.%s\n", svc.Name, svc.Namespace)
+				litellmFound = true
+				break
+			}
+		}
+	}
+	if !litellmFound {
+		fmt.Fprintln(w, "⚠ not found (agent inference will fail)")
+	}
+
+	// Step 5: Argo Workflows
+	fmt.Fprint(w, "  ✓ Checking Argo Workflows... ")
+	argoFound := false
+	if svcs != nil {
+		for _, svc := range svcs.Items {
+			if strings.Contains(svc.Name, "argo") && strings.Contains(svc.Name, "server") {
+				fmt.Fprintf(w, "%s.%s\n", svc.Name, svc.Namespace)
+				argoFound = true
+				break
+			}
+		}
+	}
+	if !argoFound {
+		fmt.Fprintln(w, "⚠ not found (DAG orchestration unavailable)")
+	}
+
+	fmt.Fprintln(w, "")
+
+	// Interactive: choose workflow
+	fmt.Fprintln(w, "  Available workflow templates:")
+	workflows := []struct {
+		name string
+		desc string
+	}{
+		{"research-swarm", "Visual competitive analysis"},
+		{"code-review", "Automated code review"},
+		{"doc-processor", "Document processing pipeline"},
+	}
+	for i, wf := range workflows {
+		fmt.Fprintf(w, "    %d. %-20s — %s\n", i+1, wf.name, wf.desc)
+	}
+	fmt.Fprintln(w, "")
+	fmt.Fprint(w, "  Choose a workflow (1-3, or 'skip'): ")
+
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	if input == "skip" || input == "" {
+		fmt.Fprintln(w, "\n  ✓ Cluster check complete. Run 'agentctl apply -f <manifest.yaml>' to deploy a workload.")
+		return nil
+	}
+
+	idx := 0
+	if _, err := fmt.Sscanf(input, "%d", &idx); err != nil || idx < 1 || idx > len(workflows) {
+		fmt.Fprintln(w, "  Invalid selection. Run 'agentctl apply -f config/examples/<workflow>.yaml' to deploy manually.")
+		return nil
+	}
+
+	selected := workflows[idx-1]
+	exampleFile := fmt.Sprintf("config/examples/%s.yaml", selected.name)
+
+	fmt.Fprintf(w, "\n  Creating AgentWorkload with workflow: %s\n", selected.name)
+	fmt.Fprintf(w, "  Apply manifest: %s\n", exampleFile)
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  Run:")
+	fmt.Fprintf(w, "    agentctl apply -f %s\n", exampleFile)
+	fmt.Fprintln(w, "    agentctl get workloads")
+	fmt.Fprintln(w, "    agentctl logs <workload-name>")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  ✓ Init complete!")
+
+	return nil
+}
+
+// ── approve ─────────────────────────────────────────────────────────────────
+
+func newApproveCommand(opts *cliOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "approve <workload-name>",
+		Short: "Resume a PendingApproval workload",
+		Long: `Approve a workload that is paused at an approval gate.
+
+Sets the workload's phase annotation to trigger the controller to resume execution.
+If the workload uses Argo Workflows, also attempts to resume the suspended workflow.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runApprove(cmd.Context(), opts, args[0], cmd)
+		},
+	}
+	return cmd
+}
+
+func runApprove(ctx context.Context, opts *cliOptions, name string, cmd *cobra.Command) error {
+	w := cmd.OutOrStdout()
+
+	// Get the workload
+	wl, err := opts.dynamic.Resource(agentWorkloadGVR).Namespace(opts.Namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get workload %q: %w", name, err)
+	}
+
+	phase := nestedString(wl.Object, "status", "phase")
+	if phase != "PendingApproval" && phase != "Suspended" {
+		fmt.Fprintf(w, "Workload %q is in phase %q (not PendingApproval). No action needed.\n", name, phase)
+		return nil
+	}
+
+	// Annotate the workload to signal approval
+	patch := fmt.Sprintf(`{"metadata":{"annotations":{"agentworkload.clawdlinux.io/approved-at":"%s","agentworkload.clawdlinux.io/approved-by":"agentctl"}}}`,
+		time.Now().UTC().Format(time.RFC3339))
+
+	_, err = opts.dynamic.Resource(agentWorkloadGVR).Namespace(opts.Namespace).Patch(
+		ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("patch workload %q: %w", name, err)
+	}
+
+	fmt.Fprintf(w, "✓ Workload %q approved. Controller will resume execution.\n", name)
+
+	// Try to resume Argo workflow if it exists
+	argoWf, err := opts.dynamic.Resource(workflowGVR).Namespace(defaultArgoNamespace).Get(ctx, name, metav1.GetOptions{})
+	if err == nil {
+		argoPhase := nestedString(argoWf.Object, "status", "phase")
+		if argoPhase == "Suspended" || argoPhase == "Running" {
+			// Resume via spec.suspend = false
+			resumePatch := `{"spec":{"suspend":false}}`
+			_, err = opts.dynamic.Resource(workflowGVR).Namespace(defaultArgoNamespace).Patch(
+				ctx, name, types.MergePatchType, []byte(resumePatch), metav1.PatchOptions{},
+			)
+			if err != nil {
+				fmt.Fprintf(w, "⚠ Could not resume Argo workflow: %v\n", err)
+			} else {
+				fmt.Fprintf(w, "✓ Argo workflow %q resumed.\n", name)
+			}
+		}
+	}
+
+	return nil
+}
+
+// ── workflows ───────────────────────────────────────────────────────────────
+
+func newWorkflowsCommand(opts *cliOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "workflows",
+		Short: "List available workflow templates",
+		Long:  "Show all registered workflow templates that can be used in AgentWorkload CRDs.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runWorkflows(cmd.Context(), opts, cmd)
+		},
+	}
+	return cmd
+}
+
+func runWorkflows(_ context.Context, opts *cliOptions, cmd *cobra.Command) error {
+	w := cmd.OutOrStdout()
+
+	// Built-in workflows
+	type wfInfo struct {
+		Name        string `json:"name" yaml:"name"`
+		Description string `json:"description" yaml:"description"`
+		DAGShape    string `json:"dagShape" yaml:"dagShape"`
+		Example     string `json:"example" yaml:"example"`
+	}
+
+	workflows := []wfInfo{
+		{
+			Name:        "research-swarm",
+			Description: "Visual competitive analysis pipeline",
+			DAGShape:    "scrape → (screenshots || DOM) → synthesis",
+			Example:     "config/examples/research-swarm.yaml",
+		},
+		{
+			Name:        "code-review",
+			Description: "Automated security/performance/style code review",
+			DAGShape:    "fetch_diff → (security || performance || style) → synthesize",
+			Example:     "config/examples/code-review.yaml",
+		},
+		{
+			Name:        "doc-processor",
+			Description: "Document entity extraction and summarization",
+			DAGShape:    "ingest → (entities || summaries) → structured_output",
+			Example:     "config/examples/doc-processor.yaml",
+		},
+	}
+
+	switch opts.Output {
+	case "json", "yaml":
+		return printStructured(w, workflows, opts.Output)
+	default:
+		tbl := tablewriter.NewWriter(w)
+		tbl.SetHeader([]string{"WORKFLOW", "DESCRIPTION", "DAG SHAPE", "EXAMPLE"})
+		tbl.SetAutoWrapText(false)
+		for _, wf := range workflows {
+			tbl.Append([]string{wf.Name, wf.Description, wf.DAGShape, wf.Example})
+		}
+		tbl.Render()
+		return nil
+	}
+}
+
+// ── status ──────────────────────────────────────────────────────────────────
+
+func newStatusCommand(opts *cliOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show cluster health and workload summary",
+		Long:  "Display a dashboard with component health, workload counts, and cost totals.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runStatus(cmd.Context(), opts, cmd)
+		},
+	}
+	return cmd
+}
+
+func runStatus(ctx context.Context, opts *cliOptions, cmd *cobra.Command) error {
+	w := cmd.OutOrStdout()
+
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  ╔══════════════════════════════════════════╗")
+	fmt.Fprintln(w, "  ║        agentctl status — Dashboard       ║")
+	fmt.Fprintln(w, "  ╚══════════════════════════════════════════╝")
+	fmt.Fprintln(w, "")
+
+	// Cluster info
+	sv, err := opts.discovery.ServerVersion()
+	if err != nil {
+		return fmt.Errorf("cannot connect to cluster: %w", err)
+	}
+	fmt.Fprintf(w, "  Cluster:  %s (%s)\n", opts.rawConfig.CurrentContext, sv.GitVersion)
+
+	// Operator
+	if tag, ref := opts.operatorVersion(ctx); tag != "" {
+		fmt.Fprintf(w, "  Operator: %s (%s)\n", tag, ref)
+	} else {
+		fmt.Fprintln(w, "  Operator: not found")
+	}
+
+	fmt.Fprintln(w, "")
+
+	// Workload summary
+	list, err := opts.dynamic.Resource(agentWorkloadGVR).Namespace("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(w, "  Workloads: ⚠ cannot list (%v)\n", err)
+	} else {
+		counts := map[string]int{}
+		totalCost := 0.0
+
+		for _, item := range list.Items {
+			phase := nestedString(item.Object, "status", "phase")
+			if phase == "" {
+				phase = "Unknown"
+			}
+			counts[phase]++
+
+			if costStr, ok := item.GetAnnotations()[costAnnotationKey]; ok {
+				var cost float64
+				fmt.Sscanf(costStr, "%f", &cost)
+				totalCost += cost
+			}
+		}
+
+		fmt.Fprintf(w, "  Workloads: %d total\n", len(list.Items))
+		for phase, count := range counts {
+			icon := "●"
+			switch phase {
+			case "Completed":
+				icon = "✓"
+			case "Running":
+				icon = "▶"
+			case "Failed":
+				icon = "✗"
+			case "PendingApproval":
+				icon = "⏸"
+			}
+			fmt.Fprintf(w, "    %s %-20s %d\n", icon, phase, count)
+		}
+		fmt.Fprintf(w, "\n  Cost today: $%.4f\n", totalCost)
+	}
+
+	// Components
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  Components:")
+	components := []struct {
+		name  string
+		match string
+	}{
+		{"LiteLLM", "litellm"},
+		{"Argo Server", "argo-server"},
+		{"Browserless", "browserless"},
+		{"PostgreSQL", "postgres"},
+		{"MinIO", "minio"},
+	}
+
+	svcs, _ := opts.kube.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	for _, comp := range components {
+		found := false
+		if svcs != nil {
+			for _, svc := range svcs.Items {
+				if strings.Contains(svc.Name, comp.match) {
+					fmt.Fprintf(w, "    ✓ %-20s %s.%s\n", comp.name, svc.Name, svc.Namespace)
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			fmt.Fprintf(w, "    ✗ %-20s not found\n", comp.name)
+		}
+	}
+
+	fmt.Fprintln(w, "")
+	return nil
+}

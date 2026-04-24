@@ -128,6 +128,10 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(newCostCommand(opts))
 	cmd.AddCommand(newApplyCommand(opts))
 	cmd.AddCommand(newVersionCommand(opts))
+	cmd.AddCommand(newInitCommand(opts))
+	cmd.AddCommand(newApproveCommand(opts))
+	cmd.AddCommand(newWorkflowsCommand(opts))
+	cmd.AddCommand(newStatusCommand(opts))
 
 	return cmd
 }
