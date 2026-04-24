@@ -82,20 +82,20 @@ func NewMemoryCostReporter() *MemoryCostReporter {
 func defaultPricing() map[string]ModelPricing {
 	return map[string]ModelPricing{
 		// OpenAI
-		"openai/gpt-4o-mini":    {InputPer1KTokens: 0.00015, OutputPer1KTokens: 0.0006},
-		"openai/gpt-4o":         {InputPer1KTokens: 0.005, OutputPer1KTokens: 0.015},
-		"openai/gpt-4-turbo":    {InputPer1KTokens: 0.01, OutputPer1KTokens: 0.03},
+		"openai/gpt-4o-mini": {InputPer1KTokens: 0.00015, OutputPer1KTokens: 0.0006},
+		"openai/gpt-4o":      {InputPer1KTokens: 0.005, OutputPer1KTokens: 0.015},
+		"openai/gpt-4-turbo": {InputPer1KTokens: 0.01, OutputPer1KTokens: 0.03},
 		// Anthropic
 		"anthropic/claude-sonnet": {InputPer1KTokens: 0.003, OutputPer1KTokens: 0.015},
 		"anthropic/claude-haiku":  {InputPer1KTokens: 0.00025, OutputPer1KTokens: 0.00125},
 		// Ollama (local, free)
-		"ollama/gemma3:1b":      {InputPer1KTokens: 0.0, OutputPer1KTokens: 0.0},
-		"ollama/llama3.1:8b":    {InputPer1KTokens: 0.0, OutputPer1KTokens: 0.0},
+		"ollama/gemma3:1b":   {InputPer1KTokens: 0.0, OutputPer1KTokens: 0.0},
+		"ollama/llama3.1:8b": {InputPer1KTokens: 0.0, OutputPer1KTokens: 0.0},
 		// Azure (same as OpenAI)
-		"azure/gpt-4o-mini":     {InputPer1KTokens: 0.00015, OutputPer1KTokens: 0.0006},
-		"azure/gpt-4o":          {InputPer1KTokens: 0.005, OutputPer1KTokens: 0.015},
+		"azure/gpt-4o-mini": {InputPer1KTokens: 0.00015, OutputPer1KTokens: 0.0006},
+		"azure/gpt-4o":      {InputPer1KTokens: 0.005, OutputPer1KTokens: 0.015},
 		// Default fallback
-		"default":               {InputPer1KTokens: 0.001, OutputPer1KTokens: 0.003},
+		"default": {InputPer1KTokens: 0.001, OutputPer1KTokens: 0.003},
 	}
 }
 

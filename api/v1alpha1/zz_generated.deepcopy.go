@@ -439,6 +439,11 @@ func (in *AgentWorkloadSpec) DeepCopyInto(out *AgentWorkloadSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.WorkflowName != nil {
+		in, out := &in.WorkflowName, &out.WorkflowName
+		*out = new(string)
+		**out = **in
+	}
 	if in.JobID != nil {
 		in, out := &in.JobID, &out.JobID
 		*out = new(string)
