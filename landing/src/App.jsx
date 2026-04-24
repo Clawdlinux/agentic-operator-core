@@ -5,6 +5,7 @@ import Navigation from './components/Navigation';
 import Hero from './components/Hero';
 import StatsBar from './components/StatsBar';
 import Comparison from './components/Comparison';
+import Positioning from './components/Positioning';
 import Offerings from './components/Offerings';
 import Features from './components/Features';
 import UseCases from './components/UseCases';
@@ -37,6 +38,8 @@ export default function App() {
         </section>
 
         <StatsBar />
+
+        <Positioning />
 
         <Comparison />
 

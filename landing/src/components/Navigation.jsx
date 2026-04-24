@@ -5,13 +5,13 @@ import { useTheme } from '../hooks/useTheme';
 import ThemeToggle from './ThemeToggle';
 
 const NAV_LINKS = [
+  { label: 'Why Now', href: '#positioning' },
   { label: 'Features', href: '#features' },
   { label: 'Comparison', href: '#comparison' },
   { label: 'Quickstart', href: '#quickstart' },
   { label: 'Use Cases', href: '#use-cases' },
   { label: 'How It Works', href: '#architecture' },
   { label: 'Enterprise Ready', href: '#trust' },
-  { label: 'Products', href: '#products' },
   { label: 'GitHub', href: 'https://github.com/Clawdlinux/agentic-operator-core', external: true },
 ];
 
