@@ -3,7 +3,11 @@ package finops
 // MemoryCostReporter is a lightweight in-memory cost tracker for OSS and demo use.
 //
 // It estimates costs using public model pricing and tracks per-workload token usage.
-// NOT for production billing — use the enterprise CostReporter for that.
+// NOT for production — use the enterprise CostReporter for that.
+//
+// OSS-PRIVATE-ALLOW: MemoryCostReporter is intentionally OSS-safe. It provides
+// demo-quality cost estimation with no external dependencies. The enterprise
+// implementation in agentic-operator-private provides production-grade metering.
 //
 // Enable via: --enable-cost-tracking flag or AGENTIC_COST_TRACKING=memory env var.
 
