@@ -57,6 +57,13 @@ type AgentWorkloadSpec struct {
 	// +optional
 	OPAPolicy *string `json:"opaPolicy,omitempty"`
 
+	// workflowName selects the registered workflow to execute.
+	// Built-in: "research-swarm", "code-review", "doc-processor"
+	// Custom workflows can be mounted at /etc/agentic/workflows/
+	// +kubebuilder:default="research-swarm"
+	// +optional
+	WorkflowName *string `json:"workflowName,omitempty"`
+
 	// jobId uniquely identifies this agent workload job
 	// +optional
 	JobID *string `json:"jobId,omitempty"`

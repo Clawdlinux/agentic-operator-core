@@ -1,0 +1,22 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: code-review-run
+  namespace: agentic-system
+spec:
+  workloadType: generic
+  workflowName: code-review
+  objective: "Automated security, performance, and style review of code changes"
+  autoApproveThreshold: "0.90"
+  opaPolicy: strict
+  modelStrategy: cost-aware
+  modelMapping:
+    validation: "openai/gpt-4o-mini"
+    analysis: "openai/gpt-4o-mini"
+    reasoning: "openai/gpt-4o"
+  persona:
+    role: reviewer
+    tone: technical
+    memoryScope: isolated
+    toolProfile:
+      - litellm.chat_completion
