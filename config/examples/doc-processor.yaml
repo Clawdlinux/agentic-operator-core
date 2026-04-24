@@ -1,0 +1,22 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: doc-processor-run
+  namespace: agentic-system
+spec:
+  workloadType: generic
+  workflowName: doc-processor
+  objective: "Extract entities and generate structured summaries from documents"
+  autoApproveThreshold: "0.95"
+  opaPolicy: permissive
+  modelStrategy: cost-aware
+  modelMapping:
+    validation: "openai/gpt-4o-mini"
+    analysis: "openai/gpt-4o-mini"
+    reasoning: "openai/gpt-4o-mini"
+  persona:
+    role: analyst
+    tone: formal
+    memoryScope: isolated
+    toolProfile:
+      - litellm.chat_completion
