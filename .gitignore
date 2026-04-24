@@ -54,13 +54,11 @@ manager
 manager
 bin/
 
-# Strategic documents (demo videos, pitch decks)
+# Strategic documents (pitch decks, large media)
 *.mp4
 *.pptx
 landing/public/videos/
 landing/dist/videos/
-!demo-video.mp4
-!agentic-operator-demo.mp4
 
 # Security: never commit local registry/docker auth files
 .dockerconfigjson
