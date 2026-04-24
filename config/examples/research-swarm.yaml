@@ -1,0 +1,22 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: research-run
+  namespace: agentic-system
+spec:
+  workloadType: generic
+  workflowName: research-swarm
+  objective: "Visual competitive analysis of target websites"
+  targetUrls:
+    - "https://competitor1.com"
+    - "https://competitor2.com"
+  autoApproveThreshold: "0.95"
+  opaPolicy: strict
+  modelStrategy: fixed
+  persona:
+    role: researcher
+    tone: technical
+    memoryScope: shared
+    toolProfile:
+      - browserless.scrape_url
+      - litellm.chat_completion

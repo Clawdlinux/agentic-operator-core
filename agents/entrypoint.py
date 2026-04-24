@@ -15,7 +15,8 @@ import os
 import sys
 from typing import List
 
-from agents.graph.workflow import build_workflow, AgentWorkflowError
+from agents.graph.registry import get_workflow, list_workflows
+from agents.graph.workflow import AgentWorkflowError
 from agents.runtime.persona import load_persona_config
 from agents.utils.credential_sanitizer import SanitizingFormatter
 
@@ -87,11 +88,14 @@ def get_job_params() -> tuple:
 
 async def run_workflow(job_id: str, target_urls: List[str]) -> dict:
     """
-    Run the LangGraph workflow.
+    Run a LangGraph workflow selected by WORKFLOW_NAME env var.
+    
+    Defaults to "research-swarm" for backward compatibility.
+    Set WORKFLOW_NAME to "code-review", "doc-processor", or any registered workflow.
     
     Args:
         job_id: Job identifier (used as thread_id for checkpointing)
-        target_urls: List of URLs to analyze
+        target_urls: List of URLs to analyze (used by research-swarm)
         
     Returns:
         Final workflow state
@@ -99,11 +103,13 @@ async def run_workflow(job_id: str, target_urls: List[str]) -> dict:
     Raises:
         AgentWorkflowError: On workflow failures
     """
-    logger.info(f"Starting job {job_id} with {len(target_urls)} URLs")
+    workflow_name = os.getenv("WORKFLOW_NAME", "research-swarm")
+    logger.info(f"Starting job {job_id} with workflow={workflow_name}")
+    logger.info(f"Available workflows: {list_workflows()}")
     
     try:
-        # Build workflow with PostgreSQL checkpointing
-        workflow = build_workflow()
+        # Build workflow via registry
+        workflow = get_workflow(workflow_name)
         
         # Initial state
         initial_state = {

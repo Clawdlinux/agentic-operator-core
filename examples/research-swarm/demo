@@ -1,0 +1,562 @@
+#!/usr/bin/env bash
+# ────────────────────────────────────────────────────────────────────────────
+# Research Swarm Demo — Agentic Operator
+# One-click demo runner. No Docker Compose knowledge required.
+#
+# Usage:
+#   ./demo                              # Run with default topic
+#   ./demo "AI agents in healthcare"    # Run with custom topic
+# ────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+# ── Constants ───────────────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_TOPIC="Quantum computing breakthroughs in 2026"
+TOPIC="${1:-$DEFAULT_TOPIC}"
+
+# ── Detect configured backend ──────────────────────────────────────────────
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  # shellcheck disable=SC1091
+  set -a; source "$SCRIPT_DIR/.env" 2>/dev/null || true; set +a
+fi
+INFERENCE_PROVIDER="${INFERENCE_PROVIDER:-ollama}"
+
+# Build compose command based on backend
+case "$INFERENCE_PROVIDER" in
+  ollama)
+    COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.local.yml"
+    BACKEND_LABEL="Local (Ollama + ${OLLAMA_MODEL:-gemma3:1b}, no API keys)"
+    NEEDS_MODEL_PULL=true
+    ;;
+  vllm)
+    if [[ -f "$SCRIPT_DIR/docker-compose.vllm.yml" ]]; then
+      COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.vllm.yml"
+    else
+      COMPOSE_CMD="docker compose -f docker-compose.yml"
+    fi
+    BACKEND_LABEL="vLLM (${VLLM_MODEL:-meta-llama/Llama-3.1-8B-Instruct})"
+    NEEDS_MODEL_PULL=false
+    ;;
+  sglang)
+    COMPOSE_CMD="docker compose -f docker-compose.yml"
+    BACKEND_LABEL="SGLang (${SGLANG_MODEL:-qwen/qwen2.5-0.5b-instruct})"
+    NEEDS_MODEL_PULL=false
+    ;;
+  openai)
+    COMPOSE_CMD="docker compose -f docker-compose.yml"
+    BACKEND_LABEL="OpenAI API (${OPENAI_MODEL:-gpt-4o-mini})"
+    NEEDS_MODEL_PULL=false
+    ;;
+  azure)
+    COMPOSE_CMD="docker compose -f docker-compose.yml"
+    BACKEND_LABEL="Azure OpenAI (${AZURE_OPENAI_MODEL:-gpt-4o-mini})"
+    NEEDS_MODEL_PULL=false
+    ;;
+  custom)
+    COMPOSE_CMD="docker compose -f docker-compose.yml"
+    BACKEND_LABEL="Custom endpoint (${CUSTOM_MODEL:-unknown})"
+    NEEDS_MODEL_PULL=false
+    ;;
+  *)
+    COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.local.yml"
+    BACKEND_LABEL="Local (Ollama, default)"
+    INFERENCE_PROVIDER="ollama"
+    NEEDS_MODEL_PULL=true
+    ;;
+esac
+
+HEALTH_ENDPOINTS=(
+  "researcher:9001"
+  "writer:9002"
+  "editor:9003"
+  "orchestrator:9000"
+  "litellm-proxy:8000"
+)
+HEALTH_TIMEOUT=120   # seconds per service
+MODEL_TIMEOUT=300    # seconds for model pull
+ORCHESTRATE_TIMEOUT=600  # seconds for full pipeline
+
+# ── Colors & formatting ────────────────────────────────────────────────────
+BOLD='\033[1m'
+DIM='\033[2m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+RESET='\033[0m'
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
+info()    { echo -e "${BLUE}ℹ${RESET}  $*"; }
+ok()      { echo -e "${GREEN}✔${RESET}  $*"; }
+warn()    { echo -e "${YELLOW}⚠${RESET}  $*"; }
+fail()    { echo -e "${RED}✖${RESET}  $*"; }
+header()  { echo -e "\n${WHITE}$*${RESET}"; }
+dim()     { echo -e "${DIM}$*${RESET}"; }
+
+SPINNER_PID=""
+
+spinner_start() {
+  local msg="${1:-Working...}"
+  (
+    local chars='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local i=0
+    while true; do
+      printf "\r  ${YELLOW}${chars:i++%${#chars}:1}${RESET} %s" "$msg"
+      sleep 0.1
+    done
+  ) &
+  SPINNER_PID=$!
+  disown "$SPINNER_PID" 2>/dev/null
+}
+
+spinner_stop() {
+  if [[ -n "${SPINNER_PID:-}" ]]; then
+    kill "$SPINNER_PID" 2>/dev/null || true
+    wait "$SPINNER_PID" 2>/dev/null || true
+    SPINNER_PID=""
+    printf "\r\033[K"  # clear line
+  fi
+}
+
+progress_bar() {
+  local current=$1 total=$2 width=30 label="${3:-}"
+  local pct=$((current * 100 / total))
+  local filled=$((current * width / total))
+  local empty=$((width - filled))
+  printf "\r  ${CYAN}["
+  printf "%0.s█" $(seq 1 "$filled" 2>/dev/null) || true
+  printf "%0.s░" $(seq 1 "$empty" 2>/dev/null) || true
+  printf "]${RESET} %3d%% %s" "$pct" "$label"
+}
+
+elapsed_since() {
+  local start=$1
+  local now
+  now=$(date +%s)
+  echo $((now - start))
+}
+
+fmt_duration() {
+  local secs=$1
+  if ((secs < 60)); then
+    echo "${secs}s"
+  else
+    echo "$((secs / 60))m $((secs % 60))s"
+  fi
+}
+
+# ── Cleanup / signal handling ───────────────────────────────────────────────
+SERVICES_STARTED_BY_US=false
+
+cleanup() {
+  spinner_stop
+  echo ""
+  if $SERVICES_STARTED_BY_US; then
+    echo -e "${YELLOW}Services are still running.${RESET}"
+    echo -n "Stop them now? [y/N] "
+    read -r -t 10 answer || answer="n"
+    if [[ "${answer,,}" == "y" ]]; then
+      info "Stopping services..."
+      cd "$SCRIPT_DIR"
+      $COMPOSE_CMD down --remove-orphans >/dev/null 2>&1 || true
+      ok "Services stopped."
+    else
+      dim "Services left running. Stop later with: cd $(basename "$SCRIPT_DIR") && make local-down"
+    fi
+  fi
+  exit 0
+}
+
+abort() {
+  spinner_stop
+  echo ""
+  warn "Interrupted."
+  if $SERVICES_STARTED_BY_US; then
+    echo -n "Stop services before exiting? [y/N] "
+    read -r -t 5 answer || answer="n"
+    if [[ "${answer,,}" == "y" ]]; then
+      cd "$SCRIPT_DIR"
+      $COMPOSE_CMD down --remove-orphans >/dev/null 2>&1 || true
+      ok "Services stopped."
+    else
+      dim "Services left running."
+    fi
+  fi
+  exit 130
+}
+
+trap abort INT TERM
+trap spinner_stop EXIT
+
+# ── Step 0: Banner ──────────────────────────────────────────────────────────
+clear 2>/dev/null || true
+echo ""
+echo -e "${CYAN}${BOLD}"
+cat << 'BANNER'
+  ╔══════════════════════════════════════════════════════╗
+  ║   🔬  Research Swarm Demo — Agentic Operator        ║
+  ║                                                      ║
+  ║   Multi-agent research pipeline powered by LLMs      ║
+  ║   researcher → writer → editor                       ║
+  ╚══════════════════════════════════════════════════════╝
+BANNER
+echo -e "${RESET}"
+dim "  Topic:    \"$TOPIC\""
+dim "  Backend:  $BACKEND_LABEL"
+echo ""
+
+# ── Step 1: Pre-flight checks ──────────────────────────────────────────────
+header "Step 1/5 — Pre-flight checks"
+
+# Docker installed?
+if ! command -v docker &>/dev/null; then
+  fail "Docker is not installed."
+  echo ""
+  echo "  Install Docker:"
+  if [[ "$(uname)" == "Darwin" ]]; then
+    echo "    brew install --cask docker"
+    echo "    — or —"
+    echo "    https://docs.docker.com/desktop/install/mac-install/"
+  else
+    echo "    https://docs.docker.com/engine/install/"
+  fi
+  exit 1
+fi
+ok "Docker installed"
+
+# Docker daemon running?
+if ! docker info &>/dev/null; then
+  fail "Docker daemon is not running."
+  if [[ "$(uname)" == "Darwin" ]]; then
+    echo "  → Please start Docker Desktop and try again."
+  else
+    echo "  → Run: sudo systemctl start docker"
+  fi
+  exit 1
+fi
+ok "Docker daemon running"
+
+# docker compose available?
+if ! docker compose version &>/dev/null; then
+  fail "docker compose plugin not found."
+  echo "  → Update Docker Desktop or install compose plugin:"
+  echo "    https://docs.docker.com/compose/install/"
+  exit 1
+fi
+ok "Docker Compose available"
+
+# Disk space check (~2GB needed for images + model)
+available_gb=0
+if [[ "$(uname)" == "Darwin" ]]; then
+  available_gb=$(df -g / | tail -1 | awk '{print $4}')
+else
+  available_gb=$(df -BG / | tail -1 | awk '{print $4}' | tr -d 'G')
+fi
+if (( available_gb < 2 )); then
+  warn "Low disk space: ${available_gb}GB available (recommend ≥2GB for images + model)"
+else
+  ok "Disk space: ${available_gb}GB available"
+fi
+
+# Make sure we're in the right directory
+cd "$SCRIPT_DIR"
+
+# ── Step 2: Check if stack already running ──────────────────────────────────
+header "Step 2/5 — Environment setup"
+
+stack_running=false
+running_count=0
+for ep in "${HEALTH_ENDPOINTS[@]}"; do
+  svc="${ep%%:*}"
+  port="${ep##*:}"
+  if curl -sf "http://localhost:${port}/health" >/dev/null 2>&1; then
+    running_count=$((running_count + 1))
+  fi
+done
+
+if (( running_count == ${#HEALTH_ENDPOINTS[@]} )); then
+  stack_running=true
+  ok "All services already running — skipping build & start"
+elif (( running_count > 0 )); then
+  warn "${running_count}/${#HEALTH_ENDPOINTS[@]} services detected. Restarting full stack..."
+  $COMPOSE_CMD down --remove-orphans >/dev/null 2>&1 || true
+fi
+
+# ── Step 3: Build images ────────────────────────────────────────────────────
+if ! $stack_running; then
+  header "Step 3/5 — Building images"
+  spinner_start "Building agent & orchestrator images (this may take a minute)..."
+
+  BUILD_LOG=$(mktemp)
+  if make build >"$BUILD_LOG" 2>&1; then
+    spinner_stop
+    ok "Images built successfully"
+  else
+    spinner_stop
+    fail "Image build failed. Last 20 lines:"
+    echo ""
+    tail -20 "$BUILD_LOG" | sed 's/^/    /'
+    echo ""
+    dim "  Full log: $BUILD_LOG"
+    dim "  Try manually: cd $(pwd) && make build"
+    exit 1
+  fi
+  rm -f "$BUILD_LOG"
+
+  # ── Step 4: Start services ──────────────────────────────────────────────
+  header "Step 4/5 — Starting services"
+  spinner_start "Starting ${INFERENCE_PROVIDER} backend, LiteLLM proxy, agents, and orchestrator..."
+
+  if $COMPOSE_CMD up -d >/dev/null 2>&1; then
+    spinner_stop
+    SERVICES_STARTED_BY_US=true
+    ok "All containers started"
+  else
+    spinner_stop
+    fail "Failed to start services."
+    dim "  Check logs: $COMPOSE_CMD logs"
+    exit 1
+  fi
+
+  # ── Wait for model pull (Ollama only) ─────────────────────────────────────
+  if $NEEDS_MODEL_PULL; then
+    info "Waiting for Ollama model (${OLLAMA_MODEL:-gemma3:1b}, ~1GB first run)..."
+
+  pull_start=$(date +%s)
+  model_ready=false
+
+  while true; do
+    elapsed=$(elapsed_since "$pull_start")
+    if (( elapsed > MODEL_TIMEOUT )); then
+      break
+    fi
+
+    # Check if ollama-pull container finished successfully
+    pull_status=$(docker inspect --format='{{.State.Status}}' ollama-pull 2>/dev/null || echo "missing")
+    pull_exit=$(docker inspect --format='{{.State.ExitCode}}' ollama-pull 2>/dev/null || echo "-1")
+
+    if [[ "$pull_status" == "exited" && "$pull_exit" == "0" ]]; then
+      model_ready=true
+      break
+    elif [[ "$pull_status" == "exited" && "$pull_exit" != "0" ]]; then
+      # Pull failed — check if model already exists
+      if docker exec ollama ollama list 2>/dev/null | grep -q "gemma3:1b"; then
+        model_ready=true
+        break
+      fi
+      fail "Model pull failed (exit code $pull_exit)"
+      dim "  Check: docker logs ollama-pull"
+      exit 1
+    fi
+
+    # Model might already exist from a previous run
+    if docker exec ollama ollama list 2>/dev/null | grep -q "gemma3:1b"; then
+      model_ready=true
+      break
+    fi
+
+    # Show progress
+    local_pct=$((elapsed * 100 / MODEL_TIMEOUT))
+    (( local_pct > 99 )) && local_pct=99
+    progress_bar "$local_pct" 100 "pulling model... ($(fmt_duration "$elapsed"))"
+    sleep 2
+  done
+
+  if $model_ready; then
+    printf "\r\033[K"
+    ok "Model ${OLLAMA_MODEL:-gemma3:1b} ready"
+  else
+    printf "\r\033[K"
+    fail "Model pull timed out after $(fmt_duration $MODEL_TIMEOUT)"
+    dim "  Check: docker logs ollama-pull"
+    exit 1
+  fi
+
+  fi  # end NEEDS_MODEL_PULL
+
+  # ── Wait for health endpoints ───────────────────────────────────────────
+  info "Waiting for all services to become healthy..."
+  all_healthy=true
+
+  for ep in "${HEALTH_ENDPOINTS[@]}"; do
+    svc="${ep%%:*}"
+    port="${ep##*:}"
+    svc_start=$(date +%s)
+    healthy=false
+
+    while true; do
+      elapsed=$(elapsed_since "$svc_start")
+      if (( elapsed > HEALTH_TIMEOUT )); then
+        break
+      fi
+      if curl -sf "http://localhost:${port}/health" >/dev/null 2>&1; then
+        healthy=true
+        break
+      fi
+      printf "\r  ${YELLOW}⠋${RESET} Waiting for ${svc}... ($(fmt_duration "$elapsed"))"
+      sleep 2
+    done
+
+    printf "\r\033[K"
+    if $healthy; then
+      ok "${svc} healthy (port ${port})"
+    else
+      fail "${svc} not responding after $(fmt_duration $HEALTH_TIMEOUT)"
+      dim "  Debug: docker compose logs ${svc}"
+      all_healthy=false
+    fi
+  done
+
+  if ! $all_healthy; then
+    fail "Some services failed to start. Aborting."
+    dim "  Full logs: $COMPOSE_CMD logs"
+    exit 1
+  fi
+else
+  # Stack was already running — show as steps skipped
+  dim "  (Steps 3-4 skipped — stack already running)"
+fi
+
+# ── Step 5: Run orchestration ───────────────────────────────────────────────
+header "Step 5/5 — Running research pipeline"
+info "Topic: ${BOLD}\"$TOPIC\"${RESET}"
+echo ""
+dim "  Pipeline: researcher → writer → editor"
+dim "  Backend:  $BACKEND_LABEL"
+dim "  This may take 1-5 minutes depending on backend..."
+echo ""
+
+ORCHESTRATE_START=$(date +%s)
+RESPONSE_FILE=$(mktemp)
+
+spinner_start "Running multi-agent research pipeline..."
+
+HTTP_CODE=$(curl -sf -o "$RESPONSE_FILE" -w "%{http_code}" \
+  --max-time "$ORCHESTRATE_TIMEOUT" \
+  -X POST "http://localhost:9000/orchestrate" \
+  -H "Content-Type: application/json" \
+  -d "{\"topic\": \"$TOPIC\"}" 2>/dev/null || echo "000")
+
+spinner_stop
+
+ORCHESTRATE_END=$(date +%s)
+DURATION=$((ORCHESTRATE_END - ORCHESTRATE_START))
+
+if [[ "$HTTP_CODE" == "200" ]] || [[ "$HTTP_CODE" == "201" ]]; then
+  echo ""
+  echo -e "${GREEN}${BOLD}  ╔═══════════════════════════════════════════╗${RESET}"
+  echo -e "${GREEN}${BOLD}  ║       ✅  Pipeline completed!             ║${RESET}"
+  echo -e "${GREEN}${BOLD}  ╚═══════════════════════════════════════════╝${RESET}"
+  echo ""
+
+  # Extract fields with python (portable, no jq dependency)
+  TRACE_ID=$(python3 -c "
+import json
+try:
+    d = json.load(open('$RESPONSE_FILE'))
+    print(d.get('trace_id', 'n/a'))
+except: print('n/a')
+" 2>/dev/null || echo "n/a")
+
+  TOTAL_COST=$(python3 -c "
+import json
+try:
+    d = json.load(open('$RESPONSE_FILE'))
+    c = d.get('total_cost_usd', 0)
+    print(f'\${float(c):.6f}')
+except: print('n/a')
+" 2>/dev/null || echo "n/a")
+
+  ARTICLE_PREVIEW=$(python3 -c "
+import json
+try:
+    d = json.load(open('$RESPONSE_FILE'))
+    text = d.get('final_output', '')
+    if isinstance(text, dict):
+        text = text.get('content', text.get('text', str(text)))
+    text = str(text).strip()
+    if len(text) > 500:
+        text = text[:500] + '...'
+    if text:
+        print(text)
+    else:
+        print('[Response received but no output found]')
+except Exception as e:
+    print(f'[Could not parse: {e}]')
+" 2>/dev/null || echo "[parse error]")
+
+  STAGES_INFO=$(python3 -c "
+import json
+try:
+    d = json.load(open('$RESPONSE_FILE'))
+    stages = d.get('stages', [])
+    for s in stages:
+        name = s.get('stage', '?')
+        status = s.get('status', '?')
+        dur = s.get('duration_seconds', 0)
+        cost = s.get('cost_usd', 0)
+        icon = '✔' if status == 'completed' else '✖'
+        print(f'    {icon} {name:<15} {dur:.1f}s  \${cost:.4f}')
+except: pass
+" 2>/dev/null)
+
+  echo -e "  ${BOLD}Trace ID:${RESET}    $TRACE_ID"
+  echo -e "  ${BOLD}Duration:${RESET}    $(fmt_duration $DURATION)"
+  echo -e "  ${BOLD}Total Cost:${RESET}  $TOTAL_COST"
+
+  if [[ -n "$STAGES_INFO" ]]; then
+    echo ""
+    echo -e "  ${BOLD}Stages:${RESET}"
+    echo "$STAGES_INFO"
+  fi
+
+  echo ""
+  echo -e "  ${BOLD}Article Preview:${RESET}"
+  echo -e "  ${DIM}────────────────────────────────────────────────${RESET}"
+  echo "$ARTICLE_PREVIEW" | fold -s -w 72 | sed 's/^/  /'
+  echo -e "  ${DIM}────────────────────────────────────────────────${RESET}"
+
+  # Save full response
+  SAVE_PATH="$SCRIPT_DIR/runs"
+  mkdir -p "$SAVE_PATH"
+  SAVE_FILE="$SAVE_PATH/demo-$(date +%Y%m%d-%H%M%S).json"
+  cp "$RESPONSE_FILE" "$SAVE_FILE"
+  echo ""
+  dim "  Full response saved: runs/$(basename "$SAVE_FILE")"
+
+else
+  echo ""
+  fail "Pipeline request failed (HTTP $HTTP_CODE)"
+  echo ""
+  if [[ -s "$RESPONSE_FILE" ]]; then
+    echo "  Response body:"
+    head -20 "$RESPONSE_FILE" | sed 's/^/    /'
+  fi
+  echo ""
+  dim "  Debug: docker compose logs orchestrator"
+  dim "  Retry: ./demo"
+fi
+
+rm -f "$RESPONSE_FILE"
+
+# ── Teardown prompt ─────────────────────────────────────────────────────────
+echo ""
+echo -e "${DIM}─────────────────────────────────────────────────────${RESET}"
+if $SERVICES_STARTED_BY_US; then
+  echo -e "Press ${BOLD}Enter${RESET} to stop services, or ${BOLD}Ctrl+C${RESET} to keep them running."
+  read -r || true
+  info "Stopping services..."
+  cd "$SCRIPT_DIR"
+  $COMPOSE_CMD down --remove-orphans >/dev/null 2>&1 || true
+  ok "Services stopped. Thanks for trying the demo!"
+else
+  dim "Services were already running — left untouched."
+  dim "Stop them with: make local-down"
+fi
+
+echo ""
+echo -e "${CYAN}Learn more: https://github.com/clawdlinux/agentic-operator-core${RESET}"
+echo -e "${DIM}Run again with a custom topic: ./demo \"Your topic here\"${RESET}"
+echo ""
