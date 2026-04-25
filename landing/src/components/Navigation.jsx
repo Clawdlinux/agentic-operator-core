@@ -13,6 +13,7 @@ const NAV_LINKS = [
 ];
 
 const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
+const DISCORD_URL = 'https://discord.gg/2yJsjhPe';
 const DEMO_EMAIL_URL = 'mailto:007ssancheti@gmail.com?subject=Agentic%20Operator%20Inquiry';
 const NAV_SCROLL_OFFSET = 88;
 
@@ -153,6 +154,27 @@ export default function Navigation() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.15 }}
           >
+            <a
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200"
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                color: currentTheme.text.secondary,
+                border: `1px solid ${currentTheme.border.medium}`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#5865F2';
+                e.currentTarget.style.borderColor = '#5865F2';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = currentTheme.text.secondary;
+                e.currentTarget.style.borderColor = currentTheme.border.medium;
+              }}
+            >
+              <span>Discord</span>
+            </a>
             <a
               href={GITHUB_URL}
               target="_blank"
