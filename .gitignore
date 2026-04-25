@@ -83,3 +83,6 @@ enterprise/billing/*
 enterprise/licensing/*
 !enterprise/billing/README.md
 !enterprise/licensing/README.md
+
+# Allow committed demo videos
+!assets/*.mp4

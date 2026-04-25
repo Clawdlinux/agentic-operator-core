@@ -41,6 +41,14 @@
 
 ---
 
+## 🎬 Demo
+
+https://github.com/Clawdlinux/agentic-operator-core/raw/main/assets/agentic-operator-demo.mp4
+
+> 24-second walkthrough: problem → manifest → `kubectl apply` → live workload status.
+
+---
+
 ## Why Agentic Operator?
 
 kagent (Solo.io, CNCF Sandbox) validates this market completely. When Google, Microsoft, IBM, and Red Hat contribute to a Kubernetes agent runtime, the category is real.
