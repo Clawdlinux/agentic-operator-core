@@ -99,8 +99,8 @@ export default function Navigation() {
             <div className="relative">
               <img
                 src="/logo.svg"
-                alt="ClawdLinux"
-                className="w-8 h-8 transition-transform duration-300 group-hover:rotate-12"
+                alt="Agentic Operator"
+                className="w-8 h-8 transition-transform duration-300 group-hover:rotate-12 rounded-lg"
               />
             </div>
             <span
