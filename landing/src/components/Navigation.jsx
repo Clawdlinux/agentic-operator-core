@@ -1,23 +1,19 @@
 import { useState, useEffect } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { Menu, X, Star, ExternalLink, Hexagon, BookOpen, Calendar } from 'lucide-react';
+import { Menu, X, Star, ExternalLink, Hexagon } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggle from './ThemeToggle';
 
 const NAV_LINKS = [
   { label: 'Why Now', href: '#positioning' },
-  { label: 'Features', href: '#features' },
-  { label: 'Comparison', href: '#comparison' },
-  { label: 'Quickstart', href: '#quickstart' },
-  { label: 'Use Cases', href: '#use-cases' },
+  { label: 'Compare', href: '#comparison' },
   { label: 'How It Works', href: '#architecture' },
-  { label: 'Enterprise Ready', href: '#trust' },
-  { label: 'GitHub', href: 'https://github.com/Clawdlinux/agentic-operator-core', external: true },
+  { label: 'Features', href: '#features' },
+  { label: 'Open Source', href: '#open-source' },
 ];
 
 const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
-const QUICKSTART_URL = 'https://github.com/Clawdlinux/agentic-operator-core/blob/main/docs/01-quickstart.md';
-const DEMO_EMAIL_URL = 'mailto:007ssancheti@gmail.com?subject=Agentic%20Operator%20Demo%20Request';
+const DEMO_EMAIL_URL = 'mailto:007ssancheti@gmail.com?subject=Agentic%20Operator%20Inquiry';
 const NAV_SCROLL_OFFSET = 88;
 
 export default function Navigation() {
@@ -156,7 +152,7 @@ export default function Navigation() {
             ))}
           </motion.div>
 
-          {/* Desktop CTA buttons */}
+          {/* Desktop CTA */}
           <motion.div
             className="hidden md:flex items-center gap-3"
             initial={{ opacity: 0, x: 20 }}
@@ -164,57 +160,9 @@ export default function Navigation() {
             transition={{ duration: 0.5, delay: 0.15 }}
           >
             <a
-              href={QUICKSTART_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg transition-all duration-200"
-              style={{ 
-                fontFamily: "'DM Sans', sans-serif",
-                color: currentTheme.text.secondary,
-                border: `1px solid ${currentTheme.border.light}`,
-                backgroundColor: currentTheme.bg.secondary
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = currentTheme.accent.teal;
-                e.currentTarget.style.borderColor = currentTheme.accent.teal;
-                e.currentTarget.style.backgroundColor = `${currentTheme.accent.teal}15`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = currentTheme.text.secondary;
-                e.currentTarget.style.borderColor = currentTheme.border.light;
-                e.currentTarget.style.backgroundColor = currentTheme.bg.secondary;
-              }}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Start in 5m</span>
-            </a>
-            <a
               href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg transition-all duration-200"
-              style={{ 
-                fontFamily: "'DM Sans', sans-serif",
-                color: currentTheme.text.secondary,
-                border: `1px solid ${currentTheme.border.light}`,
-                backgroundColor: currentTheme.bg.secondary
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = currentTheme.accent.teal;
-                e.currentTarget.style.borderColor = currentTheme.accent.teal;
-                e.currentTarget.style.backgroundColor = `${currentTheme.accent.teal}15`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = currentTheme.text.secondary;
-                e.currentTarget.style.borderColor = currentTheme.border.light;
-                e.currentTarget.style.backgroundColor = currentTheme.bg.secondary;
-              }}
-            >
-              <Star className="w-3.5 h-3.5" />
-              <span>Star</span>
-            </a>
-            <a
-              href={DEMO_EMAIL_URL}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 hover:brightness-110"
               style={{
                 fontFamily: "'DM Sans', sans-serif",
@@ -222,8 +170,8 @@ export default function Navigation() {
                 color: '#03231d',
               }}
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Book Demo</span>
+              <Star className="w-3.5 h-3.5" />
+              <span>Star on GitHub</span>
             </a>
             <ThemeToggle />
           </motion.div>
@@ -297,57 +245,9 @@ export default function Navigation() {
 
           <div className="mt-3 pt-3 flex flex-col gap-2" style={{ borderTopWidth: '1px', borderTopColor: currentTheme.border.light }}>
             <a
-              href={QUICKSTART_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-4 py-3 text-sm rounded-lg transition-all duration-200"
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  color: currentTheme.text.secondary,
-                  border: `1px solid ${currentTheme.border.light}`,
-                  backgroundColor: currentTheme.bg.secondary
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = currentTheme.accent.teal;
-                  e.currentTarget.style.borderColor = currentTheme.accent.teal;
-                  e.currentTarget.style.backgroundColor = `${currentTheme.accent.teal}15`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = currentTheme.text.secondary;
-                  e.currentTarget.style.borderColor = currentTheme.border.light;
-                  e.currentTarget.style.backgroundColor = currentTheme.bg.secondary;
-                }}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>Start in 5 minutes</span>
-            </a>
-            <a
               href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-4 py-3 text-sm rounded-lg transition-all duration-200"
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  color: currentTheme.text.secondary,
-                  border: `1px solid ${currentTheme.border.light}`,
-                  backgroundColor: currentTheme.bg.secondary
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = currentTheme.accent.teal;
-                  e.currentTarget.style.borderColor = currentTheme.accent.teal;
-                  e.currentTarget.style.backgroundColor = `${currentTheme.accent.teal}15`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = currentTheme.text.secondary;
-                  e.currentTarget.style.borderColor = currentTheme.border.light;
-                  e.currentTarget.style.backgroundColor = currentTheme.bg.secondary;
-                }}
-            >
-              <Star className="w-4 h-4" />
-              <span>Star on GitHub</span>
-            </a>
-            <a
-              href={DEMO_EMAIL_URL}
               className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200 hover:brightness-110"
               style={{
                 fontFamily: "'DM Sans', sans-serif",
@@ -355,8 +255,8 @@ export default function Navigation() {
                 color: '#03231d',
               }}
             >
-              <Calendar className="w-4 h-4" />
-              <span>Book Demo</span>
+              <Star className="w-4 h-4" />
+              <span>Star on GitHub</span>
             </a>
           </div>
         </div>

@@ -4,15 +4,10 @@ import { useTheme } from './hooks/useTheme';
 import Navigation from './components/Navigation';
 import Hero from './components/Hero';
 import StatsBar from './components/StatsBar';
-import Comparison from './components/Comparison';
 import Positioning from './components/Positioning';
-import Offerings from './components/Offerings';
+import Comparison from './components/Comparison';
 import Features from './components/Features';
-import UseCases from './components/UseCases';
-import Products from './components/Products';
 import Architecture from './components/Architecture';
-import Trust from './components/Trust';
-import Quickstart from './components/Quickstart';
 import OpenSource from './components/OpenSource';
 import Waitlist from './components/Waitlist';
 import Footer from './components/Footer';
@@ -43,26 +38,17 @@ export default function App() {
 
         <Comparison />
 
-        <Quickstart />
-
-        <section id="features">
-          <Offerings />
-          <Features />
-        </section>
-
-        <section id="use-cases">
-          <UseCases />
-        </section>
-
-        <Products />
-
         <section id="architecture">
           <Architecture />
         </section>
 
-        <Trust />
+        <section id="features">
+          <Features />
+        </section>
 
-        <OpenSource />
+        <section id="open-source">
+          <OpenSource />
+        </section>
 
         <Waitlist />
       </main>
