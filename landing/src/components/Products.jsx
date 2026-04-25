@@ -71,7 +71,7 @@ const ENTERPRISE_ADD_ONS = [
     title: 'Air-Gapped & FedRAMP Overlays',
     description:
       'Deployment overlays and advisory support for FedRAMP High, HIPAA, and sovereign cloud constraints.',
-    color: '#00d4aa',
+    color: '#3B82F6',
   },
   {
     icon: BadgeCheck,
@@ -219,7 +219,7 @@ export default function Products() {
             style={{
               background: `${currentTheme.accent.teal}14`,
               border: `1px solid ${currentTheme.accent.teal}33`,
-              color: theme === 'dark' ? currentTheme.accent.teal : '#0b4f45',
+              color: theme === 'dark' ? currentTheme.accent.teal : '#1e40af',
               fontFamily: "'IBM Plex Mono', monospace",
             }}
           >
@@ -393,7 +393,7 @@ export default function Products() {
                 href="mailto:shreyanshsancheti09@gmail.com?subject=Enterprise%20Support%20Inquiry"
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 hover:brightness-110"
                 style={{
-                  background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #00b894 100%)`,
+                  background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #2563EB 100%)`,
                   color: '#03231d',
                 }}
               >

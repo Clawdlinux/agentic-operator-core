@@ -54,8 +54,8 @@ export default function Trust() {
       metric: 'Apache 2.0',
       badge: 'Licensed',
       description: 'Fully compliant, SBOM available, OSI-approved',
-      color: 'from-teal-500/20 to-teal-500/5',
-      accentColor: '#00d4aa',
+      color: 'from-blue-500/20 to-blue-500/5',
+      accentColor: '#3B82F6',
     },
     {
       icon: Cpu,
@@ -72,8 +72,8 @@ export default function Trust() {
       metric: '100+',
       badge: 'Clusters',
       description: 'Deployed across enterprises managing thousands of agents',
-      color: 'from-teal-500/20 to-teal-500/5',
-      accentColor: '#00d4aa',
+      color: 'from-blue-500/20 to-blue-500/5',
+      accentColor: '#3B82F6',
     },
     {
       icon: AlertCircle,

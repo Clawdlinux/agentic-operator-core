@@ -18,7 +18,7 @@ const STEPS = [
     title: 'Clone the Repo',
     description: 'Pull the operator source in one command — no sign-up, no SaaS account required.',
     code: 'git clone https://github.com/Clawdlinux/agentic-operator-core',
-    accentColor: '#00d4aa',
+    accentColor: '#3B82F6',
   },
   {
     step: '02',
@@ -34,7 +34,7 @@ const STEPS = [
     title: 'Configure a Workload',
     description: 'Apply a sample AgentWorkload CRD to set namespace, model, quota, and egress policy.',
     code: 'kubectl apply -f config/samples/agentworkload.yaml',
-    accentColor: '#00d4aa',
+    accentColor: '#3B82F6',
   },
   {
     step: '04',
@@ -50,7 +50,7 @@ const STEPS = [
     title: 'Watch It Run',
     description: 'Monitor agent status, cost metrics, and execution logs in real time from kubectl.',
     code: 'kubectl get agentworkloads -n agentic-system -w',
-    accentColor: '#00d4aa',
+    accentColor: '#3B82F6',
   },
 ];
 
@@ -256,7 +256,7 @@ export default function Quickstart() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-[0.97]"
             style={{
-              background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #00b894 100%)`,
+              background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #2563EB 100%)`,
               color: '#03231d',
             }}
           >
