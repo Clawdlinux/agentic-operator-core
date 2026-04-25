@@ -1,63 +1,108 @@
-# Agentic Operator v0.1.1 Release Notes
+# Agentic Operator v0.2.0 Release Notes
 
-**Release Date:** March 31, 2026
-
----
-
-## Welcome to the Agentic Operator
-
-The Agentic Operator is the **first Kubernetes-native agent orchestration framework** designed for production multi-agent AI systems. It brings first-class support for agent lifecycle management, observability, evaluation, and enterprise governance directly into Kubernetes.
+**Release Date:** April 25, 2026
 
 ---
 
-## ✨ What's New in v0.1.1
+## What's New in v0.2.0
 
-### Kubernetes-Native Agent Management
-- **AgentPersona CRD** — Define agent identity, memory scope, system prompts, and tool profiles as Kubernetes resources
-- **agentctl CLI** — Complete lifecycle management: get, describe, logs, cost, apply, version with table/JSON/YAML output
-- **Multitenancy** — Tenant isolation, RBAC, quotas for shared Kubernetes clusters
-- **Resilience** — Circuit breakers, retry policies, deadline management for fault-tolerant agent pipelines
+This release adds production-ready multi-agent demos, a pluggable workflow engine, CLI onboarding, and per-workload cost attribution — everything needed to deploy and manage AI agent fleets on Kubernetes in air-gapped environments.
 
-### Built-In Evaluation Framework
-- **Agent Quality Metrics** — Accuracy, consistency, latency, cost tracking per agent
-- **Scorer Interface** — Pluggable evaluation backends for custom metrics
-- **Cost Accounting** — Per-agent spend tracking and FinOps enforcement
-- **Production-Ready** — Already addresses the single biggest enterprise deployment bottleneck
+---
 
-### Agent-to-Agent Communication
-- **AgentCard CRD** — A2A-compatible agent discovery (role, capabilities, endpoint, auth, health)
-- **MCP Protocol Client** — Native support for Model Context Protocol (97M monthly SDK downloads)
-- **Agent Discovery** — Kubernetes-native answer to agent DNS problem
-- **Multi-Tenant Visibility** — Agents across clusters can discover each other in real-time
+## ✨ Highlights
 
-### Developer Experience
-- **Research Swarm Quickstart** — 4-command Docker Compose demo (research → write → edit pipeline)
-- **Comprehensive CLI** — Query cost, logs, metrics without kubectl context switching
-- **Helm Integration** — Production-ready charts with auto-generated secrets and job templates
+### Multi-Agent Demos (Production-Ready)
+- **Research Swarm** — A2A agent discovery, persona tool_profile blocking, OPA budget enforcement, autoApproveThreshold gating. Docker Compose with ollama local overlay for fully offline operation.
+- **SRE Incident Response** — `collaborationMode: delegation`, 3-tier cost-aware model routing (cheap triage → mid analysis → expensive remediation), adversarial tone on remediator, hierarchical memory. 4 alert scenarios included.
 
-### Enterprise Infrastructure
-- **FinOps Packages** — Billing, licensing, cost enforcement for multi-tenant scenarios
-- **Observability** — Prometheus metrics, structured logging, distributed tracing hooks
-- **Autoscaling** — Dynamic agent pool scaling based on queue depth and workload metrics
+### Pluggable Workflow Registry
+- `@register_workflow` decorator for custom LangGraph workflows
+- Auto-discovery from built-in + custom directories
+- `WORKFLOW_NAME` env var selects workflow at runtime
+- Ships with 3 workflows: research_swarm, code_review (fan-out security/performance/style), doc_processor (parallel entity extraction + summarization)
+
+### Agent FinOps
+- **MemoryCostReporter** with Prometheus metrics (`agentic_workload_cost_usd`, `agentic_workload_tokens_total`)
+- Pre-loaded pricing for OpenAI, Anthropic, Azure OpenAI, and Ollama (local = $0)
+- Budget enforcement with configurable thresholds
+- Per-workload cost annotations scraped by Prometheus
+
+### agentctl CLI Expansion
+- `agentctl init` — Interactive cluster onboarding wizard
+- `agentctl approve` — Resume PendingApproval workloads via annotation patch + Argo resume
+- `agentctl workflows` — List all registered workflows
+- `agentctl status` — Cluster health overview
+- Total: **10 commands** (init, apply, get, describe, logs, cost, approve, workflows, status, version)
+
+### CRD Enhancements
+- `spec.workflowName` field on AgentWorkload for workflow selection
+- deepcopy regenerated for all CRD changes
 
 ---
 
 ## 🚀 Quick Start
 
-Get started in 4 commands:
+### Multi-Agent Swarm (fully offline with Ollama)
 
 ```bash
-cd examples/research-swarm
+cd examples/multi-agent-swarm
+cp .env.example .env        # add your API key (or use Ollama)
+make up                     # starts 7 containers
+make demo                   # runs full 6-stage pipeline
+```
 
-# 1. Copy environment and add your OpenAI API key
+### SRE Incident Response
+
+```bash
+cd examples/sre-incident-response
 cp .env.example .env
-# Edit .env with your OPENAI_API_KEY
+docker compose up -d
+curl -X POST http://localhost:9010/incidents \
+  -H "Content-Type: application/json" \
+  -d '{"alert_type":"PodCrashLoopBackOff","namespace":"default","resource":"app-server-7b9f4c6d8-x2k9p"}'
+```
 
-# 2. Build Docker images
-make build
+### CLI Onboarding
 
-# 3. Start the full stack
-make up
+```bash
+agentctl init               # interactive cluster setup
+agentctl status             # check cluster health
+agentctl workflows          # list available workflows
+```
+
+---
+
+## 📦 Installation
+
+### Helm
+
+```bash
+helm repo add agentic https://clawdlinux.github.io/agentic-operator-core
+helm install agentic-operator agentic/agentic-operator
+```
+
+### agentctl
+
+```bash
+# macOS
+curl -sL https://github.com/Clawdlinux/agentic-operator-core/releases/download/v0.2.0/agentctl-darwin-arm64 -o agentctl
+chmod +x agentctl && sudo mv agentctl /usr/local/bin/
+```
+
+---
+
+## 🔗 Links
+
+- **GitHub:** https://github.com/Clawdlinux/agentic-operator-core
+- **Landing:** https://clawdlinux.org
+- **Docs:** https://github.com/Clawdlinux/agentic-operator-core/tree/main/docs
+
+---
+
+## Full Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete list of changes since v0.1.1.
 
 # 4. Run the demo pipeline
 make run-demo
