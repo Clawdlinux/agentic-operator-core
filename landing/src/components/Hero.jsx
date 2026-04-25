@@ -255,21 +255,6 @@ export default function Hero() {
       {/* Main content */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center">
 
-        {/* Logo mark */}
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-        >
-          <img
-            src="/logo.svg"
-            alt="Agentic Operator"
-            className="w-20 h-20 mx-auto rounded-2xl"
-            style={{ filter: 'drop-shadow(0 0 24px rgba(59,130,246,0.3))' }}
-          />
-        </motion.div>
-
         {/* Badge */}
         <motion.div
           className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium mb-8"

@@ -1,29 +1,18 @@
 <svg viewBox="0 0 200 200" width="200" height="200" xmlns="http://www.w3.org/2000/svg">
   <rect width="200" height="200" rx="32" fill="#1E2761"/>
   <g transform="translate(100,100)">
-    <!-- Mesh network shield polygon -->
-    <path d="M0,-65 L40,-40 L50,5 L35,45 L0,60 L-35,45 L-50,5 L-40,-40 Z" fill="none" stroke="#3B82F6" stroke-width="2" opacity="0.3"/>
-    <!-- Internal mesh lines -->
-    <line x1="-40" y1="-40" x2="40" y2="-40" stroke="#3B82F6" stroke-width="1" opacity="0.2"/>
-    <line x1="-40" y1="-40" x2="35" y2="45" stroke="#3B82F6" stroke-width="1" opacity="0.15"/>
-    <line x1="40" y1="-40" x2="-35" y2="45" stroke="#3B82F6" stroke-width="1" opacity="0.15"/>
-    <line x1="50" y1="5" x2="-50" y2="5" stroke="#3B82F6" stroke-width="1" opacity="0.2"/>
-    <line x1="0" y1="-65" x2="0" y2="60" stroke="#3B82F6" stroke-width="1" opacity="0.15"/>
-    <line x1="0" y1="-65" x2="-50" y2="5" stroke="#3B82F6" stroke-width="1" opacity="0.15"/>
-    <line x1="0" y1="-65" x2="50" y2="5" stroke="#3B82F6" stroke-width="1" opacity="0.15"/>
-    <!-- The 9 -->
-    <text x="-2" y="18" font-family="Arial Black, Arial" font-weight="900" font-size="90" fill="#CADCFC" text-anchor="middle">9</text>
-    <!-- Mesh nodes -->
-    <circle cx="0" cy="-65" r="5" fill="#60A5FA"/>
-    <circle cx="40" cy="-40" r="4" fill="#3B82F6"/>
-    <circle cx="50" cy="5" r="4" fill="#3B82F6"/>
-    <circle cx="35" cy="45" r="4" fill="#3B82F6"/>
-    <circle cx="0" cy="60" r="5" fill="#60A5FA"/>
-    <circle cx="-35" cy="45" r="4" fill="#3B82F6"/>
-    <circle cx="-50" cy="5" r="4" fill="#3B82F6"/>
-    <circle cx="-40" cy="-40" r="4" fill="#3B82F6"/>
-    <!-- Bright center dots on top/bottom nodes -->
-    <circle cx="0" cy="-65" r="2.5" fill="#CADCFC"/>
-    <circle cx="0" cy="60" r="2.5" fill="#CADCFC"/>
+    <!-- Abstract penguin silhouette -->
+    <path d="M-8,-55 C-8,-55 -30,-30 -40,0 C-50,30 -35,55 -10,55 C5,55 15,45 20,35 C25,25 30,10 25,-5 C20,-20 10,-35 5,-45 C2,-50 -2,-55 -8,-55Z" fill="#CADCFC" opacity="0.9"/>
+    <path d="M12,-50 C12,-50 35,-25 42,5 C48,30 35,52 15,55 C5,56 -2,50 -5,42" fill="none" stroke="#CADCFC" stroke-width="3" opacity="0.5"/>
+    <!-- Three claw slashes -->
+    <path d="M-25,-15 L15,25" stroke="#3B82F6" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+    <path d="M-15,-20 L22,15" stroke="#3B82F6" stroke-width="3.5" stroke-linecap="round" opacity="0.8"/>
+    <path d="M-5,-25 L28,5" stroke="#60A5FA" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+    <!-- Spark particles -->
+    <circle cx="30" cy="-35" r="4" fill="#60A5FA"/>
+    <circle cx="35" cy="-28" r="2.5" fill="#3B82F6"/>
+    <circle cx="25" cy="-42" r="1.8" fill="#93C5FD"/>
+    <path d="M28,-37 L38,-45" stroke="#60A5FA" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M32,-30 L42,-25" stroke="#3B82F6" stroke-width="1.2" stroke-linecap="round"/>
   </g>
 </svg>
