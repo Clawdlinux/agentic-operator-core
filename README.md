@@ -14,10 +14,10 @@
 
 <p align="center">
   <!-- Core -->
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-00d4aa?style=flat-square" alt="License" /></a>
-  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/Clawdlinux/agentic-operator-core?style=flat-square&color=00d4aa" alt="Go Version" /></a>
-  <a href="https://github.com/Clawdlinux/agentic-operator-core/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Clawdlinux/agentic-operator-core/ci.yml?style=flat-square&label=CI&color=00d4aa" alt="CI" /></a>
-  <a href="https://github.com/Clawdlinux/agentic-operator-core/actions/workflows/test-gates.yml"><img src="https://img.shields.io/github/actions/workflow/status/Clawdlinux/agentic-operator-core/test-gates.yml?style=flat-square&label=Tests&color=00d4aa" alt="Test Gates" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-3B82F6?style=flat-square" alt="License" /></a>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/Clawdlinux/agentic-operator-core?style=flat-square&color=3B82F6" alt="Go Version" /></a>
+  <a href="https://github.com/Clawdlinux/agentic-operator-core/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Clawdlinux/agentic-operator-core/ci.yml?style=flat-square&label=CI&color=3B82F6" alt="CI" /></a>
+  <a href="https://github.com/Clawdlinux/agentic-operator-core/actions/workflows/test-gates.yml"><img src="https://img.shields.io/github/actions/workflow/status/Clawdlinux/agentic-operator-core/test-gates.yml?style=flat-square&label=Tests&color=3B82F6" alt="Test Gates" /></a>
 </p>
 
 <p align="center">
@@ -32,11 +32,11 @@
 
 <p align="center">
   <!-- Actions -->
-  <a href="docs/01-quickstart.md"><img src="https://img.shields.io/badge/⚡_Quick_Start-5_Minutes-00d4aa?style=for-the-badge" alt="Quick Start" /></a>
+  <a href="docs/01-quickstart.md"><img src="https://img.shields.io/badge/⚡_Quick_Start-5_Minutes-3B82F6?style=for-the-badge" alt="Quick Start" /></a>
   <a href="https://clawdlinux.org"><img src="https://img.shields.io/badge/🌐_Website-clawdlinux.org-1e293b?style=for-the-badge" alt="Website" /></a>
+  <a href="https://discord.gg/2yJsjhPe"><img src="https://img.shields.io/badge/💬_Join-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" /></a>
   <a href="docs/04-architecture.md"><img src="https://img.shields.io/badge/📐_Architecture-Deep_Dive-1e293b?style=for-the-badge" alt="Architecture" /></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/🤝_Contribute-Guidelines-1e293b?style=for-the-badge" alt="Contribute" /></a>
-  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/🗺_Roadmap-Public-1e293b?style=for-the-badge" alt="Roadmap" /></a>
 </p>
 
 ---
@@ -250,6 +250,14 @@ make test
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for the public roadmap and quarterly milestones.
+
+---
+
+## Community
+
+- **Discord** — [Join our Discord](https://discord.gg/2yJsjhPe) for questions, discussions, and design partner conversations
+- **Issues** — [Report bugs or request features](https://github.com/Clawdlinux/agentic-operator-core/issues)
+- **Releases** — [Subscribe to releases](https://github.com/Clawdlinux/agentic-operator-core/releases) for changelog updates
 
 ---
 
