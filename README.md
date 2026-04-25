@@ -43,9 +43,13 @@
 
 ## 🎬 Demo
 
-https://github.com/Clawdlinux/agentic-operator-core/raw/main/assets/agentic-operator-demo.mp4
+<p align="center">
+  <a href="https://github.com/Clawdlinux/agentic-operator-core/raw/main/assets/agentic-operator-demo.mp4">
+    <img src="assets/agentic-operator-demo.gif" alt="Agentic Operator Demo" width="800" />
+  </a>
+</p>
 
-> 24-second walkthrough: problem → manifest → `kubectl apply` → live workload status.
+> 24-second walkthrough: problem → manifest → `kubectl apply` → live workload status. [Watch MP4 (HD)](https://github.com/Clawdlinux/agentic-operator-core/raw/main/assets/agentic-operator-demo.mp4) · [View source](video/)
 
 ---
 

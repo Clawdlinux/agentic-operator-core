@@ -86,3 +86,5 @@ enterprise/licensing/*
 
 # Allow committed demo videos
 !assets/*.mp4
+!assets/*.gif
+!assets/*.png
