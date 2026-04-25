@@ -1,0 +1,14 @@
+<svg viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="12" fill="#1E2761"/>
+  <g transform="translate(32,32)">
+    <!-- Simplified penguin silhouette -->
+    <path d="M-3,-18 C-3,-18 -10,-10 -13,0 C-16,10 -11,18 -3,18 C2,18 5,15 7,11 C8,8 10,3 8,-2 C6,-7 3,-12 2,-15 C1,-17 -1,-18 -3,-18Z" fill="#CADCFC" opacity="0.9"/>
+    <!-- Claw slashes -->
+    <path d="M-8,-5 L5,8" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+    <path d="M-5,-7 L7,5" stroke="#3B82F6" stroke-width="1.8" stroke-linecap="round" opacity="0.8"/>
+    <path d="M-2,-9 L9,2" stroke="#60A5FA" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+    <!-- Spark -->
+    <circle cx="10" cy="-11" r="2" fill="#60A5FA"/>
+    <circle cx="12" cy="-9" r="1.2" fill="#3B82F6"/>
+  </g>
+</svg>

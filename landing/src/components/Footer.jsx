@@ -104,7 +104,7 @@ function LegalModal({ open, onClose, title, content, currentTheme, theme }) {
           border: `1px solid ${currentTheme.border.medium}`,
           boxShadow:
             theme === 'dark'
-              ? '0 0 60px rgba(0,212,170,0.08)'
+              ? '0 0 60px rgba(59,130,246,0.08)'
               : '0 12px 42px rgba(15,23,42,0.16)',
         }}
         onClick={(e) => e.stopPropagation()}

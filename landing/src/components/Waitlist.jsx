@@ -140,7 +140,7 @@ export default function Waitlist() {
           <span
             className="inline-block text-xs font-semibold tracking-widest uppercase mb-4 px-3 py-1 rounded-full"
             style={{
-              color: theme === 'dark' ? currentTheme.accent.teal : '#0b4f45',
+              color: theme === 'dark' ? currentTheme.accent.teal : '#1e40af',
               background: withAlpha(currentTheme.accent.teal, theme === 'dark' ? '14' : '10'),
               border: `1px solid ${withAlpha(currentTheme.accent.teal, '40')}`,
               fontFamily: "'IBM Plex Mono', monospace",

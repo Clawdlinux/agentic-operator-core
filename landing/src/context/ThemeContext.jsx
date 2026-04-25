@@ -23,7 +23,7 @@ export const themes = {
       medium: 'rgba(15, 23, 42, 0.12)',
     },
     accent: {
-      teal: '#00d4aa',
+      teal: '#3B82F6',
       indigo: '#6366f1',
     },
   },
@@ -45,7 +45,7 @@ export const themes = {
       medium: 'rgba(255, 255, 255, 0.12)',
     },
     accent: {
-      teal: '#00d4aa',
+      teal: '#60A5FA',
       indigo: '#6366f1',
     },
   },
