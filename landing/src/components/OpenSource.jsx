@@ -20,7 +20,7 @@ const itemVariants = {
 const helmCommand = `git clone https://github.com/Clawdlinux/agentic-operator-core.git`;
 
 const badges = [
-  { label: 'Apache 2.0 License', color: '#00d4aa', bg: 'rgba(0,212,170,0.1)', border: 'rgba(0,212,170,0.25)' },
+  { label: 'Apache 2.0 License', color: '#3B82F6', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.25)' },
   { label: 'Go + Kubernetes', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.25)' },
   { label: 'Controller Runtime', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' },
 ];
@@ -110,7 +110,7 @@ export default function OpenSource() {
           <span
             className="inline-block text-xs font-semibold tracking-widest uppercase mb-4 px-3 py-1 rounded-full"
             style={{
-              color: theme === 'dark' ? currentTheme.accent.teal : '#0b4f45',
+              color: theme === 'dark' ? currentTheme.accent.teal : '#1e40af',
               background: withAlpha(currentTheme.accent.teal, theme === 'dark' ? '14' : '10'),
               border: `1px solid ${withAlpha(currentTheme.accent.teal, '40')}`,
               fontFamily: "'IBM Plex Mono', monospace",
@@ -191,7 +191,7 @@ export default function OpenSource() {
                 style={{
                   background: withAlpha(currentTheme.accent.teal, theme === 'dark' ? '1F' : '14'),
                   border: `1px solid ${withAlpha(currentTheme.accent.teal, '4D')}`,
-                  color: theme === 'dark' ? currentTheme.accent.teal : '#0b4f45',
+                  color: theme === 'dark' ? currentTheme.accent.teal : '#1e40af',
                   fontFamily: "'DM Sans', sans-serif",
                   textDecoration: 'none',
                 }}

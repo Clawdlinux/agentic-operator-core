@@ -16,7 +16,7 @@ const AUDIENCES = [
     title: 'Namespace Automation',
     description: 'Provision isolated agent namespaces, service accounts, storage, and policy from one declarative workload spec.',
     icon: Cpu,
-    color: '#00d4aa',
+    color: '#3B82F6',
   },
   {
     id: 2,
@@ -74,7 +74,7 @@ export default function Features() {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: `radial-gradient(circle at 50% 0%, ${withAlpha(currentTheme.accent.teal, theme === 'dark' ? '14' : '10')} 0%, rgba(0,212,170,0) 50%)`,
+          background: `radial-gradient(circle at 50% 0%, ${withAlpha(currentTheme.accent.teal, theme === 'dark' ? '14' : '10')} 0%, rgba(59,130,246,0) 50%)`,
         }}
       />
 

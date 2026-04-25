@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { Menu, X, Star, ExternalLink, Hexagon } from 'lucide-react';
+import { Menu, X, Star, ExternalLink } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggle from './ThemeToggle';
 
@@ -97,17 +97,11 @@ export default function Navigation() {
             transition={{ duration: 0.5 }}
           >
             <div className="relative">
-              <Hexagon
+              <img
+                src="/logo.svg"
+                alt="ClawdLinux"
                 className="w-8 h-8 transition-transform duration-300 group-hover:rotate-12"
-                strokeWidth={1.5}
-                style={{ 
-                  color: currentTheme.accent.teal,
-                  fill: `${currentTheme.accent.teal}20`
-                }}
               />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full opacity-80" style={{ backgroundColor: currentTheme.accent.teal }} />
-              </div>
             </div>
             <span
               className="font-semibold text-lg tracking-tight transition-colors duration-300"
@@ -166,7 +160,7 @@ export default function Navigation() {
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 hover:brightness-110"
               style={{
                 fontFamily: "'DM Sans', sans-serif",
-                background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #00b894 100%)`,
+                background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #2563EB 100%)`,
                 color: '#03231d',
               }}
             >
@@ -251,7 +245,7 @@ export default function Navigation() {
               className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200 hover:brightness-110"
               style={{
                 fontFamily: "'DM Sans', sans-serif",
-                background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #00b894 100%)`,
+                background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #2563EB 100%)`,
                 color: '#03231d',
               }}
             >

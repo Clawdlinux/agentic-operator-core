@@ -73,7 +73,7 @@ const tabs = [
       "Apply one AgentWorkload manifest and let the operator provision namespace boundaries, identities, egress rules, and workflow execution automatically.",
     before: { value: "4 handoffs", label: "Namespace, RBAC, network, storage" },
     after: { value: "1 manifest", label: "Operator-managed isolation" },
-    savings: { value: "Safer by default", color: "#00d4aa" },
+    savings: { value: "Safer by default", color: "#3B82F6" },
     yamlKey: "YAML_AGENT_ISOLATION",
     configFile: "agent-isolation.yaml",
   },
@@ -201,7 +201,7 @@ function CodeBlock({ code, title, currentTheme, theme }) {
                 .replace(/(apiVersion:|kind:|metadata:|name:|spec:|runtime:|image:|isolation:|namespaceTemplate:|serviceAccountName:|network:|allowFqdns:|workflow:|steps:|command:|tenant:|quota:|cpu:|memory:|artifacts:|bucket:|audit:|exportLogs:|exportPrompts:|retentionDays:)/g,
                   '<span style="color:#6366f1">$1</span>')
                 .replace(/(ghcr\.io\/clawdlinux\/agents\/browser:latest)/g,
-                  '<span style="color:#00d4aa">$1</span>');
+                  '<span style="color:#3B82F6">$1</span>');
             })(),
           }}
         />
@@ -349,7 +349,7 @@ export default function UseCases() {
                     className="text-xs font-semibold uppercase tracking-widest mb-3"
                     style={{
                       fontFamily: "'DM Sans', sans-serif",
-                      color: "#00d4aa",
+                      color: "#3B82F6",
                     }}
                   >
                     The Solution

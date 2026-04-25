@@ -9,8 +9,8 @@ const stats = [
     suffix: ".0",
     label: "Latest Release",
     sublabel: "stable tag",
-    color: "#00d4aa",
-    colorClass: "text-teal-400",
+    color: "#3B82F6",
+    colorClass: "text-blue-400",
   },
   {
     value: 25,
