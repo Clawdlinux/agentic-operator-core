@@ -11,7 +11,7 @@ const steps = [
     description:
       "Write an AgentWorkload YAML and apply it. The operator picks up desired state immediately.",
     details: ["Declarative workload spec", "Namespace template binding", "Identity and storage inputs", "GitOps-friendly rollout"],
-    color: "#00d4aa",
+    color: "#3B82F6",
     colorAlpha: "rgba(0, 212, 170, 0.12)",
     colorBorder: "rgba(0, 212, 170, 0.25)",
   },
@@ -234,7 +234,7 @@ export default function Architecture() {
             style={{
               background: withAlpha(currentTheme.accent.teal, theme === "dark" ? "14" : "10"),
               border: `1px solid ${withAlpha(currentTheme.accent.teal, "40")}`,
-              color: theme === "dark" ? currentTheme.accent.teal : '#0b4f45',
+              color: theme === "dark" ? currentTheme.accent.teal : '#1e40af',
               fontFamily: "'DM Sans', sans-serif",
             }}
           >

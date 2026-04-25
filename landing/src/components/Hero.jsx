@@ -231,7 +231,7 @@ export default function Hero() {
       <div
         className="absolute top-1/4 -left-32 w-96 h-96 rounded-full pointer-events-none"
         style={{
-          background: `radial-gradient(circle, ${withAlpha(currentTheme.accent.teal, theme === 'dark' ? '1F' : '14')} 0%, rgba(0,212,170,0) 70%)`,
+          background: `radial-gradient(circle, ${withAlpha(currentTheme.accent.teal, theme === 'dark' ? '1F' : '14')} 0%, rgba(59,130,246,0) 70%)`,
           animation: 'orbFloat 8s ease-in-out infinite',
           zIndex: 1,
         }}
@@ -247,7 +247,7 @@ export default function Hero() {
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full pointer-events-none"
         style={{
-          background: `radial-gradient(circle, ${withAlpha(currentTheme.accent.teal, theme === 'dark' ? '0A' : '08')} 0%, rgba(0,212,170,0) 60%)`,
+          background: `radial-gradient(circle, ${withAlpha(currentTheme.accent.teal, theme === 'dark' ? '0A' : '08')} 0%, rgba(59,130,246,0) 60%)`,
           zIndex: 1,
         }}
       />
@@ -269,7 +269,7 @@ export default function Hero() {
             style={{
               border: `1px solid ${withAlpha(currentTheme.accent.teal, '40')}`,
               background: withAlpha(currentTheme.accent.teal, theme === 'dark' ? '14' : '10'),
-              color: theme === 'dark' ? currentTheme.accent.teal : '#0b4f45',
+              color: theme === 'dark' ? currentTheme.accent.teal : '#1e40af',
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: currentTheme.accent.teal }} />
@@ -347,7 +347,7 @@ export default function Hero() {
             style={{
               fontFamily: "'DM Sans', sans-serif",
               color: '#03231d',
-              background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #00b894 100%)`,
+              background: `linear-gradient(135deg, ${currentTheme.accent.teal} 0%, #2563EB 100%)`,
               boxShadow: `0 10px 26px ${withAlpha(currentTheme.accent.teal, theme === 'dark' ? '3A' : '2A')}`,
             }}
           >
@@ -455,7 +455,7 @@ export default function Hero() {
           50% { transform: translateY(-30px) scale(1.05); }
         }
         .text-gradient {
-          background: linear-gradient(135deg, #00d4aa 0%, #00b894 50%, #7c3aed 100%);
+          background: linear-gradient(135deg, #3B82F6 0%, #2563EB 50%, #7c3aed 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;

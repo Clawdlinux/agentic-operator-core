@@ -162,7 +162,7 @@ export default function Offerings() {
             style={{
               background: withAlpha(currentTheme.accent.teal, theme === "dark" ? "14" : "10"),
               border: `1px solid ${withAlpha(currentTheme.accent.teal, "40")}`,
-              color: theme === "dark" ? currentTheme.accent.teal : '#0b4f45',
+              color: theme === "dark" ? currentTheme.accent.teal : '#1e40af',
               fontFamily: "'DM Sans', sans-serif",
             }}
           >
