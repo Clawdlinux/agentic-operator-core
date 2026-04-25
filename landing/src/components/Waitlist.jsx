@@ -73,18 +73,17 @@ export default function Waitlist() {
     if (CONTACT_FORM_URL) {
       try {
         const formBody = new URLSearchParams(payload).toString();
-        const response = await fetch(CONTACT_FORM_URL, {
+        // Google Apps Script requires no-cors mode due to cross-origin redirects
+        await fetch(CONTACT_FORM_URL, {
           method: 'POST',
+          mode: 'no-cors',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: formBody,
         });
 
-        if (!response.ok && response.type !== 'opaque') {
-          throw new Error(`Request failed with status ${response.status}`);
-        }
-
+        // no-cors means we can't read the response, but the data is delivered
         setForm({ name: '', email: '', company: '', message: '' });
         setStatus({ type: 'success', message: 'Request submitted. We will follow up via email.' });
         return;
