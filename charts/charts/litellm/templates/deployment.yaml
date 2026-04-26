@@ -27,7 +27,7 @@ spec:
             - --detailed_debug
           envFrom:
             - secretRef:
-                name: {{ include "litellm.fullname" . }}-secrets
+                name: {{ include "litellm.secretName" . }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

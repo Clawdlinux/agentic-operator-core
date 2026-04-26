@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
@@ -48,6 +49,12 @@ import (
 
 // Maximum number of actions to keep in status to prevent unbounded growth
 const maxActionsInStatus = 100
+
+// AgentWorkloadFinalizer is added to AgentWorkload resources so the controller
+// can clean up cross-namespace Argo Workflows before the resource is deleted.
+// Kubernetes garbage collection does not honor cross-namespace ownerReferences,
+// so the workflow in `argo-workflows` namespace would otherwise leak.
+const AgentWorkloadFinalizer = "agentic.clawdlinux.org/finalizer"
 
 // AgentWorkloadReconciler reconciles a AgentWorkload object
 type AgentWorkloadReconciler struct {
@@ -126,6 +133,33 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	log.Info("Reconciling AgentWorkload", "name", workload.Name)
+
+	// ========== FINALIZER HANDLING ==========
+	// Cross-namespace Argo Workflows are not GC'd by Kubernetes ownerReferences,
+	// so we use a finalizer to clean them up explicitly on delete.
+	if workload.DeletionTimestamp.IsZero() {
+		if controllerutil.AddFinalizer(&workload, AgentWorkloadFinalizer) {
+			if err := r.Update(ctx, &workload); err != nil {
+				log.Error(err, "failed to add finalizer")
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{Requeue: true}, nil
+		}
+	} else {
+		// Object is being deleted -- run cleanup if our finalizer is present.
+		if controllerutil.ContainsFinalizer(&workload, AgentWorkloadFinalizer) {
+			if err := r.cleanupArgoWorkflow(ctx, &workload); err != nil {
+				log.Error(err, "failed to cleanup Argo workflow during finalization")
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			controllerutil.RemoveFinalizer(&workload, AgentWorkloadFinalizer)
+			if err := r.Update(ctx, &workload); err != nil {
+				log.Error(err, "failed to remove finalizer")
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
 
 	if err := r.reconcilePersonaNamespaceLabels(ctx, &workload); err != nil {
 		log.Error(err, "failed to reconcile persona labels on namespace")
@@ -632,6 +666,30 @@ func (r *AgentWorkloadReconciler) reconcileArgoWorkflow(ctx context.Context, wor
 	}
 
 	return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
+}
+
+// cleanupArgoWorkflow deletes the Argo Workflow associated with this AgentWorkload.
+// Invoked from the finalizer path. Safe to call when no workflow was ever created.
+func (r *AgentWorkloadReconciler) cleanupArgoWorkflow(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {
+	log := logf.FromContext(ctx)
+
+	if workload.Status.ArgoWorkflow == nil || workload.Status.ArgoWorkflow.Name == "" {
+		return nil
+	}
+
+	wfManager := argo.NewWorkflowManager(r.Client, r.Scheme)
+	ns := workload.Status.ArgoWorkflow.Namespace
+	if ns == "" {
+		ns = "argo-workflows"
+	}
+
+	if err := wfManager.DeleteArgoWorkflow(ctx, workload.Status.ArgoWorkflow.Name, ns); err != nil {
+		return fmt.Errorf("delete argo workflow %s/%s: %w", ns, workload.Status.ArgoWorkflow.Name, err)
+	}
+
+	log.Info("Argo Workflow cleaned up via finalizer",
+		"workflow", workload.Status.ArgoWorkflow.Name, "namespace", ns)
+	return nil
 }
 
 // routeAndCallModel handles cost-aware model routing for instructions
