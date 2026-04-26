@@ -1,0 +1,30 @@
+# helm-unittest spec for Argo Workflows ClusterRole hardening (P0 launch fix).
+# Run with: helm unittest charts/charts/argo-workflows
+suite: argo-workflows controller RBAC
+templates:
+  - controller.yaml
+tests:
+  - it: ClusterRole must not use wildcard verbs
+    asserts:
+      - documentIndex: 1
+        equal:
+          path: kind
+          value: ClusterRole
+      - documentIndex: 1
+        notContains:
+          path: rules[*].verbs
+          content: "*"
+
+  - it: ClusterRole must not use wildcard resources
+    asserts:
+      - documentIndex: 1
+        notContains:
+          path: rules[*].resources
+          content: "*"
+
+  - it: ClusterRole must not grant pods/exec
+    asserts:
+      - documentIndex: 1
+        notContains:
+          path: rules[*].resources
+          content: pods/exec

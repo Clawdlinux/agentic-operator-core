@@ -50,26 +50,53 @@ metadata:
   labels:
     {{- include "argo-workflows.labels" . | nindent 4 }}
 rules:
+  # Pods: Argo controller orchestrates pod lifecycle for workflow steps.
+  # NOTE: pods/exec intentionally removed -- workflow steps must use container args/env, not exec.
   - apiGroups: [""]
-    resources:
-      - pods
-      - pods/exec
-      - pods/log
-      - services
-      - persistentvolumeclaims
-      - configmaps
-      - serviceaccounts
-      - events
-    verbs: ["*"]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  # Persistent volumes for artifact passing between workflow steps.
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  # ConfigMaps and ServiceAccounts: read-only; required to project workflow params and SA tokens.
+  - apiGroups: [""]
+    resources: ["configmaps", "serviceaccounts"]
+    verbs: ["get", "list", "watch"]
+  # Services: read-only; needed to look up step service endpoints (e.g., metrics).
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+  # Events: emitted by the controller for observability.
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets"]
     verbs: ["get", "list", "watch"]
+  # Argo workflow resources: full lifecycle managed by the controller.
   - apiGroups: ["argoproj.io"]
-    resources: ["*"]
-    verbs: ["*"]
+    resources:
+      - workflows
+      - workflows/finalizers
+      - workflowtemplates
+      - workflowtemplates/finalizers
+      - clusterworkflowtemplates
+      - clusterworkflowtemplates/finalizers
+      - cronworkflows
+      - cronworkflows/finalizers
+      - workflowtaskresults
+      - workflowtaskresults/finalizers
+      - workflowtasksets
+      - workflowtasksets/finalizers
+      - workflowartifactgctasks
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["batch"]
-    resources: ["cronjobs", "jobs"]
-    verbs: ["*"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
