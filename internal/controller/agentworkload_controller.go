@@ -137,13 +137,16 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// ========== FINALIZER HANDLING ==========
 	// Cross-namespace Argo Workflows are not GC'd by Kubernetes ownerReferences,
 	// so we use a finalizer to clean them up explicitly on delete.
+	//
+	// Pattern: add the finalizer if missing and CONTINUE in the same Reconcile.
+	// `r.Update` mutates `workload.ResourceVersion` in place on success, so subsequent
+	// `r.Status().Update` calls in this loop will use the up-to-date version.
 	if workload.DeletionTimestamp.IsZero() {
 		if controllerutil.AddFinalizer(&workload, AgentWorkloadFinalizer) {
 			if err := r.Update(ctx, &workload); err != nil {
 				log.Error(err, "failed to add finalizer")
 				return ctrl.Result{}, err
 			}
-			return ctrl.Result{Requeue: true}, nil
 		}
 	} else {
 		// Object is being deleted -- run cleanup if our finalizer is present.
@@ -680,7 +683,7 @@ func (r *AgentWorkloadReconciler) cleanupArgoWorkflow(ctx context.Context, workl
 	wfManager := argo.NewWorkflowManager(r.Client, r.Scheme)
 	ns := workload.Status.ArgoWorkflow.Namespace
 	if ns == "" {
-		ns = "argo-workflows"
+		ns = argo.DefaultWorkflowNamespace
 	}
 
 	if err := wfManager.DeleteArgoWorkflow(ctx, workload.Status.ArgoWorkflow.Name, ns); err != nil {

@@ -9,9 +9,11 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -23,12 +25,20 @@ import (
 // AgentWorkload must be issued a finalizer so cross-namespace Argo Workflows
 // are explicitly cleaned up before the resource is deleted.
 var _ = Describe("AgentWorkload finalizer (P0 launch fix)", func() {
-	const (
-		resourceName = "finalizer-test"
-		namespace    = "default"
-	)
+	const namespace = "default"
 	ctx := context.Background()
-	nn := types.NamespacedName{Name: resourceName, Namespace: namespace}
+
+	var (
+		resourceName string
+		nn           types.NamespacedName
+		counter      int
+	)
+
+	BeforeEach(func() {
+		counter++
+		resourceName = fmt.Sprintf("finalizer-test-%d", counter)
+		nn = types.NamespacedName{Name: resourceName, Namespace: namespace}
+	})
 
 	AfterEach(func() {
 		got := &agenticv1alpha1.AgentWorkload{}
@@ -40,6 +50,10 @@ var _ = Describe("AgentWorkload finalizer (P0 launch fix)", func() {
 			}
 			_ = k8sClient.Delete(ctx, got)
 		}
+		// Wait for object to actually be gone so the next test's Create doesn't race.
+		Eventually(func() bool {
+			return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &agenticv1alpha1.AgentWorkload{}))
+		}).Should(BeTrue())
 	})
 
 	It("adds the AgentWorkload finalizer on first reconcile", func() {
@@ -95,9 +109,8 @@ var _ = Describe("AgentWorkload finalizer (P0 launch fix)", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(func() bool {
-			got := &agenticv1alpha1.AgentWorkload{}
-			err := k8sClient.Get(ctx, nn, got)
-			return err != nil // expect NotFound after finalizer cleared
+			err := k8sClient.Get(ctx, nn, &agenticv1alpha1.AgentWorkload{})
+			return apierrors.IsNotFound(err)
 		}).Should(BeTrue())
 	})
 })

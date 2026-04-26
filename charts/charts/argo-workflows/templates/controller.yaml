@@ -57,7 +57,7 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["pods/log"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get"]
   # Persistent volumes for artifact passing between workflow steps.
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]
