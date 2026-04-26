@@ -162,7 +162,8 @@ kubectl port-forward -n monitoring svc/grafana 3000:3000
 
 ## Next Steps
 
-- [Full Architecture Guide](../README.md)
-- [Phase 3: Model Tiering](../PHASE_3_MODEL_TIERING.md)
-- [Phase 4: Agent Evaluation](../PHASE_4_AGENT_EVALUATION.md)
-- [Helm Values Reference](../charts/values.yaml)
+- [Architecture overview](./04-architecture.md)
+- [Cost-aware model routing](./06-cost-management.md)
+- [Security & threat model](./threat-model.md)
+- [Helm values reference](../charts/values.yaml)
+- [Project README](../README.md)
