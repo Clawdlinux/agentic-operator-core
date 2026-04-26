@@ -88,3 +88,4 @@ enterprise/licensing/*
 !assets/*.mp4
 !assets/*.gif
 !assets/*.png
+video/package-lock.json
