@@ -170,8 +170,16 @@ litellm:
   service:
     type: ClusterIP
     port: 4000
-  openaiKey: ""     # REQUIRED when litellm.enabled=true
+  openaiKey: ""     # REQUIRED when litellm.enabled=true (dev only -- prefer existingSecret)
   masterKey: ""     # LiteLLM master API key (leave blank to auto-generate)
+  # PRODUCTION: set existingSecret to the name of a pre-created Secret containing
+  # OPENAI_API_KEY and LITELLM_MASTER_KEY. When set, openaiKey/masterKey are ignored
+  # and the chart will NOT create a Secret -- keys never enter Helm values or release Secret.
+  existingSecret: ""
+  # Setting allowPlaintextKeys=true acknowledges the risk of providing openaiKey or masterKey
+  # via Helm values. Required for chart install when either key is non-empty and
+  # existingSecret is unset.
+  allowPlaintextKeys: false
   models: []        # Extra model definitions passed to config.yaml
   # Example:
   # models:

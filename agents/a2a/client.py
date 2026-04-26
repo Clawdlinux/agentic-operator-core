@@ -37,7 +37,7 @@ class A2AClient:
 
             api = k8s_client.CustomObjectsApi()
             result = api.list_namespaced_custom_object(
-                group="agentic.io",
+                group="agentic.clawdlinux.org",
                 version="v1alpha1",
                 namespace=namespace,
                 plural="agentcards",

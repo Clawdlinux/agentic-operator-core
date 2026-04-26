@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -240,6 +241,38 @@ func (wm *WorkflowManager) CreateArgoWorkflow(
 
 	log.Info("Argo Workflow created successfully", "name", workflow.GetName(), "jobId", params.JobID)
 	return workflow, nil
+}
+
+// DeleteArgoWorkflow deletes an Argo Workflow CR by name and namespace.
+//
+// This method is used by the AgentWorkload finalizer to ensure cross-namespace
+// Argo workflows are cleaned up when their parent AgentWorkload is deleted.
+// Kubernetes garbage collection does NOT honor cross-namespace ownerReferences,
+// so explicit deletion is required.
+//
+// Returns nil if the workflow is already gone (idempotent for finalizer use).
+func (wm *WorkflowManager) DeleteArgoWorkflow(
+	ctx context.Context,
+	workflowName string,
+	namespace string,
+) error {
+	log := logf.FromContext(ctx)
+
+	workflow := &unstructured.Unstructured{}
+	workflow.SetAPIVersion(WorkflowGroupVersion)
+	workflow.SetKind(WorkflowKind)
+	workflow.SetName(workflowName)
+	workflow.SetNamespace(namespace)
+
+	if err := wm.client.Delete(ctx, workflow); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	log.Info("Deleted Argo Workflow", "name", workflowName, "namespace", namespace)
+	return nil
 }
 
 // GetArgoWorkflowStatus retrieves the current status of an Argo Workflow
