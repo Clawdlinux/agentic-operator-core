@@ -130,6 +130,7 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(newVersionCommand(opts))
 	cmd.AddCommand(newInitCommand(opts))
 	cmd.AddCommand(newApproveCommand(opts))
+	cmd.AddCommand(newRejectCommand(opts))
 	cmd.AddCommand(newWorkflowsCommand(opts))
 	cmd.AddCommand(newStatusCommand(opts))
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -229,6 +230,90 @@ func runApprove(ctx context.Context, opts *cliOptions, name string, cmd *cobra.C
 			}
 		}
 	}
+
+	return nil
+}
+
+// ── reject ──────────────────────────────────────────────────────────────────
+
+func newRejectCommand(opts *cliOptions) *cobra.Command {
+	var rule string
+	var reason string
+
+	cmd := &cobra.Command{
+		Use:   "reject <workload-name>",
+		Short: "Reject a PendingApproval workload",
+		Long: `Reject a workload that is paused at an approval gate.
+
+Sets rejection annotations so the controller records the feedback event
+and transitions the workload to the Rejected phase.
+
+Use --rule to specify which OPA rule the proposed action violated (e.g.
+"budget-exceeded", "destructive-action"). Per-rule rejections carry more
+information for the RL feedback loop than a bare rejection.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runReject(cmd.Context(), opts, args[0], rule, reason, cmd)
+		},
+	}
+	cmd.Flags().StringVar(&rule, "rule", "", "OPA rule name that the proposed action violated")
+	cmd.Flags().StringVar(&reason, "reason", "", "Free-text explanation for the rejection")
+	return cmd
+}
+
+func runReject(ctx context.Context, opts *cliOptions, name, rule, reason string, cmd *cobra.Command) error {
+	w := cmd.OutOrStdout()
+
+	// Get the workload
+	wl, err := opts.dynamic.Resource(agentWorkloadGVR).Namespace(opts.Namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get workload %q: %w", name, err)
+	}
+
+	phase := nestedString(wl.Object, "status", "phase")
+	if phase != "PendingApproval" && phase != "Suspended" {
+		fmt.Fprintf(w, "Workload %q is in phase %q (not PendingApproval). No action needed.\n", name, phase)
+		return nil
+	}
+
+	// Build rejection annotations
+	annotations := map[string]string{
+		"agentworkload.clawdlinux.io/rejected-at": time.Now().UTC().Format(time.RFC3339),
+		"agentworkload.clawdlinux.io/rejected-by": "agentctl",
+	}
+	if rule != "" {
+		annotations["agentworkload.clawdlinux.io/rejected-rule"] = rule
+	}
+	if reason != "" {
+		annotations["agentworkload.clawdlinux.io/rejection-reason"] = reason
+	}
+
+	// Marshal patch
+	patchObj := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"annotations": annotations,
+		},
+	}
+	patchBytes, err := json.Marshal(patchObj)
+	if err != nil {
+		return fmt.Errorf("marshal patch: %w", err)
+	}
+
+	_, err = opts.dynamic.Resource(agentWorkloadGVR).Namespace(opts.Namespace).Patch(
+		ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("patch workload %q: %w", name, err)
+	}
+
+	fmt.Fprintf(w, "✗ Workload %q rejected.", name)
+	if rule != "" {
+		fmt.Fprintf(w, " Rule: %s.", rule)
+	}
+	if reason != "" {
+		fmt.Fprintf(w, " Reason: %s.", reason)
+	}
+	fmt.Fprintln(w, " Controller will record the feedback event.")
 
 	return nil
 }
