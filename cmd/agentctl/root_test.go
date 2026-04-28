@@ -10,7 +10,7 @@ import (
 func TestNewRootCommand_ContainsRequiredSubcommands(t *testing.T) {
 	cmd := newRootCommand()
 
-	required := []string{"get", "describe", "logs", "cost", "apply", "version"}
+	required := []string{"get", "describe", "logs", "cost", "apply", "version", "reject"}
 	for _, name := range required {
 		if child, _, err := cmd.Find([]string{name}); err != nil || child == nil || child.Name() != name {
 			t.Fatalf("expected subcommand %q to exist", name)
