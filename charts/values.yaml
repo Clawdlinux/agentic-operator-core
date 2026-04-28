@@ -6,9 +6,15 @@
 # Global settings (inherited by all subcharts)
 # ---------------------------------------------------------------------------
 global:
-  imageRegistry: "registry.digitalocean.com/agentic-operator"  # DigitalOcean Container Registry
-  imagePullSecrets: 
-    - name: do-registry-secret # Kubernetes secret with DO registry credentials
+  # Default registry: GitHub Container Registry. Public images, no pull rate
+  # limits, no cost. Override for air-gapped installs:
+  #   --set global.imageRegistry=myregistry.local/agentic-operator
+  imageRegistry: "ghcr.io/clawdlinux"
+  # imagePullSecrets only needed for private registries. ghcr.io public images
+  # do not require auth. Set to a list of Secret refs for private mirrors:
+  #   imagePullSecrets:
+  #     - name: my-private-registry-secret
+  imagePullSecrets: []
   storageClass: ""           # Default StorageClass for PVCs
   namespace: agentic-system  # Target namespace (also rendered by namespace.yaml)
 
@@ -28,9 +34,9 @@ agenticOperator:
   enabled: true
   replicaCount: 1
   image:
-    repository: agentic-operator  # Pulls from global.imageRegistry (DigitalOcean)
+    repository: agentic-operator  # Pulls from global.imageRegistry (ghcr.io/clawdlinux)
     tag: "latest"
-    pullPolicy: Always  # Always pull to get latest from DO registry
+    pullPolicy: IfNotPresent  # ghcr.io is content-addressable; no need to pull every time
   resources:
     requests:
       cpu: "250m"
