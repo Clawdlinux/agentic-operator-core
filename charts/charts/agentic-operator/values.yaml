@@ -2,6 +2,9 @@ replicaCount: 1
 image:
   repository: ghcr.io/clawdlinux/agentic-operator-core/agentic-operator
   tag: "latest"
+  # `Always` is correct for the floating `latest` tag: nodes with a stale
+  # cached `:latest` would otherwise run an old image on rolling restart.
+  # Switch to `IfNotPresent` only when pinning to an immutable tag/digest.
   pullPolicy: Always
 service:
   type: ClusterIP

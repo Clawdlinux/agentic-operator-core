@@ -6,9 +6,18 @@
 # Global settings (inherited by all subcharts)
 # ---------------------------------------------------------------------------
 global:
-  imageRegistry: "registry.digitalocean.com/agentic-operator"  # DigitalOcean Container Registry
-  imagePullSecrets: 
-    - name: do-registry-secret # Kubernetes secret with DO registry credentials
+  # Default registry: GitHub Container Registry. Public images, no pull rate
+  # limits, no cost. Aligned with the actual operator image path so
+  # `<global.imageRegistry>/<repo>` resolves to a real ghcr.io image.
+  # Override for air-gapped installs:
+  #   --set global.imageRegistry=myregistry.local/mirror
+  imageRegistry: "ghcr.io/clawdlinux/agentic-operator-core"
+  # imagePullSecrets only needed for private registries. ghcr.io public images
+  # do not require auth. Set to a list of Secret name STRINGS (the helper
+  # template renders `- name: <string>` per item):
+  #   imagePullSecrets:
+  #     - my-private-registry-secret
+  imagePullSecrets: []
   storageClass: ""           # Default StorageClass for PVCs
   namespace: agentic-system  # Target namespace (also rendered by namespace.yaml)
 
@@ -23,14 +32,21 @@ license:
 
 # ---------------------------------------------------------------------------
 # Main agentic-operator subchart
+#
+# NOTE: These `agenticOperator.image.*` keys are NOT currently consumed by the
+# umbrella chart's templates and do NOT override the `agentic-operator`
+# dependency's image settings (Helm dependency values are keyed by the subchart
+# name; see charts/charts/agentic-operator/values.yaml for the values that are
+# actually used). They remain here as documentation for what the operator
+# subchart expects, and will be wired through in a follow-up.
 # ---------------------------------------------------------------------------
 agenticOperator:
   enabled: true
   replicaCount: 1
   image:
-    repository: agentic-operator  # Pulls from global.imageRegistry (DigitalOcean)
+    repository: agentic-operator  # Documentation only; see subchart values
     tag: "latest"
-    pullPolicy: Always  # Always pull to get latest from DO registry
+    pullPolicy: Always  # `Always` is correct for the floating `latest` tag
   resources:
     requests:
       cpu: "250m"
