@@ -3,16 +3,14 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/olekukonko/tablewriter"
+	agentctl "github.com/shreyansh/agentic-operator/pkg/agentctl"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // ── init ────────────────────────────────────────────────────────────────────
@@ -58,12 +56,12 @@ func runInit(ctx context.Context, opts *cliOptions, cmd *cobra.Command) error {
 	clusterName := opts.rawConfig.CurrentContext
 	fmt.Fprintf(w, "%s (%s)\n", clusterName, sv.GitVersion)
 
-	// Step 2: CRDs
+	// Step 2: CRDs (CLI-specific interactive check — not in pkg/agentctl)
 	fmt.Fprint(w, "  ✓ Checking CRD installation... ")
 	crds := []string{"agentworkloads", "agentcards", "tenants"}
 	crdMissing := []string{}
 	for _, crd := range crds {
-		gvr := agentWorkloadGVR
+		gvr := agentctl.AgentWorkloadGVR
 		gvr.Resource = crd
 		_, err := opts.dynamic.Resource(gvr).List(ctx, metav1.ListOptions{Limit: 1})
 		if err != nil {
@@ -79,7 +77,7 @@ func runInit(ctx context.Context, opts *cliOptions, cmd *cobra.Command) error {
 
 	// Step 3: Operator deployment
 	fmt.Fprint(w, "  ✓ Checking operator... ")
-	if tag, ref := opts.operatorVersion(ctx); tag != "" {
+	if tag, ref := opts.client.OperatorVersion(ctx, opts.Namespace); tag != "" {
 		fmt.Fprintf(w, "%s (%s)\n", tag, ref)
 	} else {
 		fmt.Fprintln(w, "⚠ operator deployment not found")
@@ -188,47 +186,19 @@ If the workload uses Argo Workflows, also attempts to resume the suspended workf
 func runApprove(ctx context.Context, opts *cliOptions, name string, cmd *cobra.Command) error {
 	w := cmd.OutOrStdout()
 
-	// Get the workload
-	wl, err := opts.dynamic.Resource(agentWorkloadGVR).Namespace(opts.Namespace).Get(ctx, name, metav1.GetOptions{})
+	result, err := opts.client.ApproveWorkload(ctx, opts.Namespace, name, "agentctl")
 	if err != nil {
-		return fmt.Errorf("get workload %q: %w", name, err)
-	}
-
-	phase := nestedString(wl.Object, "status", "phase")
-	if phase != "PendingApproval" && phase != "Suspended" {
-		fmt.Fprintf(w, "Workload %q is in phase %q (not PendingApproval). No action needed.\n", name, phase)
-		return nil
-	}
-
-	// Annotate the workload to signal approval
-	patch := fmt.Sprintf(`{"metadata":{"annotations":{"agentworkload.clawdlinux.io/approved-at":"%s","agentworkload.clawdlinux.io/approved-by":"agentctl"}}}`,
-		time.Now().UTC().Format(time.RFC3339))
-
-	_, err = opts.dynamic.Resource(agentWorkloadGVR).Namespace(opts.Namespace).Patch(
-		ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{},
-	)
-	if err != nil {
-		return fmt.Errorf("patch workload %q: %w", name, err)
+		// If the error is about wrong phase, the library still returns a result
+		if result != nil && result.PreviousPhase != "" {
+			fmt.Fprintf(w, "Workload %q is in phase %q (not PendingApproval). No action needed.\n", name, result.PreviousPhase)
+			return nil
+		}
+		return err
 	}
 
 	fmt.Fprintf(w, "✓ Workload %q approved. Controller will resume execution.\n", name)
-
-	// Try to resume Argo workflow if it exists
-	argoWf, err := opts.dynamic.Resource(workflowGVR).Namespace(defaultArgoNamespace).Get(ctx, name, metav1.GetOptions{})
-	if err == nil {
-		argoPhase := nestedString(argoWf.Object, "status", "phase")
-		if argoPhase == "Suspended" || argoPhase == "Running" {
-			// Resume via spec.suspend = false
-			resumePatch := `{"spec":{"suspend":false}}`
-			_, err = opts.dynamic.Resource(workflowGVR).Namespace(defaultArgoNamespace).Patch(
-				ctx, name, types.MergePatchType, []byte(resumePatch), metav1.PatchOptions{},
-			)
-			if err != nil {
-				fmt.Fprintf(w, "⚠ Could not resume Argo workflow: %v\n", err)
-			} else {
-				fmt.Fprintf(w, "✓ Argo workflow %q resumed.\n", name)
-			}
-		}
+	if result.ArgoResumed {
+		fmt.Fprintf(w, "✓ Argo workflow %q resumed.\n", name)
 	}
 
 	return nil
@@ -264,54 +234,22 @@ information for the RL feedback loop than a bare rejection.`,
 func runReject(ctx context.Context, opts *cliOptions, name, rule, reason string, cmd *cobra.Command) error {
 	w := cmd.OutOrStdout()
 
-	// Get the workload
-	wl, err := opts.dynamic.Resource(agentWorkloadGVR).Namespace(opts.Namespace).Get(ctx, name, metav1.GetOptions{})
+	result, err := opts.client.RejectWorkload(ctx, opts.Namespace, name, rule, reason, "agentctl")
 	if err != nil {
-		return fmt.Errorf("get workload %q: %w", name, err)
-	}
-
-	phase := nestedString(wl.Object, "status", "phase")
-	if phase != "PendingApproval" && phase != "Suspended" {
-		fmt.Fprintf(w, "Workload %q is in phase %q (not PendingApproval). No action needed.\n", name, phase)
-		return nil
-	}
-
-	// Build rejection annotations
-	annotations := map[string]string{
-		"agentworkload.clawdlinux.io/rejected-at": time.Now().UTC().Format(time.RFC3339),
-		"agentworkload.clawdlinux.io/rejected-by": "agentctl",
-	}
-	if rule != "" {
-		annotations["agentworkload.clawdlinux.io/rejected-rule"] = rule
-	}
-	if reason != "" {
-		annotations["agentworkload.clawdlinux.io/rejection-reason"] = reason
-	}
-
-	// Marshal patch
-	patchObj := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"annotations": annotations,
-		},
-	}
-	patchBytes, err := json.Marshal(patchObj)
-	if err != nil {
-		return fmt.Errorf("marshal patch: %w", err)
-	}
-
-	_, err = opts.dynamic.Resource(agentWorkloadGVR).Namespace(opts.Namespace).Patch(
-		ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{},
-	)
-	if err != nil {
-		return fmt.Errorf("patch workload %q: %w", name, err)
+		// If the error is about wrong phase, the library still returns a result
+		if result != nil && result.PreviousPhase != "" {
+			fmt.Fprintf(w, "Workload %q is in phase %q (not PendingApproval). No action needed.\n", name, result.PreviousPhase)
+			return nil
+		}
+		return err
 	}
 
 	fmt.Fprintf(w, "✗ Workload %q rejected.", name)
-	if rule != "" {
-		fmt.Fprintf(w, " Rule: %s.", rule)
+	if result.Rule != "" {
+		fmt.Fprintf(w, " Rule: %s.", result.Rule)
 	}
-	if reason != "" {
-		fmt.Fprintf(w, " Reason: %s.", reason)
+	if result.Reason != "" {
+		fmt.Fprintf(w, " Reason: %s.", result.Reason)
 	}
 	fmt.Fprintln(w, " Controller will record the feedback event.")
 
@@ -366,7 +304,7 @@ func runWorkflows(_ context.Context, opts *cliOptions, cmd *cobra.Command) error
 
 	switch opts.Output {
 	case "json", "yaml":
-		return printStructured(w, workflows, opts.Output)
+		return agentctl.PrintStructured(w, workflows, opts.Output)
 	default:
 		tbl := tablewriter.NewWriter(w)
 		tbl.SetHeader([]string{"WORKFLOW", "DESCRIPTION", "DAG SHAPE", "EXAMPLE"})
@@ -396,6 +334,14 @@ func newStatusCommand(opts *cliOptions) *cobra.Command {
 func runStatus(ctx context.Context, opts *cliOptions, cmd *cobra.Command) error {
 	w := cmd.OutOrStdout()
 
+	summary, err := opts.client.ClusterStatus(ctx, opts.Namespace)
+	if err != nil {
+		return err
+	}
+
+	// Use rawConfig for cluster name (not in StatusSummary)
+	clusterName := opts.rawConfig.CurrentContext
+
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  ╔══════════════════════════════════════════╗")
 	fmt.Fprintln(w, "  ║        agentctl status — Dashboard       ║")
@@ -403,15 +349,11 @@ func runStatus(ctx context.Context, opts *cliOptions, cmd *cobra.Command) error 
 	fmt.Fprintln(w, "")
 
 	// Cluster info
-	sv, err := opts.discovery.ServerVersion()
-	if err != nil {
-		return fmt.Errorf("cannot connect to cluster: %w", err)
-	}
-	fmt.Fprintf(w, "  Cluster:  %s (%s)\n", opts.rawConfig.CurrentContext, sv.GitVersion)
+	fmt.Fprintf(w, "  Cluster:  %s (%s)\n", clusterName, summary.ClusterVersion)
 
 	// Operator
-	if tag, ref := opts.operatorVersion(ctx); tag != "" {
-		fmt.Fprintf(w, "  Operator: %s (%s)\n", tag, ref)
+	if summary.OperatorVersion != "" {
+		fmt.Fprintf(w, "  Operator: %s (%s)\n", summary.OperatorVersion, summary.OperatorRef)
 	} else {
 		fmt.Fprintln(w, "  Operator: not found")
 	}
@@ -419,73 +361,31 @@ func runStatus(ctx context.Context, opts *cliOptions, cmd *cobra.Command) error 
 	fmt.Fprintln(w, "")
 
 	// Workload summary
-	list, err := opts.dynamic.Resource(agentWorkloadGVR).Namespace("").List(ctx, metav1.ListOptions{})
-	if err != nil {
-		fmt.Fprintf(w, "  Workloads: ⚠ cannot list (%v)\n", err)
-	} else {
-		counts := map[string]int{}
-		totalCost := 0.0
-
-		for _, item := range list.Items {
-			phase := nestedString(item.Object, "status", "phase")
-			if phase == "" {
-				phase = "Unknown"
-			}
-			counts[phase]++
-
-			if costStr, ok := item.GetAnnotations()[costAnnotationKey]; ok {
-				var cost float64
-				fmt.Sscanf(costStr, "%f", &cost)
-				totalCost += cost
-			}
+	fmt.Fprintf(w, "  Workloads: %d total\n", summary.TotalWorkloads)
+	for phase, count := range summary.PhaseCounts {
+		icon := "●"
+		switch phase {
+		case "Completed":
+			icon = "✓"
+		case "Running":
+			icon = "▶"
+		case "Failed":
+			icon = "✗"
+		case "PendingApproval":
+			icon = "⏸"
 		}
-
-		fmt.Fprintf(w, "  Workloads: %d total\n", len(list.Items))
-		for phase, count := range counts {
-			icon := "●"
-			switch phase {
-			case "Completed":
-				icon = "✓"
-			case "Running":
-				icon = "▶"
-			case "Failed":
-				icon = "✗"
-			case "PendingApproval":
-				icon = "⏸"
-			}
-			fmt.Fprintf(w, "    %s %-20s %d\n", icon, phase, count)
-		}
-		fmt.Fprintf(w, "\n  Cost today: $%.4f\n", totalCost)
+		fmt.Fprintf(w, "    %s %-20s %d\n", icon, phase, count)
 	}
+	fmt.Fprintf(w, "\n  Cost today: $%.4f\n", summary.TotalCostToday)
 
 	// Components
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  Components:")
-	components := []struct {
-		name  string
-		match string
-	}{
-		{"LiteLLM", "litellm"},
-		{"Argo Server", "argo-server"},
-		{"Browserless", "browserless"},
-		{"PostgreSQL", "postgres"},
-		{"MinIO", "minio"},
-	}
-
-	svcs, _ := opts.kube.CoreV1().Services("").List(ctx, metav1.ListOptions{})
-	for _, comp := range components {
-		found := false
-		if svcs != nil {
-			for _, svc := range svcs.Items {
-				if strings.Contains(svc.Name, comp.match) {
-					fmt.Fprintf(w, "    ✓ %-20s %s.%s\n", comp.name, svc.Name, svc.Namespace)
-					found = true
-					break
-				}
-			}
-		}
-		if !found {
-			fmt.Fprintf(w, "    ✗ %-20s not found\n", comp.name)
+	for _, comp := range summary.Components {
+		if comp.Available {
+			fmt.Fprintf(w, "    ✓ %-20s %s\n", comp.Name, comp.Endpoint)
+		} else {
+			fmt.Fprintf(w, "    ✗ %-20s not found\n", comp.Name)
 		}
 	}
 
