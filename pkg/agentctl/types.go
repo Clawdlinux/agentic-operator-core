@@ -4,12 +4,12 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // WorkloadRow represents a single workload in list output.
 type WorkloadRow struct {
-	Name      string  `json:"name"`
-	Namespace string  `json:"namespace"`
-	Status    string  `json:"status"`
-	Model     string  `json:"model"`
-	CostToday float64 `json:"costToday"`
-	Age       string  `json:"age"`
+	Name      string      `json:"name"`
+	Namespace string      `json:"namespace"`
+	Status    string      `json:"status"`
+	Model     string      `json:"model"`
+	CostToday float64     `json:"costToday"`
+	Age       string      `json:"age"`
 	CreatedAt metav1.Time `json:"-"`
 }
 
@@ -40,14 +40,14 @@ type ComponentStatus struct {
 
 // StatusSummary is the cluster dashboard data.
 type StatusSummary struct {
-	ClusterName     string                 `json:"clusterName"`
-	ClusterVersion  string                 `json:"clusterVersion"`
-	OperatorVersion string                 `json:"operatorVersion"`
-	OperatorRef     string                 `json:"operatorRef"`
-	TotalWorkloads  int                    `json:"totalWorkloads"`
-	PhaseCounts     map[string]int         `json:"phaseCounts"`
-	TotalCostToday  float64                `json:"totalCostToday"`
-	Components      []ComponentStatus      `json:"components"`
+	ClusterName     string            `json:"clusterName"`
+	ClusterVersion  string            `json:"clusterVersion"`
+	OperatorVersion string            `json:"operatorVersion"`
+	OperatorRef     string            `json:"operatorRef"`
+	TotalWorkloads  int               `json:"totalWorkloads"`
+	PhaseCounts     map[string]int    `json:"phaseCounts"`
+	TotalCostToday  float64           `json:"totalCostToday"`
+	Components      []ComponentStatus `json:"components"`
 }
 
 // WorkloadDetail is the full describe output for a single workload.
@@ -61,10 +61,10 @@ type WorkloadDetail struct {
 
 // ApproveResult is the outcome of an approve operation.
 type ApproveResult struct {
-	Name           string `json:"name"`
-	Namespace      string `json:"namespace"`
-	ArgoResumed    bool   `json:"argoResumed"`
-	PreviousPhase  string `json:"previousPhase"`
+	Name          string `json:"name"`
+	Namespace     string `json:"namespace"`
+	ArgoResumed   bool   `json:"argoResumed"`
+	PreviousPhase string `json:"previousPhase"`
 }
 
 // RejectResult is the outcome of a reject operation.
