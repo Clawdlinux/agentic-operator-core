@@ -18,7 +18,7 @@ SETUP_ENVTEST := $(LOCALBIN)/setup-envtest
 STATICCHECK := $(LOCALBIN)/staticcheck
 CONTROLLER_GEN := $(LOCALBIN)/controller-gen
 
-.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build build-agentctl install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
+.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build build-agentctl build-agentctl-web install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
 
 .DEFAULT_GOAL := help
 
@@ -145,6 +145,11 @@ build-agentctl:
 	@echo "Building agentctl binary..."
 	@mkdir -p bin
 	@$(GO) build -o bin/agentctl ./cmd/agentctl/...
+
+build-agentctl-web:
+	@echo "Building agentctl-web binary..."
+	@mkdir -p bin
+	@$(GO) build -o bin/agentctl-web ./cmd/agentctl-web/...
 
 install-agentctl: build-agentctl
 	@if [[ ! -f bin/agentctl ]]; then \

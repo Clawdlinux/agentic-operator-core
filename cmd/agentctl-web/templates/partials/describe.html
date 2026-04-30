@@ -1,0 +1,55 @@
+{{define "describe.html"}}
+<div class="detail-card">
+    <div class="detail-header">
+        <h3>{{.Detail.Name}}</h3>
+        <span class="badge badge-{{lower .Detail.Phase}}">{{phaseIcon .Detail.Phase}} {{.Detail.Phase}}</span>
+    </div>
+    <div class="detail-meta">
+        <span><strong>Namespace:</strong> {{.Detail.Namespace}}</span>
+    </div>
+
+    {{if or (eq .Detail.Phase "PendingApproval") (eq .Detail.Phase "Suspended")}}
+    <div class="detail-actions">
+        <form method="POST" action="/workloads/{{.Detail.Namespace}}/{{.Detail.Name}}/approve"
+              hx-post="/workloads/{{.Detail.Namespace}}/{{.Detail.Name}}/approve"
+              hx-target="#workload-table" hx-swap="innerHTML"
+              style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+            <button type="submit" class="btn btn-approve">✓ Approve</button>
+        </form>
+        <form method="POST" action="/workloads/{{.Detail.Namespace}}/{{.Detail.Name}}/reject"
+              hx-post="/workloads/{{.Detail.Namespace}}/{{.Detail.Name}}/reject"
+              hx-target="#workload-table" hx-swap="innerHTML"
+              class="reject-inline">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+            <input type="text" name="rule" placeholder="OPA rule" class="input-sm">
+            <input type="text" name="reason" placeholder="Reason" class="input-sm">
+            <button type="submit" class="btn btn-reject">✗ Reject</button>
+        </form>
+    </div>
+    {{end}}
+
+    {{if .Detail.Steps}}
+    <div class="detail-section">
+        <h4>Workflow Steps</h4>
+        <table class="data-table data-table-sm">
+            <thead>
+                <tr><th>Step</th><th>Phase</th><th>Started</th><th>Ended</th></tr>
+            </thead>
+            <tbody>
+                {{range .Detail.Steps}}
+                <tr>
+                    <td>{{.Name}}</td>
+                    <td><span class="badge badge-{{lower .Phase}}">{{.Phase}}</span></td>
+                    <td>{{.StartedAt}}</td>
+                    <td>{{.EndedAt}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{end}}
+
+    <button class="btn btn-sm btn-secondary" onclick="document.getElementById('detail-panel').innerHTML=''">Close</button>
+</div>
+{{end}}

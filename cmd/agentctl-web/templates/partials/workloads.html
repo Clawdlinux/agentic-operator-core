@@ -1,0 +1,79 @@
+{{define "workloads.html"}}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Namespace</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Model</th>
+            <th>Cost Today</th>
+            <th>Age</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Workloads}}
+        <tr>
+            <td>{{.Namespace}}</td>
+            <td>
+                <a href="#" hx-get="/workloads/{{.Namespace}}/{{.Name}}" hx-target="#detail-panel" hx-swap="innerHTML">
+                    {{.Name}}
+                </a>
+            </td>
+            <td>
+                <span class="badge badge-{{lower (safeText .Status "unknown")}}">
+                    {{phaseIcon .Status}} {{safeText .Status "Unknown"}}
+                </span>
+            </td>
+            <td>{{safeText .Model "n/a"}}</td>
+            <td>{{fmtCost .CostToday}}</td>
+            <td>{{.Age}}</td>
+            <td class="actions">
+                {{if or (eq .Status "PendingApproval") (eq .Status "Suspended")}}
+                <form method="POST" action="/workloads/{{.Namespace}}/{{.Name}}/approve"
+                      hx-post="/workloads/{{.Namespace}}/{{.Name}}/approve"
+                      hx-target="#workload-table" hx-swap="innerHTML"
+                      style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                    <button type="submit" class="btn btn-sm btn-approve" title="Approve">✓ Approve</button>
+                </form>
+                <button class="btn btn-sm btn-reject" title="Reject"
+                        onclick="toggleRejectForm(this, '{{.Namespace}}', '{{.Name}}')">
+                    ✗ Reject
+                </button>
+                {{else}}
+                <span class="text-muted">—</span>
+                {{end}}
+            </td>
+        </tr>
+        {{end}}
+        {{if not .Workloads}}
+        <tr><td colspan="7" class="text-center text-muted">No workloads found</td></tr>
+        {{end}}
+    </tbody>
+</table>
+<div id="detail-panel"></div>
+
+<script>
+function toggleRejectForm(btn, ns, name) {
+    var existing = document.getElementById('reject-form-' + ns + '-' + name);
+    if (existing) { existing.remove(); return; }
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    var token = csrf ? csrf.getAttribute('content') : '';
+    var row = btn.closest('tr');
+    var newRow = document.createElement('tr');
+    newRow.id = 'reject-form-' + ns + '-' + name;
+    newRow.innerHTML = '<td colspan="7"><form method="POST" action="/workloads/' + ns + '/' + name + '/reject" ' +
+        'hx-post="/workloads/' + ns + '/' + name + '/reject" hx-target="#workload-table" hx-swap="innerHTML" ' +
+        'class="reject-form">' +
+        '<input type="hidden" name="csrf_token" value="' + token + '">' +
+        '<input type="text" name="rule" placeholder="OPA rule (optional)" class="input-sm">' +
+        '<input type="text" name="reason" placeholder="Reason (optional)" class="input-sm">' +
+        '<button type="submit" class="btn btn-sm btn-reject">Submit Rejection</button>' +
+        '<button type="button" class="btn btn-sm btn-secondary" onclick="this.closest(\'tr\').remove()">Cancel</button>' +
+        '</form></td>';
+    row.parentNode.insertBefore(newRow, row.nextSibling);
+    htmx.process(newRow);
+}
+</script>
+{{end}}
