@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"log/slog"
 	"net/http"
@@ -109,15 +110,17 @@ func CSRFMiddleware(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), csrfContextKey, csrfCookie.Value)
 
-		// Validate CSRF on mutating methods
+		// Validate CSRF on mutating methods (exempt login — no cookie yet)
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
-			formToken := r.FormValue("csrf_token")
-			if formToken == "" {
-				formToken = r.Header.Get("X-CSRF-Token")
-			}
-			if formToken == "" || formToken != csrfCookie.Value {
-				http.Error(w, "CSRF token mismatch", http.StatusForbidden)
-				return
+			if r.URL.Path != "/auth/login" {
+				formToken := r.FormValue("csrf_token")
+				if formToken == "" {
+					formToken = r.Header.Get("X-CSRF-Token")
+				}
+				if formToken == "" || subtle.ConstantTimeCompare([]byte(formToken), []byte(csrfCookie.Value)) != 1 {
+					http.Error(w, "CSRF token mismatch", http.StatusForbidden)
+					return
+				}
 			}
 		}
 

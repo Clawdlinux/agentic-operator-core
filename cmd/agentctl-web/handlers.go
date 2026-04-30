@@ -41,7 +41,11 @@ func NewServer(client *agentctl.Client, authz *Authorizer, tmplFS fs.FS) (*Serve
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(userContextKey).(*UserInfo)
+	user, ok := r.Context().Value(userContextKey).(*UserInfo)
+	if !ok || user == nil {
+		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+		return
+	}
 	csrfToken, _ := r.Context().Value(csrfContextKey).(string)
 
 	status, err := s.client.ClusterStatus(r.Context(), "")
@@ -106,7 +110,8 @@ func (s *Server) handleDescribe(w http.ResponseWriter, r *http.Request) {
 
 	detail, err := s.client.DescribeWorkload(r.Context(), ns, name)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to describe workload: %v", err), http.StatusInternalServerError)
+		slog.Error("describe workload", "error", err, "workload", name, "namespace", ns)
+		http.Error(w, "Failed to describe workload", http.StatusInternalServerError)
 		return
 	}
 
@@ -140,7 +145,7 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 	result, err := s.client.ApproveWorkload(r.Context(), ns, name, user.Username)
 	if err != nil {
 		slog.Error("approve workload", "error", err, "workload", name, "namespace", ns, "user", user.Username)
-		http.Error(w, fmt.Sprintf("Failed to approve: %v", err), http.StatusBadRequest)
+		http.Error(w, "Failed to approve workload", http.StatusBadRequest)
 		return
 	}
 
@@ -176,7 +181,7 @@ func (s *Server) handleReject(w http.ResponseWriter, r *http.Request) {
 	result, err := s.client.RejectWorkload(r.Context(), ns, name, rule, rejectReason, user.Username)
 	if err != nil {
 		slog.Error("reject workload", "error", err, "workload", name, "namespace", ns, "user", user.Username)
-		http.Error(w, fmt.Sprintf("Failed to reject: %v", err), http.StatusBadRequest)
+		http.Error(w, "Failed to reject workload", http.StatusBadRequest)
 		return
 	}
 

@@ -2,6 +2,7 @@ package agentctl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -29,11 +30,21 @@ func (c *Client) ApproveWorkload(ctx context.Context, ns, name, approvedBy strin
 		approvedBy = "agentctl-web"
 	}
 
-	patch := fmt.Sprintf(`{"metadata":{"annotations":{"agentworkload.clawdlinux.io/approved-at":"%s","agentworkload.clawdlinux.io/approved-by":"%s"}}}`,
-		time.Now().UTC().Format(time.RFC3339), approvedBy)
+	patchObj := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"annotations": map[string]string{
+				"agentworkload.clawdlinux.io/approved-at": time.Now().UTC().Format(time.RFC3339),
+				"agentworkload.clawdlinux.io/approved-by": approvedBy,
+			},
+		},
+	}
+	patchBytes, jsonErr := json.Marshal(patchObj)
+	if jsonErr != nil {
+		return nil, fmt.Errorf("marshal patch: %w", jsonErr)
+	}
 
 	_, err = c.Dynamic.Resource(AgentWorkloadGVR).Namespace(ns).Patch(
-		ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{},
+		ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("patch workload %q: %w", name, err)
