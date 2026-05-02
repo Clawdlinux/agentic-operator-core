@@ -43,7 +43,7 @@ const TIMELINE = [
   {
     phase: 'Solution',
     title: 'Kubernetes for agents',
-    detail: 'Agentic Operator is the operational layer. It sits between your agent framework and your K8s cluster. One CRD to deploy, one protocol for agents to talk, one bill per workload.',
+    detail: 'NineVigil is the operational layer. It sits between your agent framework and your K8s cluster. One CRD to deploy, one protocol for agents to talk, one bill per workload.',
   },
   {
     phase: 'Moat',
@@ -115,7 +115,7 @@ export default function Positioning() {
           }}
         >
           Every agent framework lets you build. None of them let you deploy, govern, and bill in production.
-          Agentic Operator fills that gap — the Kubernetes-native control plane for autonomous AI agents.
+          NineVigil fills that gap — the Kubernetes-native control plane for autonomous AI agents.
         </p>
       </motion.div>
 

@@ -99,8 +99,8 @@ export default function Navigation() {
           >
             <div className="relative">
               <img
-                src="/logo.svg"
-                alt="Agentic Operator"
+                src="/ninevigil-logo.svg"
+                alt="NineVigil"
                 className="w-8 h-8 transition-transform duration-300 group-hover:rotate-12 rounded-lg"
               />
             </div>
@@ -108,7 +108,7 @@ export default function Navigation() {
               className="font-semibold text-lg tracking-tight transition-colors duration-300"
               style={{ fontFamily: "'Syne', sans-serif", color: currentTheme.text.primary }}
             >
-              Agentic <span style={{ color: currentTheme.accent.teal }}>Operator</span>
+              Nine<span style={{ color: currentTheme.accent.teal }}>Vigil</span>
             </span>
           </motion.a>
 

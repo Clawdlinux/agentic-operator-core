@@ -4,7 +4,7 @@ System design and components.
 
 ## Overview
 
-The Agentic Operator is a Kubernetes operator that manages autonomous AI agent workloads at scale.
+The NineVigil is a Kubernetes operator that manages autonomous AI agent workloads at scale.
 
 ```
 ┌──────────────────────────────────────────┐

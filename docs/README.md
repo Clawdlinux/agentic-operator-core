@@ -102,7 +102,7 @@ It provides:
         └────────────┬────────────┘
                      │
         ┌────────────▼────────────────────┐
-        │  Agentic Operator               │
+        │  NineVigil               │
         │ (Controllers & Reconcilers)     │
         └────────────┬────────────────────┘
                      │

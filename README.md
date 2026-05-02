@@ -1,11 +1,15 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Agentic Operator" width="90" height="90" />
+  <img src="assets/ninevigil-logo.svg" alt="NineVigil" width="90" height="90" />
 </p>
 
-<h1 align="center">Agentic Operator</h1>
+<h1 align="center">NineVigil</h1>
 
 <p align="center">
-  <strong>The only Kubernetes agent platform built for zero-egress, regulated environments.</strong>
+  <strong>The Kubernetes runtime API that AI agents call to provision their own air-gapped execution environments.</strong>
+</p>
+
+<p align="center">
+  <em>Formerly Agentic Operator · <code>Clawdlinux/agentic-operator-core</code></em>
 </p>
 
 <p align="center">
@@ -53,13 +57,13 @@
 
 ---
 
-## Why Agentic Operator?
+## Why NineVigil?
 
 kagent (Solo.io, CNCF Sandbox) validates this market completely. When Google, Microsoft, IBM, and Red Hat contribute to a Kubernetes agent runtime, the category is real.
 
 But here's what kagent **structurally cannot do**:
 
-| Capability | Agentic Operator | kagent (Solo.io) |
+| Capability | NineVigil | kagent (Solo.io) |
 |---|:---:|:---:|
 | **Air-gapped / zero-egress deployment** | ✅ | ❌ |
 | **Outcome-based billing per workload** | ✅ OpenMeter | ❌ |
@@ -76,9 +80,9 @@ But here's what kagent **structurally cannot do**:
 
 Platform teams running AI agents on Kubernetes today face a painful reality: each agent framework expects its own runtime, its own secrets, its own network rules. You end up with a sprawl of bespoke Deployments, no cost visibility, and no guardrails.
 
-**Agentic Operator fixes this.** One CRD, one controller, full-stack isolation:
+**NineVigil fixes this.** One CRD, one controller, full-stack isolation:
 
-| Problem | Agentic Operator |
+| Problem | NineVigil |
 |---------|-----------------|
 | Agent sprawl across namespaces | Single `AgentWorkload` CRD per agent |
 | No network boundaries | Cilium FQDN egress policies auto-applied |
@@ -196,6 +200,12 @@ flowchart LR
 | **FedRAMP / HIPAA advisory** | — | ✅ |
 
 Enterprise inquiries: [shreyanshsancheti09@gmail.com](mailto:shreyanshsancheti09@gmail.com?subject=Enterprise%20Inquiry)
+
+---
+
+## Security & Sandbox
+
+NineVigil ships **default-deny egress NetworkPolicies** for every agent namespace (Helm-toggleable via `networkPolicy.enabled`, default true) and runs agent pods on a **gVigil sandbox** — [gVisor](https://gvisor.dev/) as the default user-space kernel, with [Kata Containers](https://katacontainers.io/) as opt-in for full microVM isolation. See [docs/07-security.md](docs/07-security.md) for the syscall allowlist source and the Helm toggle.
 
 ---
 

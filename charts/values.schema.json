@@ -157,6 +157,52 @@
         }
       }
     },
+    "networkPolicy": {
+      "type": "object",
+      "description": "Default-deny egress NetworkPolicy for agent pods (issue #129).",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "denyEgressByDefault": { "type": "boolean" },
+        "additionalAllowedHosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["cidr"],
+            "properties": {
+              "cidr": { "type": "string" },
+              "ports": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+                    "protocol": { "type": "string", "enum": ["TCP", "UDP", "SCTP"] }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "opa": {
+          "type": "object",
+          "properties": {
+            "external": { "type": "boolean" },
+            "cidr": { "type": "string" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "cilium": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "fqdnAllowlist": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
     "ingress": {
       "type": "object",
       "properties": {
