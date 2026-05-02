@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ninevigil": {
+      "command": "/usr/local/bin/curl-mcp-shim.sh",
+      "args": [
+        "http://127.0.0.1:8765",
+        "<YOUR_TOKEN>"
+      ],
+      "description": "NineVigil — provision and manage AgentWorkloads on Kubernetes"
+    }
+  }
+}

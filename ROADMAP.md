@@ -18,7 +18,8 @@ Public roadmap for the Agentic Kubernetes Operator. Updated quarterly.
 
 ## Next (Q2 2026)
 
-- [ ] `agentctl` CLI for workload management from terminal
+- [x] `agentctl` CLI for workload management from terminal
+- [x] **MCP server (`agentctl mcp serve`) — agent-callable workload provisioning** ([#140](https://github.com/Clawdlinux/agentic-operator-core/issues/140))
 - [ ] Homebrew tap for agentctl
 - [x] Agent observability dashboard (Grafana templates)
 - [x] Cost dashboard with per-workload token spend visualization
