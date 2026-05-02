@@ -1,0 +1,2 @@
+# No external dependencies — orchestrator.py uses stdlib urllib.
+# Listed here for documentation; this file is intentionally empty.

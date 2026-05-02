@@ -116,6 +116,27 @@ $ kubectl logs -n aw-research-run agent-pod --tail=5
 
 ---
 
+## Agent-callable API (MCP)
+
+NineVigil's `AgentWorkload` CRD is already an agent-readable interface — agents
+can read the schema and reason about the spec. `agentctl mcp serve` is the
+**wire-protocol** surface so an external orchestrator agent (Claude Desktop,
+Cursor, ChatGPT, custom Python) can provision its own NineVigil execution
+environments without a human running `kubectl`.
+
+```bash
+export NINEVIGIL_MCP_TOKEN=$(uuidgen)
+agentctl mcp serve --addr :8765 --default-namespace agentic-system
+```
+
+Six tools, 1:1 with CRD verbs: `create_workload`, `get_workload_status`,
+`list_workloads`, `get_workload_logs`, `get_workload_cost`, `delete_workload`.
+Full reference in [`docs/agentctl/mcp.md`](docs/agentctl/mcp.md). Examples in
+[`examples/mcp-claude-desktop/`](examples/mcp-claude-desktop) and
+[`examples/mcp-orchestrator/`](examples/mcp-orchestrator).
+
+---
+
 ## Quick Start
 
 **Option A — One command (requires kind + helm):**

@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "ninevigil": {
+      "command": "agentctl",
+      "args": [
+        "mcp",
+        "serve",
+        "--transport",
+        "stdio",
+        "--default-namespace",
+        "agentic-system"
+      ],
+      "env": {
+        "KUBECONFIG": "${HOME}/.kube/config"
+      }
+    }
+  }
+}
