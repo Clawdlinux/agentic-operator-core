@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}agentctl{{end}} — Agentic Operator</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/htmx.min.js"></script>
+    <meta name="csrf-token" content="{{.CSRFToken}}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="logo">⚙</span>
+            <span class="brand-text">agentctl</span>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-link" hx-get="/" hx-target="body" hx-push-url="true">Dashboard</a>
+            <a href="/workloads" class="nav-link">Workloads</a>
+            <a href="/cost" class="nav-link">Cost</a>
+            <a href="/status" class="nav-link">Status</a>
+        </div>
+        <div class="nav-user">
+            {{if .User}}
+            <span class="username">{{.User.Username}}</span>
+            <form method="POST" action="/auth/logout" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <button type="submit" class="btn btn-sm btn-secondary">Logout</button>
+            </form>
+            {{end}}
+        </div>
+    </nav>
+    <main class="container">
+        {{block "content" .}}{{end}}
+    </main>
+    <footer class="footer">
+        <span>Agentic Operator — ClawdLinux</span>
+    </footer>
+</body>
+</html>

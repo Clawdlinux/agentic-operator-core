@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — agentctl</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <div class="login-header">
+            <span class="logo">⚙</span>
+            <h1>agentctl</h1>
+            <p>Agentic Operator Web UI</p>
+        </div>
+        {{if .Error}}
+        <div class="alert alert-error">
+            {{if eq .Error "invalid_token"}}Invalid or expired token. Please try again.
+            {{else if eq .Error "empty_token"}}Please enter a token.
+            {{else}}{{.Error}}
+            {{end}}
+        </div>
+        {{end}}
+        <form method="POST" action="/auth/login">
+            <div class="form-group">
+                <label for="token">Bearer Token</label>
+                <textarea id="token" name="token" rows="6"
+                    placeholder="Paste your kubeconfig bearer token here...&#10;&#10;Get it with:&#10;  kubectl config view --raw -o jsonpath='{.users[0].user.token}'"
+                    required autocomplete="off" spellcheck="false"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+        </form>
+        <p class="login-hint">
+            Your token is sent to the Kubernetes API server via TokenReview.
+            It is never stored on disk — only in an HttpOnly session cookie.
+        </p>
+    </div>
+</body>
+</html>

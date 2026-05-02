@@ -1,0 +1,29 @@
+{{define "cost.html"}}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Namespace</th>
+            <th>Workload</th>
+            <th>Model</th>
+            <th>Tokens Today</th>
+            <th>Cost Today</th>
+            <th>Cost MTD</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Costs}}
+        <tr>
+            <td>{{safeText .Namespace "-"}}</td>
+            <td>{{safeText .Workload "unknown"}}</td>
+            <td>{{safeText .Model "unknown"}}</td>
+            <td>{{fmtTokens .TokensToday}}</td>
+            <td>{{fmtCost .CostToday}}</td>
+            <td>{{fmtCost .CostMTD}}</td>
+        </tr>
+        {{end}}
+        {{if not .Costs}}
+        <tr><td colspan="6" class="text-center text-muted">No cost data available</td></tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}
