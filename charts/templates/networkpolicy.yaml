@@ -1,0 +1,122 @@
+{{- /*
+Default-deny egress NetworkPolicy for agent namespaces, with scoped allow-list
+to in-cluster platform services (DNS, LiteLLM, Postgres, MinIO, Browserless,
+external OPA). Closes issue #129.
+
+Toggle with `networkPolicy.enabled` (default true). When false, this template
+renders nothing — preserves backwards compatibility for clusters that already
+manage egress at a higher layer (Cilium FQDN policy applied externally, etc.).
+
+Scope: selects pods labeled `app.kubernetes.io/part-of: agentic-operator` in the
+release namespace. The reconciler labels per-workload agent namespaces with
+`agentic.clawdlinux.org/managed=true`; if you want this policy to also cover
+those, enable `networkPolicy.applyToManagedNamespaces` and ensure NetworkPolicy
+admission scope matches your CNI.
+*/ -}}
+{{- if .Values.networkPolicy.enabled -}}
+{{- $ns := include "agentic-operator.namespace" . -}}
+{{- $litellmPort := default 4000 (((.Values.litellm).service).port) -}}
+{{- $postgresPort := default 5432 (((.Values.postgresql).service).port) -}}
+{{- $minioPort := default 9000 (((.Values.minio).service).port) -}}
+{{- $browserlessPort := default 3000 (((.Values.browserless).service).port) -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-default-deny-egress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: networkpolicy
+  annotations:
+    agentic.clawdlinux.org/issue: "129"
+    agentic.clawdlinux.org/policy-purpose: "default-deny-egress"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: agentic-operator
+  policyTypes:
+    - Egress
+  egress:
+    {{- if .Values.networkPolicy.denyEgressByDefault }}
+    # Allow DNS resolution (kube-dns / CoreDNS).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if (((.Values.litellm).enabled) | default true) }}
+    # In-cluster LiteLLM gateway (only path agents may take to LLMs).
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: litellm
+      ports:
+        - port: {{ $litellmPort }}
+          protocol: TCP
+    {{- end }}
+    {{- if (((.Values.postgresql).enabled) | default true) }}
+    # PostgreSQL (LangGraph checkpointer).
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+      ports:
+        - port: {{ $postgresPort }}
+          protocol: TCP
+    {{- end }}
+    {{- if (((.Values.minio).enabled) | default true) }}
+    # MinIO (per-workload artifact bucket).
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: minio
+      ports:
+        - port: {{ $minioPort }}
+          protocol: TCP
+    {{- end }}
+    {{- if (((.Values.browserless).enabled) | default false) }}
+    # Browserless pool (only when browser tool is enabled).
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: browserless
+      ports:
+        - port: {{ $browserlessPort }}
+          protocol: TCP
+    {{- end }}
+    {{- with .Values.networkPolicy.opa }}
+    {{- if .external }}
+    # External OPA service (when not deployed in-cluster).
+    - to:
+        - ipBlock:
+            cidr: {{ .cidr | default "0.0.0.0/0" }}
+      ports:
+        - port: {{ .port | default 8181 }}
+          protocol: TCP
+    {{- end }}
+    {{- end }}
+    {{- with .Values.networkPolicy.additionalAllowedHosts }}
+    # Operator-supplied additional allow-list entries.
+    {{- range . }}
+    - to:
+        - ipBlock:
+            cidr: {{ .cidr }}
+      {{- with .ports }}
+      ports:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- else }}
+    # denyEgressByDefault=false → allow all egress (policy still present so
+    # operators can swap to deny mode without re-installing).
+    - {}
+    {{- end }}
+{{- end -}}

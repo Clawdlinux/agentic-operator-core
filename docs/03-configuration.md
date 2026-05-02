@@ -1,6 +1,6 @@
 # Configuration Guide
 
-Configure the Agentic Operator for your environment.
+Configure the NineVigil for your environment.
 
 ## Helm Values
 

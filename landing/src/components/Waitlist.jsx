@@ -33,7 +33,7 @@ export default function Waitlist() {
   };
 
   const openMailFallback = (payload) => {
-    const subject = `Agentic Operator Pilot Request: ${payload.company || payload.name}`;
+    const subject = `NineVigil Pilot Request: ${payload.company || payload.name}`;
     const body = [
       `Name: ${payload.name}`,
       `Email: ${payload.email}`,

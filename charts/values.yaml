@@ -326,3 +326,38 @@ ingress:
   #   - secretName: agentic-operator-tls
   #     hosts:
   #       - agentic-operator.local
+
+# ---------------------------------------------------------------------------
+# NetworkPolicy (default-deny egress, per issue #129)
+#
+# When enabled, ships a Kubernetes NetworkPolicy in the release namespace that
+# default-denies egress for any pod labeled `app.kubernetes.io/part-of:
+# agentic-operator`, with an explicit allow-list to in-cluster platform
+# services (DNS, LiteLLM, Postgres, MinIO, Browserless, optional OPA).
+#
+# Defaults to ON. Disable only if your CNI applies an equivalent policy at a
+# higher layer (e.g. Cilium FQDN policy managed by your platform team).
+# ---------------------------------------------------------------------------
+networkPolicy:
+  enabled: true
+  denyEgressByDefault: true
+  # Extra allow-list entries appended to the default policy. Each entry is an
+  # IP CIDR plus optional ports.
+  # Example:
+  #   additionalAllowedHosts:
+  #     - cidr: 10.20.0.0/16
+  #       ports:
+  #         - port: 443
+  #           protocol: TCP
+  additionalAllowedHosts: []
+  # External OPA (when OPA is NOT in-cluster). Provide CIDR + port.
+  opa:
+    external: false
+    cidr: ""
+    port: 8181
+  # Cilium FQDN allow-list (gated separately; not implemented in this template
+  # because it requires the Cilium CRD `CiliumNetworkPolicy`. Tracked for v0.4
+  # alongside RuntimeClass work).
+  cilium:
+    enabled: false
+    fqdnAllowlist: []

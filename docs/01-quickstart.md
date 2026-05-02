@@ -1,6 +1,6 @@
 # Quick Start - 5 Minutes
 
-Get the Agentic Operator running in 5 minutes.
+Get the NineVigil running in 5 minutes.
 
 ## Prerequisites
 
