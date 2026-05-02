@@ -108,7 +108,6 @@ func TestCreateWorkload(t *testing.T) {
 		"objective": "Summarize the latest arxiv RAG papers",
 		"agents":    []interface{}{"researcher", "synthesizer"},
 	})
-
 	if got := res["name"]; got != "demo-1" {
 		t.Errorf("name = %v, want demo-1", got)
 	}
@@ -151,6 +150,37 @@ func TestCreateWorkloadMissingRequired(t *testing.T) {
 	}
 }
 
+func TestCreateWorkloadEmptyAgentsRejected(t *testing.T) {
+	srv := newTestServer(t)
+	_, err := srv.dispatch(context.Background(), ToolCreateWorkload, map[string]interface{}{
+		"name":      "no-agents",
+		"objective": "x",
+	})
+	if err == nil || !strings.Contains(err.Error(), "agents") {
+		t.Errorf("expected error mentioning agents, got %v", err)
+	}
+}
+
+func TestCreateWorkloadIdempotent(t *testing.T) {
+	srv := newTestServer(t)
+	params := map[string]interface{}{
+		"name":      "idem-1",
+		"objective": "first call",
+		"agents":    []interface{}{"a"},
+	}
+	first := callTool(t, srv, ToolCreateWorkload, params)
+	if first["alreadyExisted"] == true {
+		t.Errorf("first create reported alreadyExisted=true")
+	}
+	second := callTool(t, srv, ToolCreateWorkload, params)
+	if second["alreadyExisted"] != true {
+		t.Errorf("second create alreadyExisted = %v, want true", second["alreadyExisted"])
+	}
+	if second["name"] != "idem-1" {
+		t.Errorf("second create name = %v", second["name"])
+	}
+}
+
 func TestGetWorkloadStatus(t *testing.T) {
 	wl := unstructuredWorkload("agentic-system", "running-1", "Running")
 	srv := newTestServer(t, wl)
@@ -172,6 +202,22 @@ func TestListWorkloads(t *testing.T) {
 	items, ok := res["items"].([]map[string]interface{})
 	if !ok || len(items) != 2 {
 		t.Fatalf("items shape unexpected: %#v", res["items"])
+	}
+}
+
+func TestListWorkloadsRejectsMalformedSelector(t *testing.T) {
+	srv := newTestServer(t)
+	_, err := srv.dispatch(context.Background(), ToolListWorkloads, map[string]interface{}{
+		"labelSelector": "broken-no-equals",
+	})
+	if err == nil || !strings.Contains(err.Error(), "labelSelector") {
+		t.Errorf("expected labelSelector validation error, got %v", err)
+	}
+	_, err = srv.dispatch(context.Background(), ToolListWorkloads, map[string]interface{}{
+		"labelSelector": "tenant=acme,env=prod",
+	})
+	if err == nil || !strings.Contains(err.Error(), "labelSelector") {
+		t.Errorf("expected error rejecting comma in selector, got %v", err)
 	}
 }
 
@@ -223,21 +269,18 @@ func TestDeleteWorkload(t *testing.T) {
 	}
 }
 
-func TestGetWorkloadCostNoRecords(t *testing.T) {
-	wl := unstructuredWorkload("agentic-system", "fresh", "Pending")
-	srv := newTestServer(t, wl)
-	// LiteLLM URL is unreachable in unit tests; CostSummary returns an error
-	// when it cannot reach the endpoint, so the test asserts the error path
-	// surfaces cleanly through dispatch.
+func TestGetWorkloadCostUnreachableEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+	srv.cfg.LiteLLMURL = "http://127.0.0.1:1" // closed port
 	_, err := srv.dispatch(context.Background(), ToolGetWorkloadCost, map[string]interface{}{
 		"name":      "fresh",
 		"namespace": "agentic-system",
 	})
 	if err == nil {
-		t.Skip("LiteLLM endpoint reachable in test env; cost path exercised")
+		t.Fatal("expected error when LiteLLM endpoint unreachable")
 	}
-	if !strings.Contains(err.Error(), "litellm") && !strings.Contains(err.Error(), "connect") && !strings.Contains(err.Error(), "no such host") && !strings.Contains(err.Error(), "dial") && !strings.Contains(err.Error(), "EOF") && !strings.Contains(err.Error(), "lookup") {
-		t.Errorf("expected network error, got %v", err)
+	if !strings.Contains(err.Error(), "cost endpoint unreachable") {
+		t.Errorf("expected 'cost endpoint unreachable' error, got %v", err)
 	}
 }
 
@@ -277,6 +320,7 @@ func TestHTTPCallToolEndToEnd(t *testing.T) {
 		Params: map[string]interface{}{
 			"name":      "http-1",
 			"objective": "Test the HTTP path",
+			"agents":    []interface{}{"only-agent"},
 		},
 	})
 	rec := httptest.NewRecorder()

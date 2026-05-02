@@ -34,10 +34,10 @@ func registeredTools() []ToolDescriptor {
 	return []ToolDescriptor{
 		{
 			Name:        ToolCreateWorkload,
-			Description: "Provision a new AgentWorkload in the cluster. Returns the assigned UID and initial Pending phase. Use this to spin up a fresh execution environment for a sub-task.",
+			Description: "Provision a new AgentWorkload in the cluster. Returns the assigned UID and initial Pending phase. Use this to spin up a fresh execution environment for a sub-task. Idempotent: a second call for the same name+namespace returns alreadyExisted=true rather than failing.",
 			InputSchema: map[string]interface{}{
 				"type":     "object",
-				"required": []string{"name", "objective"},
+				"required": []string{"name", "objective", "agents"},
 				"properties": map[string]interface{}{
 					"name":                 stringProp("AgentWorkload metadata.name. Must be a valid DNS-1123 label."),
 					"namespace":            stringProp("Target namespace. Defaults to the operator's namespace."),
@@ -45,7 +45,7 @@ func registeredTools() []ToolDescriptor {
 					"workloadType":         stringProp("One of: generic|ceph|minio|postgres|aws|kubernetes. Default: generic."),
 					"workflowName":         stringProp("Registered workflow to execute. Default: research-swarm."),
 					"mcpServerEndpoint":    stringProp("HTTPS endpoint of an upstream MCP server the workload should call (optional)."),
-					"agents":               stringArrayProp("List of agent names to run."),
+					"agents":               stringArrayProp("List of agent names to run. Required: at least one — admission rejects empty lists."),
 					"targetUrls":           stringArrayProp("URLs the workflow should process."),
 					"autoApproveThreshold": stringProp("Confidence threshold for auto-approval, e.g. \"0.95\"."),
 					"opaPolicy":            stringProp("strict|permissive — safety policy for action execution."),

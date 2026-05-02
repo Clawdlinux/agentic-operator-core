@@ -1,12 +1,18 @@
 {
   "mcpServers": {
     "ninevigil": {
-      "command": "/usr/local/bin/curl-mcp-shim.sh",
+      "command": "agentctl",
       "args": [
-        "http://127.0.0.1:8765",
-        "<YOUR_TOKEN>"
+        "mcp",
+        "serve",
+        "--transport",
+        "stdio",
+        "--default-namespace",
+        "agentic-system"
       ],
-      "description": "NineVigil — provision and manage AgentWorkloads on Kubernetes"
+      "env": {
+        "KUBECONFIG": "${HOME}/.kube/config"
+      }
     }
   }
 }

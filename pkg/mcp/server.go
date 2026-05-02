@@ -38,6 +38,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -179,7 +180,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 
 func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -190,7 +191,7 @@ func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCallTool(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w)
 		return
 	}
 	var req ToolRequest
@@ -223,6 +224,13 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 		"success": false,
 		"error":   msg,
 	})
+}
+
+// methodNotAllowed writes a JSON error envelope so clients that rely on the
+// documented "body is always JSON" invariant can decode the response. We
+// deliberately avoid http.Error here, which sends text/plain.
+func methodNotAllowed(w http.ResponseWriter) {
+	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
 // dispatch routes a tool call to the matching handler. Returned map is the
@@ -259,8 +267,17 @@ func (s *Server) createWorkload(ctx context.Context, params map[string]interface
 	}
 	ns := s.namespaceOrDefault(params)
 
+	agents := optionalStringSlice(params, "agents")
+	if len(agents) == 0 {
+		// The AgentWorkload validating webhook rejects empty agent lists
+		// (see api/v1alpha1/agentworkload_webhook.go). Fail fast at the MCP
+		// boundary instead of returning an opaque admission error.
+		return nil, fmt.Errorf("argument %q must contain at least one agent", "agents")
+	}
+
 	spec := map[string]interface{}{
 		"objective": objective,
+		"agents":    stringsToInterface(agents),
 	}
 	if v := optionalString(params, "workloadType"); v != "" {
 		spec["workloadType"] = v
@@ -303,6 +320,31 @@ func (s *Server) createWorkload(ctx context.Context, params map[string]interface
 		Namespace(ns).
 		Create(ctx, obj, metav1.CreateOptions{})
 	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			// Idempotent provisioning: orchestrator agents retry create_workload
+			// on transient failures, and a hard AlreadyExists on the second
+			// attempt turns a normal retry into a user-facing failure. Fall
+			// back to a Get so the caller sees the existing object's identity.
+			existing, getErr := s.cfg.Client.Dynamic.
+				Resource(agentctl.AgentWorkloadGVR).
+				Namespace(ns).
+				Get(ctx, name, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, fmt.Errorf("create AgentWorkload %s/%s: %w (and Get failed: %v)", ns, name, err, getErr)
+			}
+			phase := "Pending"
+			if p, ok, _ := unstructured.NestedString(existing.Object, "status", "phase"); ok && p != "" {
+				phase = p
+			}
+			return map[string]interface{}{
+				"name":            existing.GetName(),
+				"namespace":       existing.GetNamespace(),
+				"uid":             string(existing.GetUID()),
+				"resourceVersion": existing.GetResourceVersion(),
+				"phase":           phase,
+				"alreadyExisted":  true,
+			}, nil
+		}
 		return nil, fmt.Errorf("create AgentWorkload %s/%s: %w", ns, name, err)
 	}
 
@@ -336,45 +378,38 @@ func (s *Server) getWorkloadStatus(ctx context.Context, params map[string]interf
 
 func (s *Server) listWorkloads(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
 	ns := optionalString(params, "namespace")
-	// Empty namespace == all namespaces; honor caller intent.
-	rows, err := s.cfg.Client.ListWorkloads(ctx, ns)
-	if err != nil {
-		return nil, err
-	}
 
-	// Optional client-side label-selector filter. The dynamic client supports
-	// server-side filtering, but exposing the full label-selector grammar to
-	// MCP callers risks accidental cluster-wide scans; we keep the surface
-	// small and filter by exact key=value matches here.
+	// Optional label-selector filter, applied server-side via the dynamic
+	// client. We require strict key=value form (no commas, no set-based
+	// operators) so a typo fails fast instead of silently widening the
+	// result set to every workload the caller can access.
+	listOpts := metav1.ListOptions{}
 	if selector := optionalString(params, "labelSelector"); selector != "" {
 		key, value, ok := strings.Cut(selector, "=")
-		if ok {
-			filtered := rows[:0]
-			for _, row := range rows {
-				obj, getErr := s.cfg.Client.Dynamic.
-					Resource(agentctl.AgentWorkloadGVR).
-					Namespace(row.Namespace).
-					Get(ctx, row.Name, metav1.GetOptions{})
-				if getErr != nil {
-					continue
-				}
-				if obj.GetLabels()[key] == value {
-					filtered = append(filtered, row)
-				}
-			}
-			rows = filtered
+		if !ok || strings.TrimSpace(key) == "" || strings.ContainsAny(selector, ",!") {
+			return nil, fmt.Errorf("argument %q must be a single key=value selector, got %q", "labelSelector", selector)
 		}
+		listOpts.LabelSelector = key + "=" + value
 	}
 
-	items := make([]map[string]interface{}, 0, len(rows))
-	for _, row := range rows {
+	list, err := s.cfg.Client.Dynamic.Resource(agentctl.AgentWorkloadGVR).
+		Namespace(ns).
+		List(ctx, listOpts)
+	if err != nil {
+		return nil, fmt.Errorf("list agentworkloads: %w", err)
+	}
+
+	items := make([]map[string]interface{}, 0, len(list.Items))
+	for _, item := range list.Items {
+		phase, _, _ := unstructured.NestedString(item.Object, "status", "phase")
+		cost, _ := strconv.ParseFloat(item.GetAnnotations()[agentctl.CostAnnotationKey], 64)
 		items = append(items, map[string]interface{}{
-			"name":      row.Name,
-			"namespace": row.Namespace,
-			"status":    row.Status,
-			"model":     row.Model,
-			"costToday": row.CostToday,
-			"age":       row.Age,
+			"name":      item.GetName(),
+			"namespace": item.GetNamespace(),
+			"status":    phase,
+			"model":     agentctl.ExtractModel(item.Object),
+			"costToday": cost,
+			"age":       agentctl.AgeString(item.GetCreationTimestamp()),
 		})
 	}
 	return map[string]interface{}{
@@ -427,6 +462,16 @@ func (s *Server) getWorkloadCost(ctx context.Context, params map[string]interfac
 	}
 	ns := optionalString(params, "namespace")
 
+	// CostSummary swallows LiteLLM transport errors and returns (nil, nil)
+	// to keep the CLI snappy when telemetry is offline (see
+	// pkg/agentctl/cost.go). For an agent caller, "no spend yet" and
+	// "telemetry unreachable" must look different — otherwise we hide
+	// production telemetry failures from orchestrators. Probe the endpoint
+	// once before delegating so we can surface a real error.
+	if err := probeLiteLLM(ctx, s.cfg.LiteLLMURL); err != nil {
+		return nil, fmt.Errorf("cost endpoint unreachable: %w", err)
+	}
+
 	rows, err := s.cfg.Client.CostSummary(ctx, s.cfg.LiteLLMURL, ns, ns == "")
 	if err != nil {
 		return nil, err
@@ -451,6 +496,29 @@ func (s *Server) getWorkloadCost(ctx context.Context, params map[string]interfac
 		"costMtd":     float64(0),
 		"note":        "no cost records yet",
 	}, nil
+}
+
+// probeLiteLLM does a 1s GET on the configured endpoint and returns nil only
+// when the server responds with anything (any HTTP status, including 4xx).
+// Connection-level failures (DNS, refused, timeout) are surfaced as errors so
+// the cost handler can distinguish "telemetry down" from "no records yet".
+func probeLiteLLM(ctx context.Context, baseURL string) error {
+	if baseURL == "" {
+		return errors.New("litellm URL not configured")
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, baseURL+"/health", nil)
+	if err != nil {
+		return err
+	}
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	_ = resp.Body.Close()
+	return nil
 }
 
 func (s *Server) deleteWorkload(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
