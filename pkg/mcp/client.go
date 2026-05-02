@@ -45,9 +45,44 @@ type ToolResponse struct {
 	Success bool                   `json:"success"`
 }
 
-// ToolListResponse is the response for listing available tools
+// ToolListResponse is the legacy response shape for listing tools — a flat
+// list of tool names. Retained for backwards compat with the MockServer
+// emitter; new servers (`agentctl mcp serve`) emit ToolDescriptor objects.
+// MCPClient.ListTools accepts both shapes via toolListEntry below.
 type ToolListResponse struct {
 	Tools []string `json:"tools"`
+}
+
+// toolListResponseFlex decodes either the legacy `[]string` shape or the new
+// `[]ToolDescriptor` shape into a single Names slice. Used internally by
+// MCPClient.ListTools.
+type toolListResponseFlex struct {
+	Tools []toolListEntry `json:"tools"`
+}
+
+type toolListEntry struct {
+	Name string
+}
+
+// UnmarshalJSON accepts both `"name"` (string) and `{"name": "name", ...}`
+// (object) shapes.
+func (t *toolListEntry) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '"' {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		t.Name = s
+		return nil
+	}
+	var obj struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+	t.Name = obj.Name
+	return nil
 }
 
 // NewMCPClient creates a new MCP client for the given endpoint
@@ -73,12 +108,16 @@ func (c *MCPClient) ListTools() ([]string, error) {
 		return nil, fmt.Errorf("MCP server returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var toolResp ToolListResponse
+	var toolResp toolListResponseFlex
 	if err := json.NewDecoder(resp.Body).Decode(&toolResp); err != nil {
 		return nil, fmt.Errorf("failed to decode tool list: %w", err)
 	}
 
-	return toolResp.Tools, nil
+	names := make([]string, 0, len(toolResp.Tools))
+	for _, t := range toolResp.Tools {
+		names = append(names, t.Name)
+	}
+	return names, nil
 }
 
 // CallTool calls a specific tool on the MCP server with the given parameters
