@@ -1,0 +1,54 @@
+# helm-unittest spec for default-deny egress NetworkPolicy (issue #129).
+# Run with: helm unittest charts
+suite: networkpolicy default-deny egress
+templates:
+  - networkpolicy.yaml
+tests:
+  - it: renders a NetworkPolicy when networkPolicy.enabled=true
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      networkPolicy:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: NetworkPolicy
+      - equal:
+          path: apiVersion
+          value: networking.k8s.io/v1
+      - equal:
+          path: spec.podSelector.matchLabels["app.kubernetes.io/part-of"]
+          value: agentic-operator
+      - contains:
+          path: spec.policyTypes
+          content: Egress
+
+  - it: renders nothing when networkPolicy.enabled=false
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      networkPolicy:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: includes DNS allow-rule by default
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      networkPolicy:
+        enabled: true
+        denyEgressByDefault: true
+    asserts:
+      - contains:
+          path: spec.egress[0].ports
+          content:
+            port: 53
+            protocol: UDP

@@ -90,7 +90,16 @@ This document describes the security boundaries, threat vectors, and mitigations
 
 ### Egress Control
 
-Agent pods are restricted to allowlisted domains via Cilium FQDN-based eBPF policies.
+Agent pods are restricted to allowlisted domains. Two layers of enforcement:
+
+1. **Vanilla Kubernetes NetworkPolicy** (default, ships with the Helm chart per
+   [issue #129](https://github.com/Clawdlinux/agentic-operator-core/issues/129)).
+   Toggle via `networkPolicy.enabled` (default `true`). Source:
+   [`charts/templates/networkpolicy.yaml`](../charts/templates/networkpolicy.yaml).
+2. **Cilium FQDN policy** (optional, eBPF-enforced). Adds domain-level egress
+   allow-listing on top of the namespace-level NetworkPolicy. Gated behind
+   `networkPolicy.cilium.enabled` (default `false`); requires the Cilium CNI
+   and tracked alongside the v0.4 RuntimeClass work.
 
 **Default posture**: Deny all egress except:
 - LiteLLM proxy (internal)
@@ -101,7 +110,7 @@ Agent pods are restricted to allowlisted domains via Cilium FQDN-based eBPF poli
 
 External domains must be explicitly allowlisted in the AgentWorkload spec or Tenant policy.
 
-> **Note**: Cilium FQDN egress requires Cilium CNI. Vanilla Kubernetes installs use standard NetworkPolicy (namespace-level ingress/egress only).
+> **Note**: Cilium FQDN egress requires Cilium CNI. Vanilla Kubernetes installs use standard NetworkPolicy (namespace-level ingress/egress only) — that is what the chart ships by default.
 
 ### No Third-Party OAuth
 
