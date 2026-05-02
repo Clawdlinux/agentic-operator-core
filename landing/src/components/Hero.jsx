@@ -5,7 +5,7 @@ import ParticleNetwork from '../utils/particleNetwork';
 import { useTheme } from '../hooks/useTheme';
 
 const USE_CASES = [
-  'The only Kubernetes agent platform built for zero-egress, regulated environments.',
+  'The Kubernetes runtime API that AI agents call to provision their own air-gapped execution environments.',
   'Air-gapped capable — can run with zero cloud egress, no telemetry, no licensing callbacks.',
   'Argo Workflows executes agent steps as observable DAGs with retries.',
   'Per-tenant cost attribution with OpenMeter — chargeback to any business unit.',

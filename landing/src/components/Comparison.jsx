@@ -144,7 +144,7 @@ const Comparison = () => {
             </div>
             <div className="text-center">
               <div className="font-bold text-base" style={{ color: currentTheme.accent.teal }}>
-                Agentic Operator
+                NineVigil
               </div>
               <div className="text-xs mt-1" style={{ color: currentTheme.text.muted }}>
                 Apache 2.0 · Zero-egress

@@ -1,6 +1,6 @@
 # Contributing
 
-Help improve Agentic Operator!
+Help improve NineVigil!
 
 ## Development Setup
 

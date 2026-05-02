@@ -1,10 +1,10 @@
-# Threat Model — Agentic Operator
+# Threat Model — NineVigil
 
 > Last updated: 2026-04-21
 
 ## Scope
 
-This document describes the security boundaries, threat vectors, and mitigations for the Agentic Operator platform — a Kubernetes-native system for scheduling, isolating, and managing AI agent workloads.
+This document describes the security boundaries, threat vectors, and mitigations for the NineVigil platform — a Kubernetes-native system for scheduling, isolating, and managing AI agent workloads.
 
 ## Trust Boundaries
 

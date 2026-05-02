@@ -2,7 +2,7 @@
 
 ## Overview
 
-The A2A system enables agents running in the Agentic Operator to discover,
+The A2A system enables agents running in the NineVigil to discover,
 delegate tasks to, and receive results from peer agents — across namespaces
 and workloads.
 
