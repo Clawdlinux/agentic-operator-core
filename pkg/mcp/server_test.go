@@ -182,8 +182,8 @@ func TestGetWorkloadLogs(t *testing.T) {
 			Name:      "logs-1-runtime",
 			Namespace: agentctl.DefaultArgoNamespace,
 			Labels: map[string]string{
-				"agentic.io/job-id":            "logs-1",
-				agentctl.RoleLabelKey:          "runtime",
+				"agentic.io/job-id":   "logs-1",
+				agentctl.RoleLabelKey: "runtime",
 			},
 		},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "agent"}}},
