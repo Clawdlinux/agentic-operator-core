@@ -103,6 +103,38 @@ cloudflareAI:
   defaultModel: "@cf/meta/llama-2-7b-chat-int8"
 
 # ---------------------------------------------------------------------------
+# Web UI — agentctl-web proxy (issue #134)
+# Lightweight in-cluster UI that proxies agentctl operations to a browser.
+# Auth: K8s TokenReview + SubjectAccessReview (RBAC-bounded).
+# Default OFF in v0.3; target ON in v0.4.
+# ---------------------------------------------------------------------------
+webUI:
+  enabled: false
+  replicaCount: 1
+  image:
+    tag: ""                  # Defaults to Chart.AppVersion
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+  service:
+    type: ClusterIP
+    port: 8090
+  ingress:
+    enabled: false
+    className: ""
+    host: "agentctl.example.com"
+    annotations: {}
+    tls: []
+    #  - hosts:
+    #      - agentctl.example.com
+    #    secretName: agentctl-tls
+
+# ---------------------------------------------------------------------------
 # Argo Workflows
 # ---------------------------------------------------------------------------
 argo:

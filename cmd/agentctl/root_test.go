@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	agentctl "github.com/shreyansh/agentic-operator/pkg/agentctl"
 )
 
 func TestNewRootCommand_ContainsRequiredSubcommands(t *testing.T) {
@@ -122,8 +124,8 @@ func TestPrintStructured_JSONAndYAML(t *testing.T) {
 	rows := []workloadRow{{Name: "w1", Namespace: "ns1", Status: "Running", Model: "m1", CostToday: 1.23, Age: "1h"}}
 
 	var jsonBuf bytes.Buffer
-	if err := printStructured(&jsonBuf, rows, "json"); err != nil {
-		t.Fatalf("printStructured json error: %v", err)
+	if err := agentctl.PrintStructured(&jsonBuf, rows, "json"); err != nil {
+		t.Fatalf("PrintStructured json error: %v", err)
 	}
 	var decoded []workloadRow
 	if err := json.Unmarshal(jsonBuf.Bytes(), &decoded); err != nil {
@@ -134,34 +136,10 @@ func TestPrintStructured_JSONAndYAML(t *testing.T) {
 	}
 
 	var yamlBuf bytes.Buffer
-	if err := printStructured(&yamlBuf, rows, "yaml"); err != nil {
-		t.Fatalf("printStructured yaml error: %v", err)
+	if err := agentctl.PrintStructured(&yamlBuf, rows, "yaml"); err != nil {
+		t.Fatalf("PrintStructured yaml error: %v", err)
 	}
 	if !strings.Contains(yamlBuf.String(), "name: w1") {
 		t.Fatalf("yaml output missing expected field, got: %s", yamlBuf.String())
-	}
-}
-
-func TestExtractRecords(t *testing.T) {
-	record := map[string]interface{}{"workload": "alpha", "cost": 0.5}
-
-	tests := []struct {
-		name    string
-		payload interface{}
-		wantLen int
-	}{
-		{name: "array payload", payload: []interface{}{record}, wantLen: 1},
-		{name: "map data payload", payload: map[string]interface{}{"data": []interface{}{record}}, wantLen: 1},
-		{name: "map logs payload", payload: map[string]interface{}{"logs": []interface{}{record}}, wantLen: 1},
-		{name: "empty payload", payload: map[string]interface{}{}, wantLen: 0},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := extractRecords(tc.payload)
-			if len(got) != tc.wantLen {
-				t.Fatalf("records len = %d, want %d", len(got), tc.wantLen)
-			}
-		})
 	}
 }

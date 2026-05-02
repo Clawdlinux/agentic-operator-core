@@ -1,0 +1,41 @@
+{{define "status.html"}}
+<div class="status-cards">
+    <div class="stat-card">
+        <div class="stat-value">{{.Status.ClusterVersion}}</div>
+        <div class="stat-label">Kubernetes</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{safeText .Status.OperatorVersion "n/a"}}</div>
+        <div class="stat-label">Operator</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{.Status.TotalWorkloads}}</div>
+        <div class="stat-label">Workloads</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{fmtCost .Status.TotalCostToday}}</div>
+        <div class="stat-label">Cost Today</div>
+    </div>
+</div>
+
+<div class="phase-summary">
+    {{range $phase, $count := .Status.PhaseCounts}}
+    <span class="badge badge-{{lower $phase}}">{{phaseIcon $phase}} {{$phase}}: {{$count}}</span>
+    {{end}}
+</div>
+
+<div class="component-list">
+    <h3>Components</h3>
+    {{range .Status.Components}}
+    <div class="component-row">
+        {{if .Available}}
+        <span class="status-dot status-ok"></span>
+        {{else}}
+        <span class="status-dot status-err"></span>
+        {{end}}
+        <span class="component-name">{{.Name}}</span>
+        <span class="component-endpoint">{{safeText .Endpoint "not found"}}</span>
+    </div>
+    {{end}}
+</div>
+{{end}}

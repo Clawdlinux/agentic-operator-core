@@ -1,0 +1,23 @@
+{{template "layout.html" .}}
+{{define "title"}}Dashboard{{end}}
+{{define "content"}}
+<div class="dashboard">
+    <!-- Status Summary -->
+    <section class="status-panel" hx-get="/status" hx-trigger="every 30s" hx-swap="innerHTML">
+        {{template "status.html" .}}
+    </section>
+
+    <!-- Workloads Table -->
+    <section class="workloads-panel">
+        <div class="panel-header">
+            <h2>Workloads</h2>
+            <button class="btn btn-sm btn-secondary" hx-get="/workloads" hx-target="#workload-table" hx-swap="innerHTML">
+                ↻ Refresh
+            </button>
+        </div>
+        <div id="workload-table" hx-get="/workloads" hx-trigger="every 15s" hx-swap="innerHTML">
+            {{template "workloads.html" .}}
+        </div>
+    </section>
+</div>
+{{end}}

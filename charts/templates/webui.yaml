@@ -1,0 +1,179 @@
+{{- if .Values.webUI.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-webui
+  namespace: {{ include "agentic-operator.namespace" . }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webui
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-webui
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webui
+rules:
+  # TokenReview for authenticating user tokens
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+  # SubjectAccessReview for authorization checks
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+  # Read AgentWorkload CRDs
+  - apiGroups: ["agentic.clawdlinux.org"]
+    resources: ["agentworkloads", "agentworkloads/status"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  # Read cluster info + services for component health
+  - apiGroups: [""]
+    resources: ["services", "namespaces"]
+    verbs: ["get", "list"]
+  # Read deployments for operator version detection
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+  # Argo Workflow resume support
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflows"]
+    verbs: ["get", "list", "patch"]
+  # Pod logs for workload log streaming
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-webui
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webui
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "agentic-operator.fullname" . }}-webui
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "agentic-operator.fullname" . }}-webui
+    namespace: {{ include "agentic-operator.namespace" . }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-webui
+  namespace: {{ include "agentic-operator.namespace" . }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webui
+spec:
+  replicas: {{ .Values.webUI.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agentic-operator.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: webui
+  template:
+    metadata:
+      labels:
+        {{- include "agentic-operator.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: webui
+    spec:
+      serviceAccountName: {{ include "agentic-operator.fullname" . }}-webui
+      {{- include "agentic-operator.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agentctl-web
+          image: "{{ .Values.global.imageRegistry }}/agentctl-web:{{ .Values.webUI.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.webUI.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8090
+              protocol: TCP
+          args:
+            - "--addr=:8090"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.webUI.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-webui
+  namespace: {{ include "agentic-operator.namespace" . }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webui
+spec:
+  type: {{ .Values.webUI.service.type }}
+  ports:
+    - port: {{ .Values.webUI.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "agentic-operator.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: webui
+{{- if .Values.webUI.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-webui
+  namespace: {{ include "agentic-operator.namespace" . }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webui
+  {{- with .Values.webUI.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.webUI.ingress.className }}
+  ingressClassName: {{ .Values.webUI.ingress.className }}
+  {{- end }}
+  {{- if .Values.webUI.ingress.tls }}
+  tls:
+    {{- range .Values.webUI.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.webUI.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "agentic-operator.fullname" . }}-webui
+                port:
+                  number: {{ .Values.webUI.service.port }}
+{{- end }}
+{{- end }}
