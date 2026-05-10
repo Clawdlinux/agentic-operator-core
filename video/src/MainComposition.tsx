@@ -474,7 +474,7 @@ const Scene5CTA: React.FC = () => {
           marginTop: 24,
         }}
       >
-        clawdlinux.org · discord.gg/2yJsjhPe
+        clawdlinux.org · discord.gg/XtxRdBzZcK
       </div>
     </AbsoluteFill>
   );

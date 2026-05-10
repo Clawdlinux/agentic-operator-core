@@ -6,6 +6,7 @@ import Hero from './components/Hero';
 import StatsBar from './components/StatsBar';
 import Positioning from './components/Positioning';
 import Comparison from './components/Comparison';
+import ProductsAcl from './components/ProductsAcl';
 import Features from './components/Features';
 import Architecture from './components/Architecture';
 import OpenSource from './components/OpenSource';
@@ -37,6 +38,8 @@ export default function App() {
         <Positioning />
 
         <Comparison />
+
+        <ProductsAcl />
 
         <section id="architecture">
           <Architecture />
