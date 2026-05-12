@@ -89,3 +89,11 @@ enterprise/licensing/*
 !assets/*.gif
 !assets/*.png
 video/package-lock.json
+
+# Local IDE / agent / cluster artefacts (not part of the codebase)
+.vscode/
+.obsidian/
+.github/copilot-instructions.md
+_artifacts/
+# Built CLI binary lives at bin/agentctl-web; never commit at repo root
+/agentctl-web

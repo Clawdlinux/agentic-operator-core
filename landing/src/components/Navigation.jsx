@@ -7,13 +7,14 @@ import ThemeToggle from './ThemeToggle';
 const NAV_LINKS = [
   { label: 'Why Now', href: '#positioning' },
   { label: 'Compare', href: '#comparison' },
+  { label: 'Products', href: '#products' },
   { label: 'How It Works', href: '#architecture' },
   { label: 'Features', href: '#features' },
   { label: 'Open Source', href: '#open-source' },
 ];
 
 const GITHUB_URL = 'https://github.com/Clawdlinux/agentic-operator-core';
-const DISCORD_URL = 'https://discord.gg/2yJsjhPe';
+const DISCORD_URL = 'https://discord.gg/XtxRdBzZcK';
 const DEMO_EMAIL_URL = 'mailto:007ssancheti@gmail.com?subject=Agentic%20Operator%20Inquiry';
 const NAV_SCROLL_OFFSET = 88;
 
