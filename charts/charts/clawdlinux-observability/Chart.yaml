@@ -1,0 +1,45 @@
+apiVersion: v2
+name: clawdlinux-observability
+description: |
+  Air-gapped, OpenTelemetry-native observability stack for Clawdlinux
+  agentic workloads. Deploys a curated bundle of OTel Collector + Tempo +
+  Prometheus + Grafana + ClickHouse + Qdrant with pre-built dashboards
+  that understand AgentWorkload CRDs, ACP manifest IDs, and LangGraph
+  state transitions.
+
+  Modes:
+    * lite (default) — single-replica everything, ~1.5 GiB total. Fits a
+      4 GiB demo cluster and the 8 GiB droplet MVP.
+    * full          — sharded ClickHouse, Mimir for metrics, Loki for logs,
+      multi-replica Grafana with persistence.
+
+  This is the OPEN-SOURCE bundle. The proprietary Audit layer
+  (deterministic replay, hash-chained tamper-evident log, autonomous
+  failure clustering) ships as a separate sub-chart and requires a
+  Clawdlinux Audit license.
+
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://clawdlinux.org/products/audit
+sources:
+  - https://github.com/Clawdlinux/agentic-operator-core
+maintainers:
+  - name: Clawdlinux
+    email: team@clawdlinux.org
+keywords:
+  - observability
+  - opentelemetry
+  - tempo
+  - clickhouse
+  - genai
+  - agents
+  - audit
+  - compliance
+icon: https://clawdlinux.org/icons/audit.svg
+
+# We deliberately do NOT pull upstream charts as `dependencies:` — operators
+# of regulated air-gapped clusters need every image and template materialized
+# in this chart so they can mirror to a private registry without surprises.
+# The templates render lean Deployments/StatefulSets directly. See
+# templates/README.md for the rationale.

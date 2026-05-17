@@ -1,0 +1,81 @@
+{{- if .Values.qdrant.enabled }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-qdrant
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "qdrant") .) | nindent 4 }}
+spec:
+  serviceName: {{ include "clawd-observability.fullname" . }}-qdrant
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: qdrant
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: qdrant
+    spec:
+      containers:
+        - name: qdrant
+          image: {{ include "clawd-observability.image" (dict "image" .Values.qdrant.image "root" .) }}
+          ports:
+            - containerPort: 6333
+              name: http
+            - containerPort: 6334
+              name: grpc
+          resources:
+            {{- toYaml .Values.qdrant.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /qdrant/storage
+          readinessProbe:
+            httpGet: { path: /readyz, port: 6333 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+{{- if not .Values.qdrant.persistence.enabled }}
+      volumes:
+        - name: data
+          emptyDir: {}
+{{- end }}
+{{- if .Values.qdrant.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+{{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+{{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.qdrant.persistence.size }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-qdrant
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "qdrant") .) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: qdrant
+  ports:
+    - name: http
+      port: {{ .Values.qdrant.service.httpPort }}
+      targetPort: http
+    - name: grpc
+      port: {{ .Values.qdrant.service.grpcPort }}
+      targetPort: grpc
+{{- end }}

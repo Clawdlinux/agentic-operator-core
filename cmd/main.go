@@ -19,9 +19,11 @@ package main
 // OSS-PRIVATE-ALLOW: Mentions of SLA in comments are transitional and non-enforcing in OSS.
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -41,8 +43,12 @@ import (
 	"github.com/shreyansh/agentic-operator/internal/controller"
 	"github.com/shreyansh/agentic-operator/pkg/evaluation"
 	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
+	"github.com/shreyansh/agentic-operator/pkg/otel/genai"
 	// +kubebuilder:scaffold:imports
 )
+
+// operatorVersion is overridden at build time via -ldflags.
+var operatorVersion = "0.1.0-dev"
 
 var (
 	scheme   = runtime.NewScheme()
@@ -90,6 +96,32 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	// Bootstrap OpenTelemetry GenAI tracing. The endpoint is configured via
+	// OTEL_EXPORTER_OTLP_ENDPOINT (env). When the env is unset, this is a
+	// no-op and the operator runs with tracing disabled — required for
+	// air-gapped lite deployments where no collector is present.
+	otelCtx, otelCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	otelShutdown, err := genai.Init(otelCtx, genai.ProviderConfig{
+		ServiceName:    "agentic-operator",
+		ServiceVersion: operatorVersion,
+		Environment:    os.Getenv("CLAWD_DEPLOYMENT_ENV"),
+		Resource: map[string]string{
+			"clawd.component": "operator",
+		},
+	})
+	otelCancel()
+	if err != nil {
+		setupLog.Error(err, "Failed to initialize OpenTelemetry; tracing disabled")
+		otelShutdown = func(context.Context) error { return nil }
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := otelShutdown(shutdownCtx); err != nil {
+			setupLog.Error(err, "OpenTelemetry shutdown error")
+		}
+	}()
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will

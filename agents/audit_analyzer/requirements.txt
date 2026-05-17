@@ -1,0 +1,29 @@
+# Runtime requirements for the audit analyzer.
+#
+# The ML stack is intentionally version-pinned narrowly — we want
+# reproducible builds for compliance customers who attest to specific
+# image hashes.
+
+# Web surface
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+
+# Database / vector
+clickhouse-driver==0.2.9
+qdrant-client==1.12.0
+
+# Embeddings + clustering
+sentence-transformers==3.3.1
+hdbscan==0.8.40
+numpy==1.26.4
+
+# LLM client (talks to local LiteLLM proxy; no network egress needed)
+openai==1.59.0
+
+# Observability — emit our own spans so the analyzer is itself observable
+opentelemetry-api==1.41.1
+opentelemetry-sdk==1.41.1
+opentelemetry-exporter-otlp-proto-grpc==1.41.1
+
+# Test deps moved to requirements-test.txt at repo root
