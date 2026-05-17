@@ -6,7 +6,7 @@ Licensed under the Apache License, Version 2.0.
 // Package audit implements a tamper-evident, hash-chained, HMAC-signed
 // append-only ledger for Clawdlinux agent activity.
 //
-// Design rationale
+// # Design rationale
 //
 // Regulated buyers (hedge funds, banks, defence integrators) need to be able
 // to demonstrate to a regulator (SEC, FINRA, FCA, OCC, FedRAMP auditor) that
@@ -14,12 +14,12 @@ Licensed under the Apache License, Version 2.0.
 // every tool execution, every HITL approval, every state transition — has
 // been recorded in a way that:
 //
-//   1. Is append-only: rows cannot be modified after the fact.
-//   2. Is tamper-evident: any insertion, deletion, or modification breaks
-//      a cryptographic chain that subsequent rows depend on.
-//   3. Is independently verifiable: a third party can take a database
-//      snapshot, recompute the chain offline, and compare against an
-//      externally published Merkle head.
+//  1. Is append-only: rows cannot be modified after the fact.
+//  2. Is tamper-evident: any insertion, deletion, or modification breaks
+//     a cryptographic chain that subsequent rows depend on.
+//  3. Is independently verifiable: a third party can take a database
+//     snapshot, recompute the chain offline, and compare against an
+//     externally published Merkle head.
 //
 // We achieve (1) via ClickHouse's MergeTree table family + an explicit
 // WORM policy at deployment (no UPDATE/DELETE grants on the audit user).
@@ -36,10 +36,10 @@ Licensed under the Apache License, Version 2.0.
 //
 // Wire format for the per-row entry hash:
 //
-//   entry_hash = SHA256(
-//       LE64(seq) || LE64(ts_unix_nano) || LP(tenant_id) ||
-//       LP(agent_workload) || LP(actor) || U8(action) ||
-//       LP(subject_id) || payload_sha256(32) || prev_hash(32))
+//	entry_hash = SHA256(
+//	    LE64(seq) || LE64(ts_unix_nano) || LP(tenant_id) ||
+//	    LP(agent_workload) || LP(actor) || U8(action) ||
+//	    LP(subject_id) || payload_sha256(32) || prev_hash(32))
 //
 // where LE64 is little-endian 8-byte integer, LP is uint32 length-prefixed
 // bytes, and U8 is a single byte. The encoding is fixed-format so two

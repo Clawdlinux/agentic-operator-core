@@ -28,7 +28,7 @@ license:
   key: ""           # REQUIRED — your license key
   publicKey: ""     # REQUIRED — RSA public key used to verify the license
   seats: 1          # Number of licensed concurrent agent seats (>= 1)
-  tier: trial       # One of: trial | basic | pro | enterprise
+  tier: trial       # One of: trial | basic | pro | advanced
 
 # ---------------------------------------------------------------------------
 # Main agentic-operator subchart
@@ -398,4 +398,4 @@ observability:
   auditLog:
     enabled: true
   auditAnalyzer:
-    enabled: false             # commercial tier; requires license
+    enabled: false             # production tier; requires license

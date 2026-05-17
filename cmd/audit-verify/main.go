@@ -10,11 +10,11 @@ Licensed under the Apache License, Version 2.0.
 //
 // Two read modes are supported:
 //
-//   --source clickhouse  Reads agent_audit_v1 from a ClickHouse cluster.
-//                        Default endpoint: $CLICKHOUSE_HOST or localhost.
-//   --source jsonl       Reads newline-delimited JSON entries from --path
-//                        (or stdin). Useful for offline replay of an
-//                        exported audit dump in an air-gapped review room.
+//	--source clickhouse  Reads agent_audit_v1 from a ClickHouse cluster.
+//	                     Default endpoint: $CLICKHOUSE_HOST or localhost.
+//	--source jsonl       Reads newline-delimited JSON entries from --path
+//	                     (or stdin). Useful for offline replay of an
+//	                     exported audit dump in an air-gapped review room.
 //
 // Signing keys are loaded from --keys (one or more files of the form
 // "kid=base64(key)"). A separate --checkpoints flag accepts a JSONL file

@@ -152,7 +152,7 @@ qdrant:
 
 # ---------------------------------------------------------------------------
 # Audit log — tamper-evident, hash-chained ClickHouse table.
-# Open-source schema and verifier; enterprise ships the Rekor checkpoint
+# Open-source schema and verifier; advanced tier ships the Rekor checkpoint
 # integration and the GUI compliance reports.
 # ---------------------------------------------------------------------------
 auditLog:
