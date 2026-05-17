@@ -1,0 +1,189 @@
+# =============================================================================
+# clawdlinux-observability — defaults
+# =============================================================================
+#
+# Two top-level modes are supported:
+#
+#   mode: lite   — single-replica, no persistence, fits a 4 GiB cluster
+#   mode: full   — production: persistence, replicas, retention policies
+#
+# Component flags below let you opt out of individual pieces when an existing
+# cluster already runs them (e.g. external Prometheus + Grafana). The
+# OTLP collector is always required because the operator emits to it.
+# =============================================================================
+
+global:
+  # Default registry mirror for air-gapped installs.
+  imageRegistry: "docker.io"
+  imagePullSecrets: []
+  storageClass: ""
+  namespace: clawdlinux-observability
+
+mode: lite  # lite | full
+
+# ---------------------------------------------------------------------------
+# OpenTelemetry Collector
+# ---------------------------------------------------------------------------
+otelCollector:
+  enabled: true
+  image:
+    repository: otel/opentelemetry-collector-contrib
+    tag: "0.105.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  service:
+    grpcPort: 4317
+    httpPort: 4318
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }
+  # Tail sampling: keep 100% of error traces, 10% of OK traces.
+  tailSampling:
+    enabled: true
+    okSampleRatio: 0.10
+  # Where to send traces. Default: bundled Tempo. Override to ship to
+  # an existing Tempo/Datadog/Splunk endpoint.
+  tracesExporter: "otlp/tempo"
+  # Where to send metrics. Default: bundled Prometheus via remote write.
+  metricsExporter: "prometheusremotewrite"
+
+# ---------------------------------------------------------------------------
+# Grafana Tempo (single-binary mode by default)
+# ---------------------------------------------------------------------------
+tempo:
+  enabled: true
+  image:
+    repository: grafana/tempo
+    tag: "2.6.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "1000m", memory: "1Gi" }
+  retention: "168h"  # 7 days for lite, override for full
+  persistence:
+    enabled: false
+    size: "10Gi"
+  # Optional: ship blocks to S3/MinIO for long-term retention.
+  storage:
+    backend: "local"  # local | s3 | gcs | azure
+    s3: {}
+
+# ---------------------------------------------------------------------------
+# Prometheus (single-binary)
+# ---------------------------------------------------------------------------
+prometheus:
+  enabled: true
+  image:
+    repository: prom/prometheus
+    tag: "v3.1.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: "100m", memory: "512Mi" }
+    limits:   { cpu: "1000m", memory: "1Gi" }
+  retention: "15d"
+  persistence:
+    enabled: false
+    size: "20Gi"
+
+# ---------------------------------------------------------------------------
+# Grafana
+# ---------------------------------------------------------------------------
+grafana:
+  enabled: true
+  image:
+    repository: grafana/grafana
+    tag: "11.4.0"
+    pullPolicy: IfNotPresent
+  adminUser: admin
+  adminPassword: ""    # auto-generated if empty
+  service:
+    type: ClusterIP
+    port: 3000
+  persistence:
+    enabled: false
+    size: "5Gi"
+  # Pre-installed dashboards (rendered as ConfigMaps).
+  dashboards:
+    enabled: true
+    folder: "Clawdlinux"
+
+# ---------------------------------------------------------------------------
+# ClickHouse — analytical trace store + audit log substrate
+# ---------------------------------------------------------------------------
+clickhouse:
+  enabled: true
+  image:
+    repository: clickhouse/clickhouse-server
+    tag: "24.10"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests: { cpu: "200m", memory: "1Gi" }
+    limits:   { cpu: "2000m", memory: "2Gi" }
+  service:
+    httpPort: 8123
+    nativePort: 9000
+  persistence:
+    enabled: true       # default ON because losing audit data is unacceptable
+    size: "20Gi"
+  # Default user; override in production via secret.
+  user: clawd
+  password: ""          # auto-generated if empty
+  database: clawd_observability
+
+# ---------------------------------------------------------------------------
+# Qdrant — vector store for the clustering analyzer
+# ---------------------------------------------------------------------------
+qdrant:
+  enabled: true
+  image:
+    repository: qdrant/qdrant
+    tag: "v1.12.0"
+    pullPolicy: IfNotPresent
+  service:
+    httpPort: 6333
+    grpcPort: 6334
+  persistence:
+    enabled: true
+    size: "5Gi"
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "1000m", memory: "1Gi" }
+
+# ---------------------------------------------------------------------------
+# Audit log — tamper-evident, hash-chained ClickHouse table.
+# Open-source schema and verifier; enterprise ships the Rekor checkpoint
+# integration and the GUI compliance reports.
+# ---------------------------------------------------------------------------
+auditLog:
+  enabled: true
+  # Bootstrap job that creates the agent_audit_v1 table on first install.
+  schemaBootstrap: true
+  # Where the Merkle head checkpoint is published. Always written to a
+  # ConfigMap in the operator namespace; optionally mirrored to Rekor.
+  checkpoint:
+    configMapName: clawd-audit-head
+    intervalSeconds: 300
+    everyNRows: 10000
+  rekor:
+    enabled: false
+    url: ""
+
+# ---------------------------------------------------------------------------
+# Audit Analyzer — clustering service.
+# This is the proprietary surface; runs only when a Clawdlinux Audit
+# license key is provided. Default: disabled in OSS install.
+# ---------------------------------------------------------------------------
+auditAnalyzer:
+  enabled: false
+  image:
+    repository: ghcr.io/clawdlinux/audit-analyzer
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  schedule: "0 2 * * *"  # nightly at 02:00 UTC
+  embeddingModel: "sentence-transformers/all-MiniLM-L6-v2"
+  llmEndpoint: "http://litellm:4000/v1"
+  llmModel: "local-llama-3.3-70b"
+  resources:
+    requests: { cpu: "500m", memory: "2Gi" }
+    limits:   { cpu: "2000m", memory: "4Gi" }

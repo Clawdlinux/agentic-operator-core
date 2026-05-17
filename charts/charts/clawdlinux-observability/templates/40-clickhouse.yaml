@@ -1,0 +1,178 @@
+{{- if .Values.clickhouse.enabled }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-clickhouse
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "clickhouse") .) | nindent 4 }}
+type: Opaque
+stringData:
+  user: {{ .Values.clickhouse.user | quote }}
+  password: {{ .Values.clickhouse.password | default (randAlphaNum 32) | quote }}
+  database: {{ .Values.clickhouse.database | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-clickhouse-init
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "clickhouse") .) | nindent 4 }}
+data:
+  01-database.sql: |
+    CREATE DATABASE IF NOT EXISTS {{ .Values.clickhouse.database }};
+  02-otel_traces.sql: |
+    -- Schema written by the otel/clickhouse exporter on first connect; we
+    -- pre-create an empty database so the exporter has somewhere to land.
+{{- if .Values.auditLog.enabled }}
+  03-audit-log.sql: |
+    CREATE TABLE IF NOT EXISTS {{ .Values.clickhouse.database }}.agent_audit_v1
+    (
+        seq UInt64,
+        ts_unix_nano UInt64,
+        tenant_id LowCardinality(String),
+        agent_workload String,
+        actor String,
+        action Enum8(
+            'llm_call' = 1,
+            'tool_call' = 2,
+            'hitl_approve' = 3,
+            'hitl_reject' = 4,
+            'manifest_emit' = 5,
+            'state_change' = 6,
+            'replay' = 7
+        ),
+        subject_id String,
+        payload_canonical String CODEC(ZSTD(3)),
+        payload_sha256 FixedString(32),
+        prev_hash FixedString(32),
+        entry_hash FixedString(32),
+        signer_kid LowCardinality(String),
+        signature FixedString(32),
+        INDEX idx_tenant tenant_id TYPE set(0) GRANULARITY 4,
+        INDEX idx_subject subject_id TYPE bloom_filter() GRANULARITY 4
+    )
+    ENGINE = MergeTree()
+    ORDER BY (tenant_id, seq)
+    PARTITION BY toYYYYMM(toDateTime(ts_unix_nano / 1000000000))
+    SETTINGS index_granularity = 8192;
+
+    CREATE TABLE IF NOT EXISTS {{ .Values.clickhouse.database }}.audit_checkpoints_v1
+    (
+        ts_unix_nano UInt64,
+        tenant_id LowCardinality(String),
+        head_seq UInt64,
+        head_entry_hash FixedString(32),
+        signer_kid LowCardinality(String),
+        signature FixedString(32),
+        published_to Enum8('configmap' = 1, 'rekor' = 2, 'both' = 3)
+    )
+    ENGINE = MergeTree()
+    ORDER BY (tenant_id, head_seq);
+{{- end }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-clickhouse
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "clickhouse") .) | nindent 4 }}
+spec:
+  serviceName: {{ include "clawd-observability.fullname" . }}-clickhouse
+  replicas: {{ .Values.clickhouse.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: clickhouse
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: clickhouse
+    spec:
+      containers:
+        - name: clickhouse
+          image: {{ include "clawd-observability.image" (dict "image" .Values.clickhouse.image "root" .) }}
+          ports:
+            - containerPort: 8123
+              name: http
+            - containerPort: 9000
+              name: native
+          env:
+            - name: CLICKHOUSE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "clawd-observability.fullname" . }}-clickhouse
+                  key: user
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "clawd-observability.fullname" . }}-clickhouse
+                  key: password
+            - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+              value: "1"
+          resources:
+            {{- toYaml .Values.clickhouse.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/clickhouse
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            httpGet: { path: /ping, port: 8123 }
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /ping, port: 8123 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: init
+          configMap:
+            name: {{ include "clawd-observability.fullname" . }}-clickhouse-init
+{{- if not .Values.clickhouse.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+{{- end }}
+{{- if .Values.clickhouse.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+{{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+{{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.clickhouse.persistence.size }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-clickhouse
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "clickhouse") .) | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None    # headless for stable DNS in StatefulSet
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: clickhouse
+  ports:
+    - name: http
+      port: 8123
+      targetPort: http
+    - name: native
+      port: 9000
+      targetPort: native
+{{- end }}

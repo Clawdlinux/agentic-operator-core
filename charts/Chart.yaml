@@ -39,3 +39,8 @@ dependencies:
     version: "0.1.0"
     repository: "file://charts/postgresql"
     condition: postgresql.enabled
+  - name: clawdlinux-observability
+    version: "0.1.0"
+    repository: "file://charts/clawdlinux-observability"
+    condition: clawdlinuxObservability.enabled
+    alias: observability

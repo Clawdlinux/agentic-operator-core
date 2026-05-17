@@ -1,0 +1,219 @@
+{{- if .Values.otelCollector.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-otel-collector-config
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "otel-collector") .) | nindent 4 }}
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      # Scrape the operator's own /metrics so OTel Collector also forwards
+      # the Prometheus instruments the controller already exposes.
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: agentic-operator
+              scrape_interval: 30s
+              static_configs:
+                - targets: ['agentic-operator-metrics-service.agentic-system.svc:8443']
+
+    processors:
+      batch:
+        timeout: 2s
+        send_batch_size: 512
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 75
+        spike_limit_percentage: 25
+      # Drop spans whose attribute values look like secrets. Last line of
+      # defense before traces leave the cluster.
+      attributes/redact_secrets:
+        actions:
+          - key: gen_ai.request.messages
+            action: delete
+          - key: gen_ai.response.messages
+            action: delete
+          - key: http.request.header.authorization
+            action: delete
+          - key: http.request.header.cookie
+            action: delete
+{{- if .Values.otelCollector.tailSampling.enabled }}
+      tail_sampling:
+        decision_wait: 10s
+        num_traces: 50000
+        expected_new_traces_per_sec: 100
+        policies:
+          - name: errors
+            type: status_code
+            status_code:
+              status_codes: [ERROR]
+          - name: hitl
+            type: string_attribute
+            string_attribute:
+              key: gen_ai.operation.name
+              values: [invoke_agent]
+              # Always sample agent root spans so that downstream replay
+              # has the full trace.
+          - name: probabilistic_ok
+            type: probabilistic
+            probabilistic:
+              sampling_percentage: {{ mulf .Values.otelCollector.tailSampling.okSampleRatio 100.0 }}
+{{- end }}
+
+    exporters:
+{{- if .Values.tempo.enabled }}
+      otlp/tempo:
+        endpoint: {{ include "clawd-observability.tempo.endpoint" . }}
+        tls:
+          insecure: true
+        sending_queue:
+          enabled: true
+          num_consumers: 4
+          queue_size: 5000
+        retry_on_failure:
+          enabled: true
+{{- end }}
+{{- if .Values.prometheus.enabled }}
+      prometheusremotewrite:
+        endpoint: http://{{ include "clawd-observability.fullname" . }}-prometheus:9090/api/v1/write
+        tls:
+          insecure: true
+        resource_to_telemetry_conversion:
+          enabled: true
+{{- end }}
+{{- if .Values.clickhouse.enabled }}
+      # Mirror traces to ClickHouse for analytical queries (cost-by-agent,
+      # per-tenant token spend rollups, audit-log link lookups). The
+      # contrib distribution ships clickhouse exporter natively.
+      clickhouse:
+        endpoint: tcp://{{ include "clawd-observability.clickhouse.host" . }}:9000
+        database: {{ .Values.clickhouse.database }}
+        username: {{ .Values.clickhouse.user }}
+        password: ${env:CLICKHOUSE_PASSWORD}
+        traces_table_name: otel_traces
+        logs_table_name: otel_logs
+        ttl: 720h
+        timeout: 10s
+{{- end }}
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors:
+{{- if .Values.otelCollector.tailSampling.enabled }}
+            - memory_limiter
+            - attributes/redact_secrets
+            - tail_sampling
+            - batch
+{{- else }}
+            - memory_limiter
+            - attributes/redact_secrets
+            - batch
+{{- end }}
+          exporters:
+{{- if .Values.tempo.enabled }}
+            - otlp/tempo
+{{- end }}
+{{- if .Values.clickhouse.enabled }}
+            - clickhouse
+{{- end }}
+        metrics:
+          receivers: [otlp, prometheus]
+          processors: [memory_limiter, batch]
+          exporters:
+{{- if .Values.prometheus.enabled }}
+            - prometheusremotewrite
+{{- end }}
+      telemetry:
+        logs:
+          level: info
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-otel-collector
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "otel-collector") .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.otelCollector.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: otel-collector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: otel-collector
+      annotations:
+        # Force restart when config changes.
+        checksum/config: {{ tpl (toYaml .Values.otelCollector) . | sha256sum }}
+    spec:
+      containers:
+        - name: collector
+          image: {{ include "clawd-observability.image" (dict "image" .Values.otelCollector.image "root" .) }}
+          imagePullPolicy: {{ .Values.otelCollector.image.pullPolicy }}
+          args: ["--config=/conf/config.yaml"]
+          ports:
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+          env:
+{{- if .Values.clickhouse.enabled }}
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "clawd-observability.fullname" . }}-clickhouse
+                  key: password
+{{- end }}
+          resources:
+            {{- toYaml .Values.otelCollector.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+          livenessProbe:
+            httpGet: { path: /, port: 13133 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "clawd-observability.fullname" . }}-otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-otel-collector
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "otel-collector") .) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: otel-collector
+  ports:
+    - name: otlp-grpc
+      port: {{ .Values.otelCollector.service.grpcPort }}
+      targetPort: otlp-grpc
+      protocol: TCP
+    - name: otlp-http
+      port: {{ .Values.otelCollector.service.httpPort }}
+      targetPort: otlp-http
+      protocol: TCP
+{{- end }}

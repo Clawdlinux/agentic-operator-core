@@ -193,3 +193,45 @@ test-e2e-cluster:
 	@chmod +x tests/e2e/*.sh tests/harness/preflight.sh
 	@bash tests/e2e/test_golden_path.sh
 	@bash tests/e2e/test_multi_tenant.sh
+
+# =============================================================================
+# Observability — added 2026-05-15
+# =============================================================================
+
+.PHONY: obs-build-verifier obs-test-audit obs-test-analyzer obs-test obs-helm-lint obs-helm-render obs-demo
+
+# Build the audit-verify CLI used in regulator response and CI smoke tests.
+obs-build-verifier:
+	go build -o bin/audit-verify ./cmd/audit-verify
+	@echo "wrote bin/audit-verify"
+
+# Run all audit-log Go tests (chain hashing, tamper detection, key rotation).
+obs-test-audit:
+	go test ./pkg/otel/genai/... ./pkg/audit/... ./cmd/audit-verify/... -v
+
+# Run the Python audit analyzer + observability tests (no real ML deps needed
+# — fakes are injected; the real ML stack is exercised in the analyzer image
+# CI build).
+obs-test-analyzer:
+	. .venv/bin/activate && python -m pytest agents/observability agents/audit_analyzer -v
+
+# Full observability test suite.
+obs-test: obs-test-audit obs-test-analyzer
+
+# Lint the standalone observability subchart.
+obs-helm-lint:
+	helm lint charts/charts/clawdlinux-observability
+	helm lint charts/charts/clawdlinux-observability --set auditAnalyzer.enabled=true
+
+# Render the chart to stdout for review or kubectl apply.
+obs-helm-render:
+	helm template clawd-obs charts/charts/clawdlinux-observability \
+	    --namespace clawdlinux-observability
+
+# End-to-end demo: render an audit ledger, verify it, then tamper and verify.
+# Requires obs-build-verifier to have been run.
+obs-demo: obs-build-verifier
+	@echo "=== Generating sample ledger via go test fixture ==="
+	go test ./cmd/audit-verify/... -v -run TestEndToEnd
+	@echo
+	@echo "=== Demo passed: clean ledger -> exit 0, tampered -> exit 1 ==="
