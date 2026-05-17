@@ -1,0 +1,172 @@
+{{- if .Values.grafana.enabled }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-grafana-admin
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "grafana") .) | nindent 4 }}
+type: Opaque
+stringData:
+  user: {{ .Values.grafana.adminUser | quote }}
+  password: {{ .Values.grafana.adminPassword | default (randAlphaNum 24) | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-grafana-datasources
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "grafana") .) | nindent 4 }}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+{{- if .Values.tempo.enabled }}
+      - name: Tempo
+        type: tempo
+        uid: tempo-clawd
+        url: http://{{ include "clawd-observability.fullname" . }}-tempo:3200
+        access: proxy
+        isDefault: true
+        editable: false
+        jsonData:
+          tracesToMetrics:
+            datasourceUid: prom-clawd
+{{- end }}
+{{- if .Values.prometheus.enabled }}
+      - name: Prometheus
+        type: prometheus
+        uid: prom-clawd
+        url: http://{{ include "clawd-observability.fullname" . }}-prometheus:9090
+        access: proxy
+        editable: false
+{{- end }}
+{{- if .Values.clickhouse.enabled }}
+      - name: ClickHouse
+        type: grafana-clickhouse-datasource
+        uid: clickhouse-clawd
+        url: http://{{ include "clawd-observability.fullname" . }}-clickhouse:8123
+        access: proxy
+        editable: false
+        jsonData:
+          host: {{ include "clawd-observability.fullname" . }}-clickhouse
+          port: 9000
+          username: {{ .Values.clickhouse.user }}
+          defaultDatabase: {{ .Values.clickhouse.database }}
+        secureJsonData:
+          password: ${CLICKHOUSE_PASSWORD}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-grafana-dashboards-cfg
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "grafana") .) | nindent 4 }}
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: clawdlinux
+        orgId: 1
+        folder: {{ .Values.grafana.dashboards.folder | default "Clawdlinux" }}
+        type: file
+        disableDeletion: true
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards/clawdlinux
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-grafana
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "grafana") .) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: grafana
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: {{ include "clawd-observability.image" (dict "image" .Values.grafana.image "root" .) }}
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "clawd-observability.fullname" . }}-grafana-admin
+                  key: user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "clawd-observability.fullname" . }}-grafana-admin
+                  key: password
+            - name: GF_INSTALL_PLUGINS
+              value: "grafana-clickhouse-datasource"
+{{- if .Values.clickhouse.enabled }}
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "clawd-observability.fullname" . }}-clickhouse
+                  key: password
+{{- end }}
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboards-cfg
+              mountPath: /etc/grafana/provisioning/dashboards
+{{- if .Values.grafana.dashboards.enabled }}
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards/clawdlinux
+{{- end }}
+          readinessProbe:
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: datasources
+          configMap:
+            name: {{ include "clawd-observability.fullname" . }}-grafana-datasources
+        - name: dashboards-cfg
+          configMap:
+            name: {{ include "clawd-observability.fullname" . }}-grafana-dashboards-cfg
+{{- if .Values.grafana.dashboards.enabled }}
+        - name: dashboards
+          configMap:
+            name: {{ include "clawd-observability.fullname" . }}-grafana-dashboards
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-grafana
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "grafana") .) | nindent 4 }}
+spec:
+  type: {{ .Values.grafana.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: grafana
+  ports:
+    - name: http
+      port: {{ .Values.grafana.service.port }}
+      targetPort: http
+{{- end }}

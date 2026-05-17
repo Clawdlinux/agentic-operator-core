@@ -1,0 +1,117 @@
+{{- if .Values.prometheus.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-prometheus-config
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "prometheus") .) | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 30s
+      evaluation_interval: 30s
+      external_labels:
+        cluster: clawdlinux
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets: ['localhost:9090']
+      - job_name: otel-collector
+        static_configs:
+          - targets:
+              - {{ include "clawd-observability.fullname" . }}-otel-collector:8888
+      - job_name: agentic-operator
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: agentic-operator
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-prometheus
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "prometheus") .) | nindent 4 }}
+spec:
+  serviceName: {{ include "clawd-observability.fullname" . }}-prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: prometheus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: {{ include "clawd-observability.image" (dict "image" .Values.prometheus.image "root" .) }}
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--storage.tsdb.retention.time={{ .Values.prometheus.retention }}"
+            - "--web.enable-remote-write-receiver"
+            - "--web.enable-lifecycle"
+          ports:
+            - containerPort: 9090
+              name: http
+          resources:
+            {{- toYaml .Values.prometheus.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+          readinessProbe:
+            httpGet: { path: /-/ready, port: 9090 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "clawd-observability.fullname" . }}-prometheus-config
+{{- if not .Values.prometheus.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+{{- end }}
+{{- if .Values.prometheus.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+{{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+{{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.prometheus.persistence.size }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-prometheus
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "prometheus") .) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
+{{- end }}

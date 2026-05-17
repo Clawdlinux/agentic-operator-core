@@ -17,6 +17,12 @@ from typing import List
 
 from agents.graph.registry import get_workflow, list_workflows
 from agents.graph.workflow import AgentWorkflowError
+from agents.observability import (
+    AgentRequest,
+    agent_span,
+    init_tracing,
+    record_error,
+)
 from agents.runtime.persona import load_persona_config
 from agents.utils.credential_sanitizer import SanitizingFormatter
 
@@ -155,15 +161,52 @@ def main():
             "persona_tone": persona.tone,
         },
     )
-    
+
+    # Bootstrap OpenTelemetry GenAI tracing. The endpoint is configured via
+    # OTEL_EXPORTER_OTLP_ENDPOINT (set by the operator's pod template when
+    # the observability bundle is enabled). When unset, tracing is disabled.
+    workload_name = os.getenv("CLAWD_WORKLOAD_NAME", "")
+    workload_namespace = os.getenv("CLAWD_WORKLOAD_NAMESPACE", "")
+    workload_uid = os.getenv("CLAWD_WORKLOAD_UID", "")
+    tenant_id = os.getenv("CLAWD_TENANT_ID", "")
+    workflow_name = os.getenv("WORKFLOW_NAME", "research-swarm")
+
+    init_tracing(
+        service_name=f"agent.{workflow_name}",
+        environment=os.getenv("CLAWD_DEPLOYMENT_ENV", ""),
+        extra_resource_attrs={
+            "clawd.agent_workload.name": workload_name,
+            "clawd.agent_workload.namespace": workload_namespace,
+            "clawd.agent_workload.uid": workload_uid,
+            "clawd.tenant.id": tenant_id,
+            "clawd.persona.role": persona.role or "",
+        },
+    )
+
     try:
         # Parse environment variables
         job_id, target_urls = get_job_params()
         logger.info(f"Job {job_id}: {len(target_urls)} URLs to scrape")
-        
-        # Run workflow
-        result = asyncio.run(run_workflow(job_id, target_urls))
-        
+
+        # Wrap the entire workflow execution in an invoke_agent root span so
+        # every downstream chat/tool span hangs off a single trace.
+        with agent_span(
+            AgentRequest(
+                agent_id=workload_uid or job_id,
+                agent_name=workflow_name,
+                conversation_id=job_id,
+                workload_name=workload_name,
+                workload_namespace=workload_namespace,
+                workload_uid=workload_uid,
+                tenant_id=tenant_id,
+            )
+        ) as span:
+            try:
+                result = asyncio.run(run_workflow(job_id, target_urls))
+            except BaseException as exc:
+                record_error(span, exc)
+                raise
+
         # Report status
         if result.get("status") == "complete":
             logger.info(f"Job {job_id} completed successfully")
@@ -181,7 +224,7 @@ def main():
                 "error": result.get("error", "Unknown error"),
             }))
             sys.exit(1)
-            
+
     except ValueError as e:
         logger.error(f"Configuration error: {e}")
         print(json.dumps({"error": f"Configuration error: {str(e)}"}), file=sys.stderr)

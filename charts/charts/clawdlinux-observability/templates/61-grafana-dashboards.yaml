@@ -1,0 +1,90 @@
+{{- if and .Values.grafana.enabled .Values.grafana.dashboards.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "clawd-observability.fullname" . }}-grafana-dashboards
+  namespace: {{ include "clawd-observability.namespace" . }}
+  labels:
+    {{- include "clawd-observability.componentLabels" (merge (dict "component" "grafana") .) | nindent 4 }}
+data:
+  01-cost-per-agentworkload.json: |
+    {{`{
+      "annotations": {"list": []},
+      "editable": false,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "schemaVersion": 39,
+      "tags": ["clawdlinux", "cost", "finops"],
+      "templating": {
+        "list": [
+          {"name": "tenant", "type": "query", "datasource": {"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "refresh": 2, "query": "SELECT DISTINCT tenant_id FROM otel_traces", "includeAll": true, "multi": true},
+          {"name": "interval", "type": "interval", "auto": true, "auto_count": 30, "query": "1m,5m,15m,1h,6h,1d"}
+        ]
+      },
+      "time": {"from": "now-7d", "to": "now"},
+      "title": "Clawdlinux — Cost & Tokens by AgentWorkload",
+      "uid": "clawd-cost-001",
+      "panels": [
+        {"type": "stat", "title": "Total input tokens (7d)", "gridPos":{"x":0,"y":0,"w":6,"h":4}, "datasource":{"type":"prometheus","uid":"prom-clawd"}, "targets":[{"expr":"sum(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[7d]))"}], "options":{"reduceOptions":{"calcs":["lastNotNull"]}}, "fieldConfig":{"defaults":{"unit":"short","color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"orange","value":1000000},{"color":"red","value":10000000}]}}}},
+        {"type": "stat", "title": "Total output tokens (7d)", "gridPos":{"x":6,"y":0,"w":6,"h":4}, "datasource":{"type":"prometheus","uid":"prom-clawd"}, "targets":[{"expr":"sum(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=\"output\"}[7d]))"}], "options":{"reduceOptions":{"calcs":["lastNotNull"]}}, "fieldConfig":{"defaults":{"unit":"short"}}},
+        {"type": "stat", "title": "Avg p95 latency (chat) — 24h", "gridPos":{"x":12,"y":0,"w":6,"h":4}, "datasource":{"type":"prometheus","uid":"prom-clawd"}, "targets":[{"expr":"histogram_quantile(0.95, sum by (le)(rate(gen_ai_client_operation_duration_bucket{gen_ai_operation_name=\"chat\"}[24h])))"}], "fieldConfig":{"defaults":{"unit":"s"}}},
+        {"type": "stat", "title": "Failed agent invocations (24h)", "gridPos":{"x":18,"y":0,"w":6,"h":4}, "datasource":{"type":"prometheus","uid":"prom-clawd"}, "targets":[{"expr":"sum(increase(gen_ai_client_operation_duration_count{gen_ai_operation_name=\"invoke_agent\"}[24h])) - sum(increase(gen_ai_client_operation_duration_count{gen_ai_operation_name=\"invoke_agent\",otel_status_code!=\"ERROR\"}[24h]))"}], "fieldConfig":{"defaults":{"unit":"short","color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"red","value":1}]}}}},
+        {"type": "timeseries", "title": "Tokens by AgentWorkload", "gridPos":{"x":0,"y":4,"w":24,"h":8}, "datasource":{"type":"prometheus","uid":"prom-clawd"}, "targets":[{"expr":"sum by (clawd_agent_workload_name) (rate(gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[$interval]))","legendFormat":"{{ clawd_agent_workload_name }} (in)"},{"expr":"sum by (clawd_agent_workload_name) (rate(gen_ai_client_token_usage_sum{gen_ai_token_type=\"output\"}[$interval]))","legendFormat":"{{ clawd_agent_workload_name }} (out)"}]},
+        {"type": "table", "title": "Top 20 cost drivers (last 24h)", "gridPos":{"x":0,"y":12,"w":24,"h":10}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT SpanAttributes['clawd.agent_workload.name'] AS workload, SpanAttributes['gen_ai.request.model'] AS model, SpanAttributes['clawd.tenant.id'] AS tenant, sum(toInt64OrZero(SpanAttributes['gen_ai.usage.input_tokens'])) AS input_tokens, sum(toInt64OrZero(SpanAttributes['gen_ai.usage.output_tokens'])) AS output_tokens, count() AS calls FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND SpanAttributes['gen_ai.operation.name'] = 'chat' GROUP BY workload, model, tenant ORDER BY (input_tokens + output_tokens) DESC LIMIT 20"}]}
+      ]
+    }`}}
+
+  02-acp-cache-hit-ratio.json: |
+    {{`{
+      "annotations": {"list": []},
+      "editable": false,
+      "schemaVersion": 39,
+      "tags": ["clawdlinux", "acp"],
+      "title": "Clawdlinux — ACP Performance & Cache",
+      "uid": "clawd-acp-001",
+      "time": {"from": "now-24h", "to": "now"},
+      "panels": [
+        {"type": "stat", "title": "ACP context calls (24h)", "gridPos":{"x":0,"y":0,"w":6,"h":4}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT count() FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND SpanName = 'acp.context'"}]},
+        {"type": "stat", "title": "Cache hit rate", "gridPos":{"x":6,"y":0,"w":6,"h":4}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT countIf(SpanAttributes['clawd.acp.cache_hit'] = 'true') / count() * 100 FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND SpanName = 'acp.context'"}], "fieldConfig":{"defaults":{"unit":"percent","min":0,"max":100,"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"orange","value":40},{"color":"green","value":75}]}}}},
+        {"type": "stat", "title": "Avg actions per manifest", "gridPos":{"x":12,"y":0,"w":6,"h":4}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT avg(toInt64OrZero(SpanAttributes['clawd.acp.action_count'])) FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND SpanName = 'acp.context'"}], "fieldConfig":{"defaults":{"unit":"short"}}},
+        {"type": "stat", "title": "Median resolve latency (24h)", "gridPos":{"x":18,"y":0,"w":6,"h":4}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT quantile(0.5)(Duration / 1000000) FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND SpanName = 'acp.context'"}], "fieldConfig":{"defaults":{"unit":"ms"}}},
+        {"type": "timeseries", "title": "ACP /v1/context QPS by intent", "gridPos":{"x":0,"y":4,"w":12,"h":10}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT toStartOfMinute(Timestamp) AS time, SpanAttributes['clawd.acp.intent_hash'] AS intent_hash, count() AS qps FROM otel_traces WHERE Timestamp >= $__fromTime AND Timestamp <= $__toTime AND SpanName = 'acp.context' GROUP BY time, intent_hash ORDER BY time"}]},
+        {"type": "timeseries", "title": "Manifest-build latency p50/p95/p99", "gridPos":{"x":12,"y":4,"w":12,"h":10}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT toStartOfMinute(Timestamp) AS time, quantile(0.5)(Duration/1000000) AS p50, quantile(0.95)(Duration/1000000) AS p95, quantile(0.99)(Duration/1000000) AS p99 FROM otel_traces WHERE Timestamp >= $__fromTime AND SpanName = 'acp.context' GROUP BY time ORDER BY time"}]}
+      ]
+    }`}}
+
+  03-tool-call-failures.json: |
+    {{`{
+      "annotations": {"list": []},
+      "editable": false,
+      "schemaVersion": 39,
+      "tags": ["clawdlinux", "tools", "errors"],
+      "title": "Clawdlinux — Tool-Call Failure Waterfall",
+      "uid": "clawd-tools-001",
+      "time": {"from": "now-24h", "to": "now"},
+      "panels": [
+        {"type": "stat", "title": "Failed tool calls (24h)", "gridPos":{"x":0,"y":0,"w":6,"h":4}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT count() FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND SpanAttributes['gen_ai.operation.name'] = 'execute_tool' AND StatusCode = 'STATUS_CODE_ERROR'"}], "fieldConfig":{"defaults":{"unit":"short","color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"red","value":10}]}}}},
+        {"type": "stat", "title": "Distinct failing tools", "gridPos":{"x":6,"y":0,"w":6,"h":4}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT uniq(SpanAttributes['gen_ai.tool.name']) FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND StatusCode = 'STATUS_CODE_ERROR'"}]},
+        {"type": "table", "title": "Top failing tools", "gridPos":{"x":0,"y":4,"w":12,"h":10}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT SpanAttributes['gen_ai.tool.name'] AS tool, SpanAttributes['clawd.acp.manifest_id'] AS manifest, count() AS failures, anyLast(StatusMessage) AS last_message FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND SpanAttributes['gen_ai.operation.name'] = 'execute_tool' AND StatusCode = 'STATUS_CODE_ERROR' GROUP BY tool, manifest ORDER BY failures DESC LIMIT 50"}]},
+        {"type": "table", "title": "Recent failed traces (click to drill)", "gridPos":{"x":12,"y":4,"w":12,"h":10}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT TraceId, SpanId, SpanName, ServiceName, SpanAttributes['gen_ai.tool.name'] AS tool, SpanAttributes['clawd.agent_workload.name'] AS workload, StatusMessage FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND StatusCode = 'STATUS_CODE_ERROR' ORDER BY Timestamp DESC LIMIT 100"}]}
+      ]
+    }`}}
+
+  04-langgraph-node-latency.json: |
+    {{`{
+      "annotations": {"list": []},
+      "editable": false,
+      "schemaVersion": 39,
+      "tags": ["clawdlinux", "langgraph"],
+      "title": "Clawdlinux — LangGraph Node Latency & Checkpoints",
+      "uid": "clawd-lg-001",
+      "time": {"from": "now-6h", "to": "now"},
+      "panels": [
+        {"type": "stat", "title": "Active agent runs", "gridPos":{"x":0,"y":0,"w":6,"h":4}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT uniq(TraceId) FROM otel_traces WHERE Timestamp >= now() - INTERVAL 30 MINUTE AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent'"}]},
+        {"type": "stat", "title": "Total checkpoints (6h)", "gridPos":{"x":6,"y":0,"w":6,"h":4}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT uniq(SpanAttributes['clawd.langgraph.checkpoint_id']) FROM otel_traces WHERE Timestamp >= now() - INTERVAL 6 HOUR"}]},
+        {"type": "timeseries", "title": "Per-node p95 latency", "gridPos":{"x":0,"y":4,"w":24,"h":10}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT toStartOfMinute(Timestamp) AS time, SpanAttributes['clawd.langgraph.node'] AS node, quantile(0.95)(Duration/1000000) AS p95_ms FROM otel_traces WHERE Timestamp >= $__fromTime AND SpanAttributes['clawd.langgraph.node'] != '' GROUP BY time, node ORDER BY time"}]},
+        {"type": "table", "title": "Slowest agent runs (24h)", "gridPos":{"x":0,"y":14,"w":24,"h":8}, "datasource":{"type":"grafana-clickhouse-datasource","uid":"clickhouse-clawd"}, "targets":[{"rawSql":"SELECT TraceId, SpanAttributes['gen_ai.agent.name'] AS agent, SpanAttributes['clawd.agent_workload.name'] AS workload, Duration/1000000 AS ms, Timestamp FROM otel_traces WHERE Timestamp >= now() - INTERVAL 1 DAY AND SpanAttributes['gen_ai.operation.name'] = 'invoke_agent' ORDER BY Duration DESC LIMIT 50"}]}
+      ]
+    }`}}
+{{- end }}

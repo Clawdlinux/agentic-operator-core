@@ -361,3 +361,41 @@ networkPolicy:
   cilium:
     enabled: false
     fqdnAllowlist: []
+
+# ---------------------------------------------------------------------------
+# Clawdlinux Observability (clawd-observability subchart)
+#
+# Bundles OTel Collector + Tempo + Prometheus + Grafana + ClickHouse + Qdrant
+# wired with curated dashboards for AgentWorkload / ACP / LangGraph traces.
+# Set `clawdlinuxObservability.enabled: true` to install. Override individual
+# components under `observability.*` (the subchart is aliased to
+# `observability` in Chart.yaml so values land under that key).
+# ---------------------------------------------------------------------------
+clawdlinuxObservability:
+  enabled: false  # opt-in; enable to deploy the full observability stack
+
+observability:
+  # All keys here override charts/charts/clawdlinux-observability/values.yaml.
+  # Common toggles:
+  mode: lite                   # lite | full
+  global:
+    namespace: clawdlinux-observability
+  otelCollector:
+    enabled: true
+  tempo:
+    enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+  clickhouse:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 20Gi
+  qdrant:
+    enabled: true
+  auditLog:
+    enabled: true
+  auditAnalyzer:
+    enabled: false             # commercial tier; requires license
