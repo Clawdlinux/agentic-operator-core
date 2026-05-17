@@ -43,7 +43,7 @@ type Backend interface {
 // NewRecorder loads the current ledger head from the backend so that the
 // next append continues an existing chain (e.g. across operator restarts).
 //
-// tenantID scopes the head lookup so a multi-tenant deployment can keep
+// tenantID scopes the head lookup so an isolated deployment can keep
 // per-tenant chains. When tenantID is empty the recorder uses the empty
 // string as the default tenant (single-tenant deployments).
 func NewRecorder(ctx context.Context, hasher *ChainHasher, backend Backend, tenantID string) (*Recorder, error) {

@@ -1,5 +1,5 @@
 {{- if .Values.auditAnalyzer.enabled }}
-{{- /* Commercial-tier analyzer. Disabled by default in OSS. */ -}}
+{{- /* Production-tier analyzer. Disabled by default in OSS. */ -}}
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -8,7 +8,7 @@ metadata:
   namespace: {{ include "clawd-observability.namespace" . }}
   labels:
     {{- include "clawd-observability.componentLabels" (merge (dict "component" "audit-analyzer") .) | nindent 4 }}
-    clawd.tier: commercial
+    clawd.tier: production
 spec:
   schedule: {{ .Values.auditAnalyzer.schedule | quote }}
   concurrencyPolicy: Forbid

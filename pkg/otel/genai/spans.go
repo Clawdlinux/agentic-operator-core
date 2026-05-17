@@ -24,8 +24,8 @@ func Tracer() trace.Tracer {
 // attributes on a "chat" span. All fields are optional; zero values are
 // not recorded so that downstream queries don't have to filter for them.
 type ChatRequest struct {
-	System         string  // gen_ai.system, e.g. "openai"
-	Model          string  // gen_ai.request.model
+	System         string // gen_ai.system, e.g. "openai"
+	Model          string // gen_ai.request.model
 	Temperature    *float64
 	TopP           *float64
 	MaxTokens      *int64
