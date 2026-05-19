@@ -11,6 +11,7 @@ Implements SSRF protection by:
 import ipaddress
 import logging
 import socket
+import struct
 from dataclasses import dataclass
 from typing import Optional, List, Set
 from urllib.parse import urlparse
@@ -108,14 +109,28 @@ def is_private_ip(ip_str: str) -> bool:
 
 def resolve_hostname(hostname: str) -> Optional[str]:
     """
-    Resolve hostname to IP address.
+    Resolve hostname to IP address, performing IPv4 decimal/hex/octal normalization first.
+    
+    This function normalizes integer-encoded IPv4 hostnames (e.g. decimal 2130706433 or
+    hex 0x7f000001) to standard dot-decimal form before performing a socket resolution,
+    ensuring that obfuscated loopback/private addresses cannot bypass range-checks.
     
     Args:
         hostname: Hostname to resolve
         
     Returns:
-        First resolved IP address or None
+        First resolved/normalized IP address or None
     """
+    # Try parsing hostname as a decimal, hex, or octal integer representing IPv4.
+    # base=0 automatically handles hex (0x), octal (0o or 0), and decimal prefixes.
+    try:
+        val = int(hostname, 0)
+        if 0 <= val <= 0xffffffff:
+            return socket.inet_ntoa(struct.pack("!I", val))
+    except ValueError:
+        pass
+
+    # TODO: Handle IPv6 obfuscation scenarios (e.g. ::ffff:127.0.0.1) in the future.
     try:
         result = socket.getaddrinfo(hostname, None)
         if result:
