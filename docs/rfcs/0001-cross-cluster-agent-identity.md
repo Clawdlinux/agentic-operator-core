@@ -301,6 +301,24 @@ Stand up a central IdP (Keycloak / Dex) all clusters trust. Rejected: doesn't wo
 
 Use cert-manager to issue per-pod certs from a shared root. Rejected: no workload identity (only host identity), no native rotation story, no federation primitives.
 
+### 8.5 ACME agent enrollment (deferred, see [#106](https://github.com/Clawdlinux/agentic-operator-core/issues/106))
+
+Extend the ACME protocol (RFC 8555) so each agent enrolls for its own certificate via a NineVigil-hosted ACME server. ACME is widely understood (Let's Encrypt, cert-manager users), and pairing it with DNS-01 or HTTP-01 challenges gives an automation story without bringing in SPIRE.
+
+**Why deferred, not rejected:** ACME is a credible alternative for clusters already heavily invested in cert-manager and uncomfortable adopting SPIRE. The trade-offs vs SPIFFE/SPIRE:
+
+| Dimension | SPIFFE/SPIRE | ACME |
+|---|---|---|
+| Workload identity model | First-class (SPIFFE ID URI) | None — certs are bound to DNS names or arbitrary SANs |
+| Federation primitives | First-class (Federation API + trust bundles) | Manual trust anchor distribution |
+| Rotation | Built into Workload API | Cert-manager handles via renewal hook |
+| Ecosystem fit | CNCF graduated; Istio, Consul, ByteDance | Universal (RFC standard); cert-manager native |
+| Adoption friction (no cert-manager) | Medium (one new Deployment) | Medium (cert-manager + ACME server) |
+| Adoption friction (existing cert-manager) | Higher | Low |
+| Air-gapped support | Yes (manual bundle exchange) | Yes (private CA + internal ACME) |
+
+**Decision:** Default to SPIFFE/SPIRE in RFC-0001 because workload identity and federation are first-class. If validation surfaces meaningful demand for ACME (likely from cert-manager-heavy shops), a follow-up RFC-0002 can specify an ACME-backed identity provider that plugs into the same `spec.identity` CRD field with a different `provider:` value.
+
 ---
 
 ## 9. Validation Gate
@@ -314,7 +332,34 @@ Until the gate clears, this RFC is a credibility artifact and design reference. 
 
 ---
 
-## 10. References
+## 10. Related Roadmap Issues
+
+This RFC is the canonical design for a problem already present on the project's roadmap since 2026-04-26. After roadmap reconciliation on 2026-05-19, the relationship to existing issues is as follows:
+
+### Absorbed (closed as superseded by epic #146)
+
+- **#122** — Cross-organizational trust — federated SPIFFE trust domains _(this RFC fully covers; closed)_
+
+### Cross-linked (kept open; implementation tracked via epic #146 stories)
+
+| Roadmap issue | RFC coverage |
+|---|---|
+| **#107** — Per-instance SPIFFE SVIDs | Stories #148 (Workload API integration), #156 (CRD identity fields) |
+| **#108** — mTLS between agents | Composable with story #149 (JWT-SVID at A2A layer + mTLS at transport) |
+| **#109** — Certificate rotation via SPIRE | Implicit dependency, satisfied by story #148 |
+| **#106** — ACME agent enrollment | Now a properly considered alternative (§8.5 above) |
+
+### Related but distinct scope (no implementation overlap)
+
+- **#121** — Multi-cluster discovery _(discovery layer; this RFC is identity layer)_
+- **#102** — Registry federation _(registry data plane; this RFC is identity)_
+- **#110** — OAuth delegation chain tracking _(human-to-agent identity; out of scope per §1.3)_
+- **#111** — Agent attestation (EAT) _(orthogonal — what an agent is allowed to claim about itself)_
+- **#112** — Trust score API _(builds on identity to compute trust signals)_
+
+---
+
+## 11. References
 
 - [SPIFFE Specification](https://github.com/spiffe/spiffe/tree/main/standards)
 - [SPIRE Documentation](https://spiffe.io/docs/latest/spire-about/)
@@ -336,3 +381,5 @@ Until the gate clears, this RFC is a credibility artifact and design reference. 
 | 2026-05-19 | Bundle SPIRE as opt-in Helm sub-chart | BYO only | Lower adoption friction; users can disable |
 | 2026-05-19 | Defer cross-cloud identity to separate RFC | Include here | Keep scope tight; cross-cloud is its own design |
 | 2026-05-19 | Gate implementation on 6 external use cases or 1 paying customer | Build immediately | Avoid building for one tweet; collect signal first |
+| 2026-05-19 | Reconcile with pre-existing roadmap: absorb #122, cross-link #106-#109, #102, #121 | Treat RFC as parallel work | Avoid permanent silo and contributor confusion; one canonical place per work item |
+| 2026-05-19 | Add ACME (§8.5) as deferred alternative rather than rejected | Reject outright OR adopt as default | Validation may surface cert-manager-heavy shops who'd prefer ACME; keep door open via future RFC-0002 |
