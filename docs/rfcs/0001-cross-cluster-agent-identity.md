@@ -2,12 +2,12 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Draft — Open for Comment |
+| **Status** | Draft (discussion pending) |
 | **Authors** | @shrey_sancheti |
 | **Created** | 2026-05-19 |
 | **Last Updated** | 2026-05-19 |
-| **Discussion** | (link to be added once GitHub Discussion is open) |
-| **Tracking Epic** | (link to be added once epic issue is created) |
+| **Discussion** | _(opening manually — link will be backfilled here once live)_ |
+| **Tracking Epic** | [#146](https://github.com/Clawdlinux/agentic-operator-core/issues/146) |
 | **Target Release** | v0.4.0 (tentative, Q3 2026) |
 | **Validation Gate** | 6+ distinct external use cases OR 1 paying customer requesting this |
 

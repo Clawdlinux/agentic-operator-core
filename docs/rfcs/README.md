@@ -12,9 +12,11 @@ This directory holds design proposals for significant architectural changes to N
 
 ## Index
 
-| ID | Title | Status | Discussion |
-|----|-------|--------|------------|
-| [0001](0001-cross-cluster-agent-identity.md) | Cross-Cluster Agent Identity Federation via SPIFFE/SPIRE | Draft — Open for Comment | _(pending)_ |
+| ID | Title | Status | Discussion | Tracking |
+|----|-------|--------|------------|----------|
+| [0001](0001-cross-cluster-agent-identity.md) | Cross-Cluster Agent Identity Federation via SPIFFE/SPIRE | Draft (discussion pending) | _(opening manually)_ | [#146](https://github.com/Clawdlinux/agentic-operator-core/issues/146) |
+
+Status transitions: once the GitHub Discussion is live and linked, status moves from **Draft (discussion pending)** → **Open for Comment**.
 
 ## Authoring a new RFC
 
