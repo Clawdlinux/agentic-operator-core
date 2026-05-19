@@ -97,3 +97,8 @@ video/package-lock.json
 _artifacts/
 # Built CLI binary lives at bin/agentctl-web; never commit at repo root
 /agentctl-web
+
+# Built operator binaries that should never sit at repo root
+/audit-verify
+/manager
+/main
