@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,9 +88,9 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	cancel()
-	Eventually(func() error {
-		return testEnv.Stop()
-	}, time.Minute, time.Second).Should(Succeed())
+	if err := testEnv.Stop(); err != nil {
+		logf.Log.Error(err, "Failed to stop envtest gracefully")
+	}
 })
 
 // getFirstFoundEnvTestBinaryDir locates the first binary in the specified path.

@@ -1,6 +1,9 @@
 # Core agent framework
 langgraph==1.0.0
 langchain-openai==0.1.0
+fastapi==0.109.0
+uvicorn==0.27.0
+httpx==0.26.0
 
 # LLM routing and proxy
 litellm==1.30.0
