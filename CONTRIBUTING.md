@@ -28,6 +28,12 @@ If your change touches Python runtime code under `agents/`, run the relevant Pyt
 - Avoid unrelated refactors in the same PR.
 - Keep reconciliation behavior idempotent.
 
+## Commit Authorship
+
+- Human authorship only. `Signed-off-by` and `Co-authored-by` trailers must name people, not AI assistants.
+- The `AI Attribution Guard` CI check rejects PRs whose commit trailers contain names or emails matching common AI tools (Claude, Copilot, Cursor, GPT-*, Codex, etc.).
+- You may use AI tooling to help write code — just author and sign off the commits yourself.
+
 ## Issue Guidelines
 
 - Use the bug template for defects.

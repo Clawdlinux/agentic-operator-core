@@ -1,0 +1,59 @@
+name: AI Attribution Guard
+
+# Rejects PRs whose commit trailers attribute authorship to AI assistants.
+# Human contributors only: Signed-off-by and Co-authored-by must name people.
+# Extend PATTERNS below as new AI co-authoring tools appear.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  reject-ai-attribution:
+    name: reject-ai-attribution
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Inspect PR commit trailers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Case-insensitive substrings that must not appear in
+          # Signed-off-by: or Co-authored-by: trailer lines.
+          PATTERNS='claude|anthropic|copilot|openai|gpt-[0-9]|cursor|codex|aider|devin|ai-bot|bot@users\.noreply'
+
+          violations=$(
+            gh api --paginate "/repos/${REPO}/pulls/${PR}/commits" \
+              --jq '.[].commit.message' \
+              | grep -inE '^(signed-off-by|co-authored-by):.*('"$PATTERNS"')' \
+              || true
+          )
+
+          if [ -n "$violations" ]; then
+            echo "::error::AI attribution found in commit trailers."
+            echo ""
+            echo "Offending lines:"
+            echo "$violations" | sed 's/^/  /'
+            echo ""
+            echo "Policy: this repo accepts only human authorship in commit trailers."
+            echo "Signed-off-by and Co-authored-by must name people, not AI tools."
+            echo ""
+            echo "To fix locally:"
+            echo "  git rebase -i origin/${{ github.event.pull_request.base.ref }}"
+            echo "  # for each offending commit: mark 'reword',"
+            echo "  # remove the Signed-off-by/Co-authored-by line that names the AI,"
+            echo "  # save and exit."
+            echo "  git push --force-with-lease"
+            exit 1
+          fi
+
+          echo "OK: no AI attribution found in commit trailers."
