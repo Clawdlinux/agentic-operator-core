@@ -317,7 +317,7 @@ Extend the ACME protocol (RFC 8555) so each agent enrolls for its own certificat
 | Adoption friction (existing cert-manager) | Higher | Low |
 | Air-gapped support | Yes (manual bundle exchange) | Yes (private CA + internal ACME) |
 
-**Decision:** Default to SPIFFE/SPIRE in RFC-0001 because workload identity and federation are first-class. If validation surfaces meaningful demand for ACME (likely from cert-manager-heavy shops), a follow-up RFC-0002 can specify an ACME-backed identity provider that plugs into the same `spec.identity` CRD field with a different `provider:` value.
+**Decision:** Default to SPIFFE/SPIRE in RFC-0001 because workload identity and federation are first-class. If validation surfaces meaningful demand for ACME (likely from cert-manager-heavy shops), a follow-up RFC-0002 can specify an ACME-backed identity provider as a **sibling `identity.acme` block** mirroring the `identity.spiffe` structure defined in §4.2. The two would coexist (a workload picks at most one); no breaking change to the existing CRD shape.
 
 ---
 
@@ -336,9 +336,9 @@ Until the gate clears, this RFC is a credibility artifact and design reference. 
 
 This RFC is the canonical design for a problem already present on the project's roadmap since 2026-04-26. After roadmap reconciliation on 2026-05-19, the relationship to existing issues is as follows:
 
-### Absorbed (closed as superseded by epic #146)
+### Absorbed (closed as duplicate of epic #146)
 
-- **#122** — Cross-organizational trust — federated SPIFFE trust domains _(this RFC fully covers; closed)_
+- **#122** — Cross-organizational trust — federated SPIFFE trust domains _(this RFC fully covers; closed via GitHub `state_reason: duplicate`, `duplicate_of: 146`)_
 
 ### Cross-linked (kept open; implementation tracked via epic #146 stories)
 
