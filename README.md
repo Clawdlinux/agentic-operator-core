@@ -294,6 +294,10 @@ make test
 
 See [ROADMAP.md](ROADMAP.md) for the public roadmap and quarterly milestones.
 
+Design proposals in flight live in [`docs/rfcs/`](docs/rfcs/). Currently open for comment:
+
+- **[RFC-0001: Cross-Cluster Agent Identity Federation (SPIFFE/SPIRE)](docs/rfcs/0001-cross-cluster-agent-identity.md)** — multi-cluster identity for agents in air-gapped and regulated environments. Validation gate: 6+ use cases or 1 paying customer. _Comment on the GitHub Discussion to influence direction._
+
 ---
 
 ## Community
