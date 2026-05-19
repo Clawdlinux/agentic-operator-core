@@ -38,6 +38,20 @@ Public roadmap for the Agentic Kubernetes Operator. Updated quarterly.
 - [ ] Plugin SDK for custom tool integrations
 - [ ] Visual workflow builder (web UI)
 
+## Exploring (RFC stage — not yet committed)
+
+These items have published design documents and are collecting community signal. Implementation begins only after the validation gate in each RFC is met.
+
+### Cross-Cluster Agent Identity Federation (SPIFFE/SPIRE)
+
+- **RFC:** [`docs/rfcs/0001-cross-cluster-agent-identity.md`](docs/rfcs/0001-cross-cluster-agent-identity.md)
+- **Discussion:** _(link added when GitHub Discussion is open)_
+- **Tentative target:** v0.4.0 (Q3 2026)
+- **Validation gate:** 6+ distinct external use cases in the Discussion **OR** 1 paying customer request
+- **Motivation:** Enterprise NineVigil deployments span multiple K8s clusters (multi-region, multi-tenant, multi-org). Agents in Cluster A need verifiable identity when calling services or other agents in Cluster B. Existing options (shared secrets, mTLS without workload identity, central OIDC) all fail for air-gapped and regulated environments.
+- **Proposed approach:** SPIFFE/SPIRE (CNCF graduated) for workload identity federation. Opt-in per `AgentWorkload`, additive to existing ServiceAccount + JWT identity. A2A protocol gains v2 handshake carrying JWT-SVIDs across trust domains.
+- **Triggered by:** [@JacobSobolev on X](https://x.com/JacobSobolev/status/2056631848009085244) (19 May 2026)
+
 ## How to Influence the Roadmap
 
 - Open an issue with the `enhancement` label
