@@ -1,8 +1,11 @@
-/* agentctl-web — minimal UI styles */
+/* agentctl-web demo cockpit styles */
 :root {
     --brand: #3B82F6;
     --brand-dark: #2563EB;
+    --accent: #00d4aa;
+    --accent-dim: rgba(0, 212, 170, 0.16);
     --bg: #0f172a;
+    --bg-deep: #070b14;
     --bg-card: #1e293b;
     --bg-input: #334155;
     --text: #e2e8f0;
@@ -18,11 +21,23 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: "Aptos", "Segoe UI", sans-serif;
     background: var(--bg);
     color: var(--text);
     line-height: 1.6;
     min-height: 100vh;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent 72%);
 }
 
 /* Navbar */
@@ -30,7 +45,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1.5rem;
+    padding: 0.7rem 1.5rem;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border);
     position: sticky;
@@ -42,9 +57,35 @@ body {
     align-items: center;
     gap: 0.5rem;
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
 }
 .logo { font-size: 1.4rem; }
+.demo-navbar .logo {
+    display: inline-grid;
+    place-items: center;
+    width: 1.95rem;
+    height: 1.95rem;
+    border: 1px solid rgba(0, 212, 170, 0.45);
+    border-radius: 7px;
+    color: var(--accent);
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0;
+}
+.demo-nav-proof {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.demo-pill {
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.28rem 0.6rem;
+}
 .nav-links {
     display: flex;
     gap: 1.5rem;
@@ -68,9 +109,9 @@ body {
 
 /* Container */
 .container {
-    max-width: 1200px;
+    max-width: 1320px;
     margin: 0 auto;
-    padding: 1.5rem;
+    padding: 1.2rem 1.5rem;
 }
 
 /* Buttons */
@@ -320,11 +361,134 @@ body {
     margin-top: 3rem;
 }
 
+/* Booth demo */
+.demo-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.7fr);
+    gap: 1.25rem;
+    align-items: stretch;
+    margin: 0.7rem 0 1rem;
+}
+
+.demo-hero,
+.demo-control-card,
+.demo-step-card,
+.agent-stage,
+.proof-panel {
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.92), rgba(7, 11, 20, 0.96));
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 8px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+}
+
+.demo-hero { padding: 1.55rem; min-height: 270px; }
+.demo-kicker,
+.demo-label {
+    color: var(--accent);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+.demo-hero h1 {
+    max-width: 760px;
+    margin: 0.55rem 0 0.8rem;
+    font-size: clamp(2.15rem, 4.4vw, 4.2rem);
+    line-height: 0.98;
+    letter-spacing: 0;
+}
+.demo-copy { max-width: 680px; color: var(--text-muted); font-size: 1rem; }
+.demo-actions { display: flex; gap: 0.75rem; margin-top: 1.1rem; flex-wrap: wrap; }
+.btn-demo { min-height: 44px; }
+.demo-control-card { padding: 1.15rem; display: flex; flex-direction: column; justify-content: space-between; }
+.demo-control-card h2 { margin: 0.55rem 0; font-size: 1.35rem; }
+.demo-control-card p { color: var(--text-muted); }
+.demo-status-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--accent);
+    font-weight: 700;
+    margin-top: 1.2rem;
+}
+.pulse-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.58);
+    animation: pulse-ring 1.8s infinite;
+}
+.demo-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.demo-step-card { padding: 0.9rem; min-height: 142px; }
+.demo-step-card.is-active { border-color: rgba(0, 212, 170, 0.74); }
+.step-index { color: var(--accent); font-family: "SF Mono", "Fira Code", monospace; font-weight: 800; }
+.demo-step-card h3 { margin: 0.8rem 0 0.45rem; }
+.demo-step-card p { color: var(--text-muted); font-size: 0.9rem; }
+.agent-stage,
+.proof-panel { padding: 1.1rem; margin-bottom: 1rem; }
+.stage-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; }
+.cost-ticker {
+    font-family: "SF Mono", "Fira Code", monospace;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(0, 212, 170, 0.45);
+    border-radius: 6px;
+    padding: 0.45rem 0.7rem;
+    font-weight: 800;
+}
+.agent-graph { display: grid; grid-template-columns: 1fr 48px 1fr 48px 1fr 48px 1fr; align-items: center; gap: 0.4rem; }
+.agent-node {
+    min-height: 96px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.72);
+    font-weight: 800;
+}
+.agent-node span { color: var(--accent); font-size: 0.8rem; font-weight: 700; }
+.agent-link { height: 2px; background: linear-gradient(90deg, rgba(0, 212, 170, 0.2), var(--accent)); }
+.proof-panel h2 { margin: 0.4rem 0 1rem; }
+.demo-table th,
+.demo-table td {
+    white-space: nowrap;
+}
+.demo-table td {
+    font-family: "SF Mono", "Fira Code", monospace;
+}
+.demo-table td:nth-child(2) {
+    white-space: normal;
+    max-width: 420px;
+}
+.demo-table td:nth-child(4),
+.demo-table td:nth-child(5) {
+    min-width: 128px;
+}
+
+@keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.58); }
+    70% { box-shadow: 0 0 0 12px rgba(0, 212, 170, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0); }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .navbar { flex-wrap: wrap; gap: 0.5rem; }
+    .demo-navbar { align-items: flex-start; }
+    .demo-nav-proof { justify-content: flex-start; width: 100%; }
     .nav-links { gap: 1rem; }
     .status-cards { grid-template-columns: repeat(2, 1fr); }
     .data-table { font-size: 0.8rem; }
     .data-table th, .data-table td { padding: 0.5rem; }
+    .demo-shell { grid-template-columns: 1fr; }
+    .demo-grid { grid-template-columns: 1fr; }
+    .agent-graph { grid-template-columns: 1fr; }
+    .agent-link { height: 32px; width: 2px; margin: 0 auto; }
 }

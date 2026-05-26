@@ -23,15 +23,36 @@ func main() {
 	var (
 		addr       string
 		kubeconfig string
+		demoMode   bool
 	)
 	flag.StringVar(&addr, "addr", ":8090", "HTTP listen address")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig (empty = in-cluster)")
+	flag.BoolVar(&demoMode, "demo", false, "Run the booth demo UI without Kubernetes")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
 	slog.Info("starting agentctl-web", "version", version, "addr", addr)
+
+	if demoMode {
+		srv, err := NewServer(nil, nil, TemplatesFS())
+		if err != nil {
+			slog.Error("failed to create demo server", "error", err)
+			os.Exit(1)
+		}
+
+		mux := http.NewServeMux()
+		mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(StaticFS()))))
+		mux.HandleFunc("GET /healthz", handleHealthz)
+		mux.HandleFunc("GET /readyz", handleHealthz)
+		mux.HandleFunc("GET /", srv.handleDemo)
+		mux.HandleFunc("GET /{$}", srv.handleDemo)
+		mux.HandleFunc("GET /demo", srv.handleDemo)
+
+		runHTTPServer(addr, RequestIDMiddleware(AuditMiddleware(mux)))
+		return
+	}
 
 	// Build K8s config
 	var cfg *rest.Config
@@ -88,6 +109,7 @@ func main() {
 	// Dashboard
 	mux.HandleFunc("GET /", srv.handleDashboard)
 	mux.HandleFunc("GET /{$}", srv.handleDashboard)
+	mux.HandleFunc("GET /demo", srv.handleDemo)
 
 	// Workloads
 	mux.HandleFunc("GET /workloads", srv.handleWorkloads)
@@ -106,6 +128,10 @@ func main() {
 	handler = AuditMiddleware(handler)
 	handler = RequestIDMiddleware(handler)
 
+	runHTTPServer(addr, handler)
+}
+
+func runHTTPServer(addr string, handler http.Handler) {
 	httpServer := &http.Server{
 		Addr:              addr,
 		Handler:           handler,

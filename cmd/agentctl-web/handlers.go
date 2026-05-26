@@ -74,6 +74,21 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) handleDemo(w http.ResponseWriter, r *http.Request) {
+	data := map[string]interface{}{
+		"CSRFToken": "demo",
+		"Demo":      true,
+		"User": &UserInfo{
+			Username: "booth-demo",
+		},
+	}
+
+	if err := s.tmpl.ExecuteTemplate(w, "demo.html", data); err != nil {
+		slog.Error("render demo", "error", err)
+		http.Error(w, "Failed to render demo", http.StatusInternalServerError)
+	}
+}
+
 func (s *Server) handleWorkloads(w http.ResponseWriter, r *http.Request) {
 	csrfToken, _ := r.Context().Value(csrfContextKey).(string)
 
