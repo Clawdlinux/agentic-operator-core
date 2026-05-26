@@ -44,7 +44,7 @@
         </div>
     </nav>
     {{end}}
-    <main class="container">
+    <main class="container"{{if .Demo}} hx-get="/demo" hx-trigger="every 5s" hx-target="body" hx-swap="outerHTML"{{end}}>
         {{block "content" .}}{{end}}
     </main>
     <footer class="footer">

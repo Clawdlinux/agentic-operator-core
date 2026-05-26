@@ -432,6 +432,17 @@ body::before {
 .demo-step-card p { color: var(--text-muted); font-size: 0.9rem; }
 .agent-stage,
 .proof-panel { padding: 1.1rem; margin-bottom: 1rem; }
+.live-panel {
+    margin-top: 0.7rem;
+}
+.live-panel .stage-header {
+    margin-bottom: 0.85rem;
+}
+.live-panel .data-table th,
+.live-panel .data-table td {
+    padding: 0.48rem 0.58rem;
+    font-size: 0.78rem;
+}
 .stage-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; }
 .cost-ticker {
     font-family: "SF Mono", "Fira Code", monospace;
@@ -456,6 +467,87 @@ body::before {
 .agent-node span { color: var(--accent); font-size: 0.8rem; font-weight: 700; }
 .agent-link { height: 2px; background: linear-gradient(90deg, rgba(0, 212, 170, 0.2), var(--accent)); }
 .proof-panel h2 { margin: 0.4rem 0 1rem; }
+.proof-panel h3 { margin: 0 0 0.7rem; font-size: 0.95rem; color: var(--text-muted); }
+.live-columns { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr); gap: 1rem; }
+.runtime-row-list,
+.workload-card-list {
+    display: grid;
+    gap: 0.75rem;
+}
+.runtime-row,
+.workload-card {
+    min-width: 0;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.68);
+    padding: 0.72rem 0.8rem;
+}
+.runtime-row,
+.runtime-row-main,
+.workload-card,
+.workload-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+.runtime-row,
+.workload-card {
+    justify-content: space-between;
+}
+.runtime-row-main {
+    min-width: 0;
+}
+.runtime-row-main > div {
+    min-width: 0;
+}
+.runtime-row h4,
+.workload-card h4 {
+    overflow-wrap: anywhere;
+    font-size: 0.94rem;
+    line-height: 1.25;
+}
+.runtime-row p,
+.workload-card p {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.runtime-row-meta,
+.workload-card-meta {
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.78rem;
+}
+.runtime-row-meta {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    max-width: 48%;
+}
+.runtime-row-meta span {
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 6px;
+    padding: 0.22rem 0.42rem;
+    white-space: nowrap;
+}
+.runtime-row-meta span:nth-child(2) {
+    color: var(--accent);
+}
+.workload-card > div:first-child {
+    min-width: 0;
+}
+.workload-card-meta {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+.empty-live-state {
+    color: var(--text-muted);
+    border: 1px dashed rgba(148, 163, 184, 0.24);
+    border-radius: 8px;
+    padding: 0.9rem;
+}
 .demo-table th,
 .demo-table td {
     white-space: nowrap;
@@ -491,4 +583,9 @@ body::before {
     .demo-grid { grid-template-columns: 1fr; }
     .agent-graph { grid-template-columns: 1fr; }
     .agent-link { height: 32px; width: 2px; margin: 0 auto; }
+    .live-columns { grid-template-columns: 1fr; }
+    .runtime-row { align-items: flex-start; flex-direction: column; }
+    .runtime-row-meta { justify-content: flex-start; max-width: none; flex-wrap: wrap; }
+    .workload-card { align-items: flex-start; flex-direction: column; }
+    .workload-card-meta { justify-content: flex-start; }
 }

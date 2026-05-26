@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/shreyansh/agentic-operator/pkg/agentctl"
 )
@@ -75,9 +77,43 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDemo(w http.ResponseWriter, r *http.Request) {
+	runtimePods := []agentctl.RuntimePodRow{}
+	workloads := []agentctl.WorkloadRow{}
+	var status *agentctl.StatusSummary
+	live := false
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if s.client != nil {
+		if s.client.Kube != nil {
+			if rows, err := s.client.ListRuntimePods(ctx, ""); err == nil {
+				runtimePods = rows
+				live = true
+			}
+		}
+
+		if s.client.Dynamic != nil {
+			if rows, err := s.client.ListWorkloads(ctx, ""); err == nil {
+				workloads = rows
+				live = true
+			}
+		}
+
+		if s.client.Kube != nil && s.client.Dynamic != nil && s.client.Discovery != nil {
+			if summary, err := s.client.ClusterStatus(ctx, ""); err == nil {
+				status = summary
+				live = true
+			}
+		}
+	}
+
 	data := map[string]interface{}{
-		"CSRFToken": "demo",
-		"Demo":      true,
+		"CSRFToken":   "demo",
+		"Demo":        true,
+		"Live":        live,
+		"RuntimePods": runtimePods,
+		"Workloads":   workloads,
+		"Status":      status,
 		"User": &UserInfo{
 			Username: "booth-demo",
 		},

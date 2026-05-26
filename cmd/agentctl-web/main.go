@@ -36,7 +36,25 @@ func main() {
 	slog.Info("starting agentctl-web", "version", version, "addr", addr)
 
 	if demoMode {
-		srv, err := NewServer(nil, nil, TemplatesFS())
+		var demoClient *agentctl.Client
+		demoKubeconfig := kubeconfig
+		if demoKubeconfig == "" {
+			if _, err := os.Stat(clientcmd.RecommendedHomeFile); err == nil {
+				demoKubeconfig = clientcmd.RecommendedHomeFile
+			}
+		}
+		if demoKubeconfig != "" {
+			cfg, err := clientcmd.BuildConfigFromFlags("", demoKubeconfig)
+			if err != nil {
+				slog.Warn("demo mode running without cluster", "error", err)
+			} else if client, err := agentctl.NewClient(cfg); err != nil {
+				slog.Warn("demo mode failed to create cluster client", "error", err)
+			} else {
+				demoClient = client
+			}
+		}
+
+		srv, err := NewServer(demoClient, nil, TemplatesFS())
 		if err != nil {
 			slog.Error("failed to create demo server", "error", err)
 			os.Exit(1)

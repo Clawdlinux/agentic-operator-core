@@ -101,6 +101,74 @@ func (c *Client) fetchWorkflowSteps(ctx context.Context, workloadName string) ([
 	return steps, nil
 }
 
+// ListRuntimePods returns pods that appear to be running agent workloads.
+func (c *Client) ListRuntimePods(ctx context.Context, ns string) ([]RuntimePodRow, error) {
+	pods, err := c.Kube.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("list runtime pods: %w", err)
+	}
+
+	rows := make([]RuntimePodRow, 0, len(pods.Items))
+	for _, pod := range pods.Items {
+		workload := podWorkloadName(pod.Labels)
+		if workload == "" {
+			continue
+		}
+
+		rows = append(rows, RuntimePodRow{
+			Name:         pod.Name,
+			Namespace:    pod.Namespace,
+			Workload:     workload,
+			Role:         SafeText(pod.Labels[RoleLabelKey], "agent"),
+			Phase:        string(pod.Status.Phase),
+			RuntimeClass: podRuntimeClass(&pod),
+			Node:         SafeText(pod.Spec.NodeName, "pending"),
+			Image:        containerImage(pod.Spec.Containers),
+			Age:          AgeString(pod.CreationTimestamp),
+			Restarts:     restartCount(pod.Status.ContainerStatuses),
+		})
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Namespace == rows[j].Namespace {
+			return rows[i].Name < rows[j].Name
+		}
+		return rows[i].Namespace < rows[j].Namespace
+	})
+
+	return rows, nil
+}
+
+func podWorkloadName(labels map[string]string) string {
+	return FirstNonEmpty(
+		labels["agentic.io/job-id"],
+		labels["workflows.argoproj.io/workflow"],
+		labels["agentworkload.clawdlinux.io/name"],
+	)
+}
+
+func podRuntimeClass(pod *corev1.Pod) string {
+	if pod.Spec.RuntimeClassName == nil || strings.TrimSpace(*pod.Spec.RuntimeClassName) == "" {
+		return "default"
+	}
+	return *pod.Spec.RuntimeClassName
+}
+
+func containerImage(containers []corev1.Container) string {
+	if len(containers) == 0 {
+		return ""
+	}
+	return containers[0].Image
+}
+
+func restartCount(statuses []corev1.ContainerStatus) int32 {
+	var total int32
+	for _, status := range statuses {
+		total += status.RestartCount
+	}
+	return total
+}
+
 // FindRuntimePod finds the pod associated with a workload name.
 func (c *Client) FindRuntimePod(ctx context.Context, workloadName string) (podName, podNamespace, role string, err error) {
 	selectors := []string{
