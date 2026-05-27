@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -67,6 +68,7 @@ type AgentWorkloadReconciler struct {
 	SLAMonitor       *multitenancy.SLAMonitor   // Phase 7: SLA tracking
 	TenantRes        *multitenancy.Resolver     // Phase 7: Tenant isolation
 	Metrics          *metrics.RoutingMetrics    // Singleton metrics recorder (initialized once)
+	RetryConfig      *resilience.RetryConfig    // optional test seam; nil uses production defaults
 }
 
 type AgentWorkloadReconcilerOption func(*AgentWorkloadReconciler)
@@ -226,6 +228,9 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			routingInfo *llm.RoutingInfo
 		}
 		retryCfg := resilience.DefaultRetryConfig()
+		if r.RetryConfig != nil {
+			retryCfg = *r.RetryConfig
+		}
 		result, retryInfo := resilience.WithRetry(ctx, retryCfg, "model-routing", func(retryCtx context.Context) (routeResult, error) {
 			resp, ri, err := r.routeAndCallModel(retryCtx, &workload)
 			return routeResult{response: resp, routingInfo: ri}, err
@@ -503,11 +508,23 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		workload.Status.ProposedActions = append(workload.Status.ProposedActions, action)
 		prunedProposed := pruneActions(workload.Status.ProposedActions, maxActionsInStatus)
 		workload.Status.ProposedActions = prunedProposed
-		workload.Status.Phase = "PendingApproval"
+		if workload.Spec.OPAPolicy != nil && *workload.Spec.OPAPolicy == "strict" {
+			workload.Status.Phase = "PolicyDenied"
+			workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
+				Type:               "PolicyDenied",
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: workload.Generation,
+				Reason:             "OPADenied",
+				Message:            fmt.Sprintf("OPA denied action %q: %s", action.Name, strings.Join(opaResult.Reasons, "; ")),
+				LastTransitionTime: now,
+			})
+		} else {
+			workload.Status.Phase = "PendingApproval"
+		}
 	}
 
 	// Step 6: Update status
-	if workload.Status.Phase == "" || (workload.Status.Phase != "Completed" && workload.Status.Phase != "Failed" && workload.Status.Phase != "PendingApproval") {
+	if workload.Status.Phase == "" || (workload.Status.Phase != "Completed" && workload.Status.Phase != "Failed" && workload.Status.Phase != "PendingApproval" && workload.Status.Phase != "PolicyDenied") {
 		workload.Status.Phase = "Running"
 	}
 	workload.Status.LastReconcileTime = &now
@@ -522,7 +539,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Step 7: Determine requeue interval
 	var requeueInterval time.Duration
-	if workload.Status.Phase == "PendingApproval" {
+	if workload.Status.Phase == "PendingApproval" || workload.Status.Phase == "PolicyDenied" {
 		// For pending approval, requeue less frequently (1 hour) to wait for human approval
 		requeueInterval = 1 * time.Hour
 	} else {
@@ -531,6 +548,16 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	return ctrl.Result{RequeueAfter: requeueInterval}, nil
+}
+
+func upsertCondition(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == condition.Type {
+			conditions[i] = condition
+			return conditions
+		}
+	}
+	return append(conditions, condition)
 }
 
 // Helper functions
