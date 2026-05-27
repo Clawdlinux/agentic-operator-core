@@ -18,6 +18,10 @@ package mcp
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -159,4 +163,77 @@ func TestToolRequest_Marshalling(t *testing.T) {
 	}
 
 	t.Logf("Successfully marshalled request: %s", string(data))
+}
+
+func TestMCPClient_CallToolTimesOutOnSlowServer(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(20 * time.Millisecond)
+		_, _ = w.Write([]byte(`{"tool":"slow","success":true,"result":{}}`))
+	}))
+	defer server.Close()
+
+	client := NewMCPClient(server.URL)
+	client.client.Timeout = time.Millisecond
+	client.maxRetries = 0
+
+	_, err := client.CallTool("slow", map[string]interface{}{})
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !strings.Contains(err.Error(), "Client.Timeout") && !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Fatalf("error = %v, want timeout", err)
+	}
+}
+
+func TestMCPClient_CallToolMalformedJSON(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"tool":"get_status","success":true,"result":`))
+	}))
+	defer server.Close()
+
+	client := NewMCPClient(server.URL)
+	client.maxRetries = 0
+
+	_, err := client.CallTool("get_status", map[string]interface{}{})
+	if err == nil {
+		t.Fatal("expected malformed JSON error")
+	}
+	if !strings.Contains(err.Error(), "failed to decode tool response") {
+		t.Fatalf("error = %v, want decode error", err)
+	}
+}
+
+func TestMCPClient_CallToolRetriesTransientServerError(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if attempts.Add(1) == 1 {
+			http.Error(w, "temporary failure", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ToolResponse{Tool: "get_status", Success: true, Result: map[string]interface{}{"status": "healthy"}})
+	}))
+	defer server.Close()
+
+	client := NewMCPClient(server.URL)
+	client.maxRetries = 1
+	client.retryBackoff = time.Millisecond
+
+	result, err := client.CallTool("get_status", map[string]interface{}{})
+	if err != nil {
+		t.Fatalf("CallTool failed: %v", err)
+	}
+	if got := result["status"]; got != "healthy" {
+		t.Fatalf("status = %v, want healthy", got)
+	}
+	if got := attempts.Load(); got != 2 {
+		t.Fatalf("attempts = %d, want 2", got)
+	}
 }

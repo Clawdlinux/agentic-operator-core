@@ -52,6 +52,16 @@ func NewPolicyEvaluator() *PolicyEvaluator {
 
 // Evaluate evaluates a proposed action against OPA policies
 func (pe *PolicyEvaluator) Evaluate(input *EvaluationInput) *EvaluationResult {
+	if input == nil {
+		return &EvaluationResult{
+			Allowed:        false,
+			Confidence:     "LOW",
+			ClusterStatus:  "CRITICAL",
+			ActionCategory: "MODIFICATION",
+			Reasons:        []string{"Policy input is required"},
+		}
+	}
+
 	result := &EvaluationResult{
 		Confidence:     assessConfidence(input.Confidence),
 		ClusterStatus:  assessClusterHealth(input.ClusterHealthScore),

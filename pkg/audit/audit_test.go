@@ -8,7 +8,9 @@ package audit_test
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -310,6 +312,100 @@ func TestRecorder_ResumesFromHead(t *testing.T) {
 	all := be.All()
 	if e.PrevHash != all[2].EntryHash {
 		t.Errorf("prev_hash after restart != entry[2].EntryHash")
+	}
+}
+
+func TestRecorder_EndToEnd_LargeChain(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	h := newHasher(t, "k1")
+	be := audit.NewMemoryBackend()
+	r, err := audit.NewRecorder(ctx, h, be, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 25; i++ {
+		_, err := r.Append(ctx, audit.Entry{
+			TenantID:      "t1",
+			AgentWorkload: "demo-workload",
+			Actor:         "system",
+			Action:        audit.ActionStateChange,
+			SubjectID:     fmt.Sprintf("state-%02d", i),
+			PayloadCanon:  []byte(fmt.Sprintf(`{"step":%d}`, i)),
+		})
+		if err != nil {
+			t.Fatalf("append %d: %v", i, err)
+		}
+	}
+
+	v, err := audit.NewVerifier(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := v.Walk(ctx, be.All())
+	if report.FirstError != nil {
+		t.Fatalf("large chain rejected: %v", report.FirstError)
+	}
+	if report.OK != 25 {
+		t.Fatalf("verified entries = %d, want 25", report.OK)
+	}
+}
+
+func TestRecorder_ConcurrentAppend(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	h := newHasher(t, "k1")
+	be := audit.NewMemoryBackend()
+	r, err := audit.NewRecorder(ctx, h, be, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const goroutines = 50
+	const entriesPerGoroutine = 10
+	errCh := make(chan error, goroutines*entriesPerGoroutine)
+	var wg sync.WaitGroup
+	for worker := 0; worker < goroutines; worker++ {
+		worker := worker
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < entriesPerGoroutine; i++ {
+				_, err := r.Append(ctx, audit.Entry{
+					TenantID:      "t1",
+					AgentWorkload: "demo-workload",
+					Actor:         "system",
+					Action:        audit.ActionToolCall,
+					SubjectID:     fmt.Sprintf("worker-%02d-%02d", worker, i),
+					PayloadCanon:  []byte(`{"ok":true}`),
+				})
+				if err != nil {
+					errCh <- err
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("append failed: %v", err)
+		}
+	}
+
+	v, err := audit.NewVerifier(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := v.Walk(ctx, be.All())
+	if report.FirstError != nil {
+		t.Fatalf("concurrent chain rejected: %v", report.FirstError)
+	}
+	if report.OK != goroutines*entriesPerGoroutine {
+		t.Fatalf("verified entries = %d, want %d", report.OK, goroutines*entriesPerGoroutine)
 	}
 }
 
