@@ -5,7 +5,7 @@
 <h1 align="center">NineVigil</h1>
 
 <p align="center">
-  <strong>The Kubernetes runtime API that AI agents call to provision their own air-gapped execution environments.</strong>
+  <strong>Regulated controls for AI agents on Kubernetes.</strong>
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  One <code>AgentWorkload</code> manifest. Air-gapped by default. Argo DAG orchestration. Per-tenant cost attribution. Zero cloud lock-in.
+  gVisor isolation. Audit trails. FinOps. ACP compression. Works with your own runtime or a CNCF agent runtime like kagent.
 </p>
 
 <p align="center">
@@ -59,28 +59,24 @@
 
 ## Why NineVigil?
 
-kagent (Solo.io, CNCF Sandbox) validates this market completely. When Google, Microsoft, IBM, and Red Hat contribute to a Kubernetes agent runtime, the category is real.
+kagent (Solo.io, CNCF Sandbox) proves the base runtime layer is real. That is good for the ecosystem.
 
-But here's what kagent **structurally cannot do**:
+NineVigil does not need to replace that layer. It adds the controls regulated teams need before agents can touch internal data.
 
-| Capability | NineVigil | kagent (Solo.io) |
-|---|:---:|:---:|
-| **Air-gapped / zero-egress deployment** | ✅ | ❌ |
-| **Outcome-based billing per workload** | ✅ OpenMeter | ❌ |
-| **Argo DAG orchestration** | ✅ | ❌ |
-| **Per-tenant cost isolation** | ✅ | ❌ |
-| **JWT offline licensing** | ✅ | ❌ |
-| Kubernetes-native operator | ✅ | ✅ |
-| OTel observability | ✅ Langfuse + OTel | ✅ |
-| RBAC / identity | ✅ Cilium + RBAC | ✅ mTLS + OIDC |
-| MCP support | ✅ | ✅ |
-| Multi-framework support | ✅ LangGraph (Python) | ✅ LangChain, CrewAI, ADK |
+| Layer | What kagent covers | What NineVigil adds |
+|---|---|---|
+| Agent runtime | Agent CRDs, tools, model config | Compatible deployment controls |
+| Runtime isolation | Pod and service controls | gVisor `RuntimeClass` injection |
+| Context | Agent memory and compaction | ACP for MCP tool discovery compression |
+| Audit | Observability hooks | Tamper-evident audit chain |
+| Cost | Basic usage visibility | Per-workload budget and chargeback hooks |
+| Delivery | Helm and public OCI | Air-gapped install path and offline licensing |
 
-> **kagent is excellent for cloud-connected teams. We are the only option for environments where data cannot leave the network — air-gapped, FedRAMP, HIPAA-constrained, and sovereign cloud.** Those buyers have no other choice.
+Platform teams running agents on Kubernetes still face the same regulated-ops questions.
 
-Platform teams running AI agents on Kubernetes today face a painful reality: each agent framework expects its own runtime, its own secrets, its own network rules. You end up with a sprawl of bespoke Deployments, no cost visibility, and no guardrails.
+Who can the agent call? Which runtime isolates it? What did it cost? What did it do? Can an auditor replay it later?
 
-**NineVigil fixes this.** One CRD, one controller, full-stack isolation:
+**NineVigil focuses on that layer.** Use the built-in `AgentWorkload` path, or add NineVigil controls around kagent-managed pods with labels.
 
 | Problem | NineVigil |
 |---------|-----------------|
@@ -90,6 +86,22 @@ Platform teams running AI agents on Kubernetes today face a painful reality: eac
 | Manual DAG wiring | Argo Workflows orchestrates agent steps |
 | Vendor lock-in | Any LLM via LiteLLM proxy routing |
 | Cloud-only runtimes | Full air-gapped, offline-first deployment |
+
+### kagent-compatible runtime sandbox
+
+kagent Agent deployments can opt into NineVigil's gVisor injector with one label:
+
+```yaml
+agentic.clawdlinux.org/runtime-sandbox: gvisor
+```
+
+The NineVigil webhook mutates matching Pods on create:
+
+```yaml
+runtimeClassName: gvisor
+```
+
+No fork required. No custom kagent build required.
 
 ---
 
@@ -226,7 +238,7 @@ Enterprise inquiries: [shreyanshsancheti09@gmail.com](mailto:shreyanshsancheti09
 
 ## Security & Sandbox
 
-NineVigil ships **default-deny egress NetworkPolicies** for every agent namespace (Helm-toggleable via `networkPolicy.enabled`, default true) and runs agent pods on a **gVigil sandbox** — [gVisor](https://gvisor.dev/) as the default user-space kernel, with [Kata Containers](https://katacontainers.io/) as opt-in for full microVM isolation. See [docs/07-security.md](docs/07-security.md) for the syscall allowlist source and the Helm toggle.
+NineVigil ships **default-deny egress NetworkPolicies** for every agent namespace (Helm-toggleable via `networkPolicy.enabled`, default true). It can also create a gVisor `RuntimeClass` and register a pod mutating webhook for labeled agent pods. See [docs/07-security.md](docs/07-security.md) for details.
 
 ---
 
