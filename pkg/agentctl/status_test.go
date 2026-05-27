@@ -16,7 +16,7 @@ import (
 func TestClusterStatusCountsWorkloadsAndComponents(t *testing.T) {
 	t.Parallel()
 
-	kube := fake.NewSimpleClientset(
+	kube := fake.NewClientset(
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "litellm", Namespace: "shared-services"}},
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "postgres", Namespace: "shared-services"}},
 		&appsv1.Deployment{
@@ -51,7 +51,7 @@ func TestClusterStatusCountsWorkloadsAndComponents(t *testing.T) {
 func TestClusterStatusDiscoveryError(t *testing.T) {
 	t.Parallel()
 
-	kube := fake.NewSimpleClientset()
+	kube := fake.NewClientset()
 	kube.Fake.PrependReactor("get", "version", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errors.New("discovery failed")
 	})
