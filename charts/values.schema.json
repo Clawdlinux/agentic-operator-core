@@ -26,7 +26,8 @@
           }
         },
         "storageClass": { "type": "string" },
-        "namespace": { "type": "string" }
+        "namespace": { "type": "string" },
+        "runtimeSandbox": { "$ref": "#/$defs/runtimeSandbox" }
       }
     },
     "license": {
@@ -291,6 +292,20 @@
         "enabled": { "type": "boolean" },
         "size": { "type": "string" },
         "storageClass": { "type": "string" }
+      }
+    },
+    "runtimeSandbox": {
+      "type": "object",
+      "description": "RuntimeClass injection for regulated agent pods, including kagent-compatible label selection.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "createRuntimeClass": { "type": "boolean" },
+        "runtimeClassName": { "type": "string", "minLength": 1 },
+        "handler": { "type": "string", "minLength": 1 },
+        "selectorLabelKey": { "type": "string", "minLength": 1 },
+        "selectorLabelValue": { "type": "string", "minLength": 1 },
+        "overhead": { "type": "object" },
+        "scheduling": { "type": "object" }
       }
     }
   }

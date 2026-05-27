@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
+	runtimeadmission "github.com/shreyansh/agentic-operator/internal/admission"
 	"github.com/shreyansh/agentic-operator/internal/controller"
 	"github.com/shreyansh/agentic-operator/pkg/evaluation"
 	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
@@ -244,6 +245,12 @@ func main() {
 			setupLog.Error(err, "Failed to setup webhook", "webhook", "AgentWorkload")
 			os.Exit(1)
 		}
+
+		mgr.GetWebhookServer().Register("/mutate-v1-pod-runtimeclass", &webhook.Admission{
+			Handler: &runtimeadmission.RuntimeClassInjector{
+				Config: runtimeadmission.RuntimeClassInjectionConfigFromEnv(),
+			},
+		})
 	}
 	// +kubebuilder:scaffold:builder
 

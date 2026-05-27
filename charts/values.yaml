@@ -20,6 +20,27 @@ global:
   imagePullSecrets: []
   storageClass: ""           # Default StorageClass for PVCs
   namespace: agentic-system  # Target namespace (also rendered by namespace.yaml)
+  # Runtime sandbox (gVisor RuntimeClass injection)
+  #
+  # kagent v1alpha2 exposes labels, securityContext, env, sidecars, and volumes
+  # on Agent deployment specs, but not pod.spec.runtimeClassName. This addon lets
+  # a kagent Agent opt into gVisor by adding this label under
+  # spec.declarative.deployment.labels or spec.byo.deployment.labels:
+  #
+  #   agentic.clawdlinux.org/runtime-sandbox: gvisor
+  #
+  # The operator webhook mutates matching Pods on CREATE and sets
+  # runtimeClassName: gvisor unless the Pod already set a runtimeClassName.
+  # Nodes must already have gVisor/runsc installed.
+  runtimeSandbox:
+    enabled: true
+    createRuntimeClass: true
+    runtimeClassName: gvisor
+    handler: runsc
+    selectorLabelKey: agentic.clawdlinux.org/runtime-sandbox
+    selectorLabelValue: gvisor
+    overhead: {}
+    scheduling: {}
 
 # ---------------------------------------------------------------------------
 # License (REQUIRED)
