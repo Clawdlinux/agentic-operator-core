@@ -44,8 +44,9 @@ type MemoryCostReporter struct {
 	budget  map[string]float64        // key: "namespace/workloadName" → max USD
 
 	// Prometheus metrics
-	costGauge   *prometheus.GaugeVec
-	tokensCount *prometheus.CounterVec
+	costGauge        *prometheus.GaugeVec
+	costDollarsGauge *prometheus.GaugeVec
+	tokensCount      *prometheus.CounterVec
 }
 
 // NewMemoryCostReporter creates a reporter with default public pricing.
@@ -54,6 +55,13 @@ func NewMemoryCostReporter() *MemoryCostReporter {
 		prometheus.GaugeOpts{
 			Name: "agentic_workload_cost_usd",
 			Help: "Estimated USD cost per workload (in-memory tracker)",
+		},
+		[]string{"workload", "namespace"},
+	)
+	costDollarsGauge := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "ninevigil_agent_cost_dollars",
+			Help: "Estimated USD cost per agent workload.",
 		},
 		[]string{"workload", "namespace"},
 	)
@@ -68,14 +76,16 @@ func NewMemoryCostReporter() *MemoryCostReporter {
 
 	// Best-effort registration (may already be registered in tests)
 	prometheus.Register(costGauge)
+	prometheus.Register(costDollarsGauge)
 	prometheus.Register(tokensCount)
 
 	return &MemoryCostReporter{
-		usage:       make(map[string]*WorkloadUsage),
-		pricing:     defaultPricing(),
-		budget:      make(map[string]float64),
-		costGauge:   costGauge,
-		tokensCount: tokensCount,
+		usage:            make(map[string]*WorkloadUsage),
+		pricing:          defaultPricing(),
+		budget:           make(map[string]float64),
+		costGauge:        costGauge,
+		costDollarsGauge: costDollarsGauge,
+		tokensCount:      tokensCount,
 	}
 }
 
@@ -140,6 +150,7 @@ func (m *MemoryCostReporter) RecordUsage(ctx context.Context, workloadName, name
 
 	// Update Prometheus metrics
 	m.costGauge.WithLabelValues(workloadName, namespace).Set(u.EstimatedCostUSD)
+	m.costDollarsGauge.WithLabelValues(workloadName, namespace).Set(u.EstimatedCostUSD)
 	m.tokensCount.WithLabelValues(workloadName, namespace, "prompt").Add(float64(promptTokens))
 	m.tokensCount.WithLabelValues(workloadName, namespace, "completion").Add(float64(completionTokens))
 
@@ -154,6 +165,10 @@ func (m *MemoryCostReporter) RecordUsage(ctx context.Context, workloadName, name
 		"totalCostUSD", fmt.Sprintf("%.6f", u.EstimatedCostUSD),
 	)
 	return nil
+}
+
+func (m *MemoryCostReporter) PrometheusCollector() prometheus.Collector {
+	return m.costDollarsGauge
 }
 
 // CheckBudget returns an error if the workload has exceeded its budget.

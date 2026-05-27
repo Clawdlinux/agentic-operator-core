@@ -3,6 +3,8 @@ package finops
 import (
 	"context"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestMemoryCostReporter_RecordAndQuery(t *testing.T) {
@@ -110,4 +112,38 @@ func TestMemoryCostReporter_OllamaFree(t *testing.T) {
 	if cost != 0.0 {
 		t.Errorf("Expected $0.00 for local Ollama model, got $%.6f", cost)
 	}
+}
+
+func TestMemoryCostReporter_PrometheusCollectorEmitsNineVigilCostMetric(t *testing.T) {
+	t.Parallel()
+
+	r := NewMemoryCostReporter()
+	ctx := context.Background()
+	if err := r.RecordUsage(ctx, "demo-workload", "demo-ns", "openai/gpt-4o-mini", 1000, 500); err != nil {
+		t.Fatalf("RecordUsage failed: %v", err)
+	}
+
+	registry := prometheus.NewRegistry()
+	if err := registry.Register(r.PrometheusCollector()); err != nil {
+		t.Fatalf("register collector: %v", err)
+	}
+
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+	for _, family := range metricFamilies {
+		if family.GetName() != "ninevigil_agent_cost_dollars" {
+			continue
+		}
+		if len(family.GetMetric()) != 1 {
+			t.Fatalf("metric count = %d, want 1", len(family.GetMetric()))
+		}
+		got := family.GetMetric()[0].GetGauge().GetValue()
+		if got != 0.00045 {
+			t.Fatalf("cost metric = %f, want 0.00045", got)
+		}
+		return
+	}
+	t.Fatal("ninevigil_agent_cost_dollars metric not found")
 }
