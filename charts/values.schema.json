@@ -204,6 +204,17 @@
         }
       }
     },
+    "ciliumPolicy": {
+      "type": "object",
+      "description": "Optional CiliumNetworkPolicy FQDN egress allow-list for managed agent pods.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "allowedFQDNs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "ingress": {
       "type": "object",
       "properties": {

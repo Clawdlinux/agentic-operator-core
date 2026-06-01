@@ -384,6 +384,17 @@ networkPolicy:
     fqdnAllowlist: []
 
 # ---------------------------------------------------------------------------
+# Cilium FQDN egress policy for managed agent pods.
+# Disabled by default because it requires the CiliumNetworkPolicy CRD.
+# ---------------------------------------------------------------------------
+ciliumPolicy:
+  enabled: false
+  allowedFQDNs:
+    - api.openai.com
+    - api.anthropic.com
+    - api.mistral.ai
+
+# ---------------------------------------------------------------------------
 # Clawdlinux Observability (clawd-observability subchart)
 #
 # Bundles OTel Collector + Tempo + Prometheus + Grafana + ClickHouse + Qdrant

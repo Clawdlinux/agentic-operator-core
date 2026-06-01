@@ -1,0 +1,57 @@
+{{- /*
+Cilium FQDN egress policy for managed agent pods.
+
+Toggle with `ciliumPolicy.enabled` (default false). When enabled, selected
+agent pods may reach kube-dns, the in-cluster LiteLLM service, and the FQDNs in
+`ciliumPolicy.allowedFQDNs`. The selected endpoints are otherwise in egress
+default-deny mode.
+*/ -}}
+{{- if .Values.ciliumPolicy.enabled -}}
+{{- $ns := include "agentic-operator.namespace" . -}}
+{{- $litellmPort := default 4000 (((.Values.litellm).service).port) -}}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "agentic-operator.fullname" . }}-fqdn-egress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: networkpolicy
+  annotations:
+    agentic.clawdlinux.org/policy-purpose: "cilium-fqdn-egress"
+spec:
+  endpointSelector:
+    matchLabels:
+      agentic.clawdlinux.org/managed: "true"
+  egress:
+    # Allow DNS resolution through kube-dns / CoreDNS.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    # In-cluster LiteLLM gateway.
+    - toServices:
+        - k8sService:
+            namespace: {{ $ns }}
+            serviceName: {{ printf "%s-litellm" .Release.Name | trunc 63 | trimSuffix "-" }}
+      toPorts:
+        - ports:
+            - port: {{ $litellmPort | quote }}
+              protocol: TCP
+    # Approved external LLM provider endpoints.
+    - toFQDNs:
+        {{- range .Values.ciliumPolicy.allowedFQDNs }}
+        - matchName: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+{{- end -}}
