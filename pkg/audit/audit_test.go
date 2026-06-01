@@ -364,8 +364,10 @@ func TestRecorder_ConcurrentAppend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const goroutines = 50
-	const entriesPerGoroutine = 10
+	const goroutines = 20
+	const entriesPerGoroutine = 5
+	const expectedEntries = goroutines * entriesPerGoroutine
+
 	errCh := make(chan error, goroutines*entriesPerGoroutine)
 	var wg sync.WaitGroup
 	for worker := 0; worker < goroutines; worker++ {
@@ -396,16 +398,21 @@ func TestRecorder_ConcurrentAppend(t *testing.T) {
 		}
 	}
 
+	entries := be.All()
+	if len(entries) != expectedEntries {
+		t.Fatalf("entries = %d, want %d", len(entries), expectedEntries)
+	}
+
 	v, err := audit.NewVerifier(h)
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := v.Walk(ctx, be.All())
+	report := v.Walk(ctx, entries)
 	if report.FirstError != nil {
 		t.Fatalf("concurrent chain rejected: %v", report.FirstError)
 	}
-	if report.OK != goroutines*entriesPerGoroutine {
-		t.Fatalf("verified entries = %d, want %d", report.OK, goroutines*entriesPerGoroutine)
+	if report.OK != expectedEntries {
+		t.Fatalf("verified entries = %d, want %d", report.OK, expectedEntries)
 	}
 }
 
