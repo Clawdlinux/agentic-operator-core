@@ -14,6 +14,46 @@ import (
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
 )
 
+func TestReconcile_OPADenyPath(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	scheme := newControllerTestScheme(t)
+	server := newMockMCPServer(mockMCPScenario{confidence: 0.80, clusterHealth: 90.0})
+	defer server.Close()
+
+	objective := "optimize resources"
+	policy := "strict"
+	workload := &agenticv1alpha1.AgentWorkload{
+		ObjectMeta: metav1.ObjectMeta{Name: "opa-deny-path", Namespace: "default"},
+		Spec: agenticv1alpha1.AgentWorkloadSpec{
+			MCPServerEndpoint: &server.URL,
+			Objective:         &objective,
+			OPAPolicy:         &policy,
+		},
+	}
+
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&agenticv1alpha1.AgentWorkload{}).
+		WithObjects(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, workload).
+		Build()
+
+	reconciler := &AgentWorkloadReconciler{Client: k8sClient, Scheme: scheme}
+	_, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}})
+	if err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	updated := &agenticv1alpha1.AgentWorkload{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, updated); err != nil {
+		t.Fatalf("fetch updated workload: %v", err)
+	}
+	if updated.Status.Phase != "PolicyDenied" {
+		t.Fatalf("phase = %q, want PolicyDenied", updated.Status.Phase)
+	}
+}
+
 func TestReconcile_StrictOPADenySetsPolicyDeniedCondition(t *testing.T) {
 	t.Parallel()
 

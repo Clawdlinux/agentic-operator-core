@@ -61,14 +61,22 @@ const AgentWorkloadFinalizer = "agentic.clawdlinux.org/finalizer"
 type AgentWorkloadReconciler struct {
 	client.Client
 	Scheme           *runtime.Scheme
-	CostReporter     finops.CostReporter        // FinOps integration (defaults to no-op)
-	LicenceValidator finops.LicenceValidator    // License validation (defaults to no-op)
-	Evaluator        *evaluation.Evaluator      // Phase 4: Agent Evaluation Pipeline
-	QuotaMgr         *multitenancy.QuotaManager // Phase 7: Per-tenant quotas
-	SLAMonitor       *multitenancy.SLAMonitor   // Phase 7: SLA tracking
-	TenantRes        *multitenancy.Resolver     // Phase 7: Tenant isolation
-	Metrics          *metrics.RoutingMetrics    // Singleton metrics recorder (initialized once)
-	RetryConfig      *resilience.RetryConfig    // optional test seam; nil uses production defaults
+	CostReporter     finops.CostReporter      // FinOps integration (defaults to no-op)
+	LicenceValidator finops.LicenceValidator  // License validation (defaults to no-op)
+	Evaluator        *evaluation.Evaluator    // Phase 4: Agent Evaluation Pipeline
+	QuotaMgr         quotaChecker             // Phase 7: Per-tenant quotas
+	SLAMonitor       *multitenancy.SLAMonitor // Phase 7: SLA tracking
+	TenantRes        tenantResolver           // Phase 7: Tenant isolation
+	Metrics          *metrics.RoutingMetrics  // Singleton metrics recorder (initialized once)
+	RetryConfig      *resilience.RetryConfig  // optional test seam; nil uses production defaults
+}
+
+type quotaChecker interface {
+	CheckAndConsume(tenantName string, costUSD float64) error
+}
+
+type tenantResolver interface {
+	ExtractFromNamespace(ctx context.Context, namespace string) (*multitenancy.TenantContext, error)
 }
 
 type AgentWorkloadReconcilerOption func(*AgentWorkloadReconciler)

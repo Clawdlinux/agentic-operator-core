@@ -16,6 +16,54 @@ import (
 	"github.com/shreyansh/agentic-operator/pkg/argo"
 )
 
+func TestReconcile_ArgoOrchestration(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	scheme := newControllerTestScheme(t)
+	orchestrationType := "argo"
+	jobID := "argo-direct-job"
+	workload := &agenticv1alpha1.AgentWorkload{
+		ObjectMeta: metav1.ObjectMeta{Name: "argo-direct", Namespace: "default", UID: types.UID("argo-direct-uid")},
+		Spec: agenticv1alpha1.AgentWorkloadSpec{
+			JobID: &jobID,
+			Orchestration: &agenticv1alpha1.OrchestrationSpec{
+				Type: &orchestrationType,
+			},
+		},
+	}
+
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&agenticv1alpha1.AgentWorkload{}).
+		WithObjects(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}},
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: argo.DefaultWorkflowNamespace}},
+			workload,
+		).
+		Build()
+
+	reconciler := &AgentWorkloadReconciler{Client: k8sClient, Scheme: scheme}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Fatalf("reconcile panicked without an explicit Argo client: %v", recovered)
+		}
+	}()
+
+	_, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}})
+	if err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	updated := &agenticv1alpha1.AgentWorkload{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, updated); err != nil {
+		t.Fatalf("fetch updated workload: %v", err)
+	}
+	if updated.Status.Phase == "Failed" {
+		t.Fatalf("phase = Failed, want Argo path to avoid MCP failure")
+	}
+}
+
 func TestReconcile_ArgoOrchestrationCreatesWorkflowAndStatusRef(t *testing.T) {
 	t.Parallel()
 
