@@ -63,7 +63,7 @@ func NewMemoryCostReporter() *MemoryCostReporter {
 			Name: "ninevigil_agent_cost_dollars",
 			Help: "Estimated USD cost per agent workload.",
 		},
-		[]string{"workload", "namespace"},
+		[]string{"workload", "namespace", "model"},
 	)
 
 	tokensCount := prometheus.NewCounterVec(
@@ -73,11 +73,6 @@ func NewMemoryCostReporter() *MemoryCostReporter {
 		},
 		[]string{"workload", "namespace", "type"},
 	)
-
-	// Best-effort registration (may already be registered in tests)
-	prometheus.Register(costGauge)
-	prometheus.Register(costDollarsGauge)
-	prometheus.Register(tokensCount)
 
 	return &MemoryCostReporter{
 		usage:            make(map[string]*WorkloadUsage),
@@ -150,7 +145,7 @@ func (m *MemoryCostReporter) RecordUsage(ctx context.Context, workloadName, name
 
 	// Update Prometheus metrics
 	m.costGauge.WithLabelValues(workloadName, namespace).Set(u.EstimatedCostUSD)
-	m.costDollarsGauge.WithLabelValues(workloadName, namespace).Set(u.EstimatedCostUSD)
+	m.costDollarsGauge.WithLabelValues(workloadName, namespace, model).Set(u.EstimatedCostUSD)
 	m.tokensCount.WithLabelValues(workloadName, namespace, "prompt").Add(float64(promptTokens))
 	m.tokensCount.WithLabelValues(workloadName, namespace, "completion").Add(float64(completionTokens))
 
@@ -223,6 +218,6 @@ func (m *MemoryCostReporter) GetUsage(workloadName, namespace string) *WorkloadU
 		return nil
 	}
 	// Return copy to avoid race
-	copy := *u
-	return &copy
+	usageCopy := *u
+	return &usageCopy
 }
