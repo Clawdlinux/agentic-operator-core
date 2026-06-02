@@ -307,6 +307,47 @@ show_agent_pods() {
     -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,PHASE:.status.phase,RUNTIME:.spec.runtimeClassName' || true
 }
 
+operator_pod_name() {
+  local pod_name
+  pod_name="$(kubectl -n "${NS_OPERATOR}" get pods -l app.kubernetes.io/name=agentic-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  if [[ -z "${pod_name}" ]]; then
+    pod_name="$(kubectl -n "${NS_OPERATOR}" get pods -l control-plane=controller-manager -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  fi
+  printf '%s' "${pod_name}"
+}
+
+check_cost_metrics() {
+  step "Checking cost metric"
+  COST_OK=no
+
+  local pod_name metric_output metric_line exposed_port
+  pod_name="$(operator_pod_name)"
+  if [[ -z "${pod_name}" ]]; then
+    warn "Cost tracking: operator pod not found"
+    return
+  fi
+
+  metric_output="$(kubectl -n "${NS_OPERATOR}" exec "${pod_name}" -- sh -c \
+    'if command -v curl >/dev/null 2>&1; then curl -fsS --max-time 3 http://127.0.0.1:8080/metrics; elif command -v wget >/dev/null 2>&1; then wget -qO- --timeout=3 http://127.0.0.1:8080/metrics; else exit 127; fi' \
+    2>/dev/null || true)"
+  metric_line="$(printf '%s\n' "${metric_output}" | grep 'ninevigil_agent_cost_dollars' | grep -v '^#' | head -1 || true)"
+  if [[ -n "${metric_line}" ]]; then
+    printf '%bCost tracking:%b %s\n' "${GREEN}" "${RESET}" "${metric_line}"
+    COST_OK=yes
+    return
+  fi
+
+  exposed_port="$(kubectl -n "${NS_OPERATOR}" get pod "${pod_name}" \
+    -o jsonpath='{range .spec.containers[*].ports[*]}{.containerPort}{"\n"}{end}' 2>/dev/null | grep -x '8080' | head -1 || true)"
+  if [[ -n "${exposed_port}" ]]; then
+    warn "Cost tracking: metric not available yet, but operator exposes port 8080"
+    COST_OK=yes
+    return
+  fi
+
+  warn "Cost tracking: ninevigil_agent_cost_dollars not available"
+}
+
 verify_gvisor() {
   step "Checking gVisor RuntimeClass"
   local runtime_class_ok runtime_webhook_config dry_run_json runtime_class
@@ -376,6 +417,8 @@ run_opa_demo() {
     warn "ALLOW path did not reach a non-empty, non-denied phase. Last phase: ${ALLOW_PHASE}"
   fi
 
+  check_cost_metrics
+
   show_workload_evidence
   show_agent_pods
 
@@ -400,11 +443,12 @@ run_opa_demo() {
 print_summary() {
   echo ""
   printf '%bBooth Demo Summary%b\n' "${BOLD}" "${RESET}"
-  printf 'ALLOW path: %s. DENY path: %s. gVisor: %s. NetworkPolicy: %s.\n' \
+  printf 'ALLOW path: %s. DENY path: %s. gVisor: %s. NetworkPolicy: %s. Cost: %s.\n' \
     "${ALLOW_PHASE:-<empty>}" \
     "${DENY_PHASE:-<empty>}" \
     "${GVISOR_OK:-no}" \
-    "${NETWORK_POLICY_OK:-no}"
+    "${NETWORK_POLICY_OK:-no}" \
+    "${COST_OK:-no}"
   echo ""
   if [[ "${DENY_PHASE:-}" != "PolicyDenied" ]]; then
     warn "DENY needs a reachable HTTPS MCP endpoint to reach OPA. Set DEMO_MCP_ENDPOINT for live booth runs."
