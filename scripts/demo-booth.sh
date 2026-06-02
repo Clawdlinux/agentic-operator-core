@@ -12,9 +12,11 @@ HELM_TIMEOUT="${HELM_TIMEOUT:-180s}"
 
 ALLOW_MANIFEST="${REPO_ROOT}/config/samples/agentworkload_demo_allow.yaml"
 DENY_MANIFEST="${REPO_ROOT}/config/samples/agentworkload_demo_deny.yaml"
+SWARM_MANIFEST="${REPO_ROOT}/config/samples/agentworkload_demo_swarm.yaml"
 EVIDENCE_DIR="${EVIDENCE_DIR:-${REPO_ROOT}/tests/harness/evidence/booth-$(date +%Y%m%dT%H%M%S)}"
 
 SKIP_ARGO=false
+FULL=false
 RECORD=false
 CLEANUP=false
 ORIGINAL_ARGS=("$@")
@@ -44,6 +46,7 @@ Runs the NineVigil booth demo gate.
 Options:
   --cluster NAME    kind cluster name. Default: ${CLUSTER_NAME}
   --skip-argo       Skip Argo/shared-services setup. Week 2 gate path.
+  --full            Run Phase 2 multi-agent swarm demo.
   --record          Record terminal output with script(1).
   --cleanup         Delete the kind cluster and exit.
   -h, --help        Show this help.
@@ -71,6 +74,10 @@ parse_args() {
         ;;
       --skip-argo)
         SKIP_ARGO=true
+        shift
+        ;;
+      --full)
+        FULL=true
         shift
         ;;
       --record)
@@ -147,6 +154,7 @@ check_prerequisites() {
   fi
   [[ -f "${ALLOW_MANIFEST}" ]] || die "missing ${ALLOW_MANIFEST}"
   [[ -f "${DENY_MANIFEST}" ]] || die "missing ${DENY_MANIFEST}"
+  [[ -f "${SWARM_MANIFEST}" ]] || die "missing ${SWARM_MANIFEST}"
   ok "kubectl and helm found"
 }
 
@@ -440,15 +448,87 @@ run_opa_demo() {
   fi
 }
 
+find_swarm_workflow() {
+  local workflow_name
+  workflow_name="$(kubectl -n "${NS_ARGO}" get workflows \
+    -l agentic.clawdlinux.org/workload=demo-competitive-swarm \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  if [[ -z "${workflow_name}" ]]; then
+    # Current controller labels created Workflows by AgentWorkload name.
+    workflow_name="$(kubectl -n "${NS_ARGO}" get workflows \
+      -l agentic.io/job-id=demo-competitive-swarm \
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  fi
+  printf '%s' "${workflow_name}"
+}
+
+workflow_phase() {
+  local workflow_name="$1"
+  kubectl -n "${NS_ARGO}" get workflow "${workflow_name}" -o jsonpath='{.status.phase}' 2>/dev/null || true
+}
+
+run_swarm_demo() {
+  if [[ "${FULL}" != "true" ]]; then
+    SWARM_PHASE="skipped (use --full)"
+    return
+  fi
+
+  step "PHASE 2: Multi-Agent Swarm"
+  if [[ "${SKIP_ARGO}" == "true" ]]; then
+    warn "Swarm skipped because --skip-argo disables Argo installation"
+    SWARM_PHASE="skipped (no argo)"
+    return
+  fi
+
+  SWARM_PHASE="not found"
+  apply_manifest "${SWARM_MANIFEST}"
+
+  local deadline workflow_name phase
+  deadline=$(( $(date +%s) + 60 ))
+  while (( $(date +%s) < deadline )); do
+    workflow_name="$(find_swarm_workflow)"
+    if [[ -n "${workflow_name}" ]]; then
+      phase="$(workflow_phase "${workflow_name}")"
+      SWARM_PHASE="${phase:-Pending}"
+      printf '%bSwarm workflow:%b %s phase=%s\n' "${GREEN}" "${RESET}" "${workflow_name}" "${SWARM_PHASE}"
+      break
+    fi
+    sleep 2
+  done
+
+  if [[ -z "${workflow_name:-}" ]]; then
+    warn "Swarm workflow did not appear in ${NS_ARGO} within 60s"
+    printf 'Swarm: %s. Agents: competitor-scraper, llm-synthesizer, report-generator\n' "${SWARM_PHASE}"
+    return
+  fi
+
+  deadline=$(( $(date +%s) + 120 ))
+  while (( $(date +%s) < deadline )); do
+    phase="$(workflow_phase "${workflow_name}")"
+    if [[ -n "${phase}" ]]; then
+      SWARM_PHASE="${phase}"
+      break
+    fi
+    sleep 3
+  done
+
+  if [[ -z "${SWARM_PHASE}" || "${SWARM_PHASE}" == "Pending" ]]; then
+    warn "Swarm workflow has not started a phase yet"
+  fi
+  kubectl -n "${NS_ARGO}" get workflows || true
+  printf 'Swarm: %s. Agents: competitor-scraper, llm-synthesizer, report-generator\n' "${SWARM_PHASE:-unknown}"
+}
+
 print_summary() {
   echo ""
   printf '%bBooth Demo Summary%b\n' "${BOLD}" "${RESET}"
-  printf 'ALLOW path: %s. DENY path: %s. gVisor: %s. NetworkPolicy: %s. Cost: %s.\n' \
+  printf 'ALLOW path: %s. DENY path: %s. gVisor: %s. NetworkPolicy: %s. Cost: %s. Swarm: %s.\n' \
     "${ALLOW_PHASE:-<empty>}" \
     "${DENY_PHASE:-<empty>}" \
     "${GVISOR_OK:-no}" \
     "${NETWORK_POLICY_OK:-no}" \
-    "${COST_OK:-no}"
+    "${COST_OK:-no}" \
+    "${SWARM_PHASE:-skipped (use --full)}"
   echo ""
   if [[ "${DENY_PHASE:-}" != "PolicyDenied" ]]; then
     warn "DENY needs a reachable HTTPS MCP endpoint to reach OPA. Set DEMO_MCP_ENDPOINT for live booth runs."
@@ -474,6 +554,7 @@ main() {
   verify_gvisor
   verify_network_policy
   run_opa_demo
+  run_swarm_demo
   print_summary
 }
 
