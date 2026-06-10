@@ -36,7 +36,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
-	"github.com/shreyansh/agentic-operator/pkg/argo"
 	"github.com/shreyansh/agentic-operator/pkg/evaluation"
 	"github.com/shreyansh/agentic-operator/pkg/finops"
 	"github.com/shreyansh/agentic-operator/pkg/llm"
@@ -46,6 +45,7 @@ import (
 	"github.com/shreyansh/agentic-operator/pkg/opa"
 	"github.com/shreyansh/agentic-operator/pkg/resilience"
 	"github.com/shreyansh/agentic-operator/pkg/routing"
+	runtimeadapter "github.com/shreyansh/agentic-operator/pkg/runtime"
 )
 
 // Maximum number of actions to keep in status to prevent unbounded growth
@@ -69,6 +69,7 @@ type AgentWorkloadReconciler struct {
 	TenantRes        tenantResolver           // Phase 7: Tenant isolation
 	Metrics          *metrics.RoutingMetrics  // Singleton metrics recorder (initialized once)
 	RetryConfig      *resilience.RetryConfig  // optional test seam; nil uses production defaults
+	RuntimeRegistry  *runtimeadapter.Registry // runtime adapter registry; nil lazily defaults to Argo
 }
 
 type quotaChecker interface {
@@ -116,6 +117,18 @@ func (r *AgentWorkloadReconciler) ensureFinopsDefaults() {
 	if r.LicenceValidator == nil {
 		r.LicenceValidator = finops.NewNoOpLicenceValidator()
 	}
+}
+
+// ensureRuntimeDefaults lazily builds the runtime adapter registry. Tests and
+// callers that construct the reconciler as a bare struct get the Argo adapter
+// registered by default, so governance routing works without extra wiring.
+func (r *AgentWorkloadReconciler) ensureRuntimeDefaults() {
+	if r.RuntimeRegistry != nil {
+		return
+	}
+	reg := runtimeadapter.NewRegistry()
+	reg.Register("argo", &runtimeadapter.ArgoWorkflowAdapter{Client: r.Client, Scheme: r.Scheme})
+	r.RuntimeRegistry = reg
 }
 
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads,verbs=get;list;watch;create;update;patch;delete
@@ -627,22 +640,33 @@ func pruneActions(actions []agenticv1alpha1.Action, maxSize int) []agenticv1alph
 	return actions[len(actions)-maxSize:]
 }
 
-// reconcileArgoWorkflow handles reconciliation for Argo-orchestrated workloads
+// reconcileArgoWorkflow handles reconciliation for orchestrated workloads by
+// dispatching to the runtime adapter resolved from spec.orchestration.type.
+// The Argo adapter preserves all historical behavior; other registered
+// runtimes get the same governance and status mapping.
 func (r *AgentWorkloadReconciler) reconcileArgoWorkflow(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
-	log.Info("Reconciling Argo-orchestrated workload", "name", workload.Name)
+	log.Info("Reconciling orchestrated workload", "name", workload.Name)
 
-	// Initialize Argo workflow manager
-	wfManager := argo.NewWorkflowManager(r.Client, r.Scheme)
+	r.ensureRuntimeDefaults()
+	adapter, err := r.RuntimeRegistry.For(workload)
+	if err != nil {
+		log.Error(err, "no runtime adapter for workload")
+		workload.Status.Phase = "Failed"
+		if uerr := r.Status().Update(ctx, workload); uerr != nil {
+			log.Error(uerr, "failed to update status")
+		}
+		return ctrl.Result{}, nil
+	}
 
-	// Check if workflow already exists
+	// Check if execution already exists
 	if workload.Status.ArgoWorkflow != nil && workload.Status.ArgoWorkflow.Name != "" {
-		log.Info("Workflow already exists", "workflowName", workload.Status.ArgoWorkflow.Name)
+		log.Info("Execution already exists", "name", workload.Status.ArgoWorkflow.Name)
 
-		// Get workflow status
-		wfStatus, err := wfManager.GetArgoWorkflowStatus(ctx, workload.Status.ArgoWorkflow.Name, "argo-workflows")
+		// Get execution status via the adapter
+		execStatus, err := adapter.Status(ctx, workload)
 		if err != nil {
-			log.Error(err, "failed to get workflow status")
+			log.Error(err, "failed to get execution status")
 			workload.Status.Phase = "Failed"
 			workload.Status.ArgoPhase = "Error"
 			if err := r.Status().Update(ctx, workload); err != nil {
@@ -651,15 +675,14 @@ func (r *AgentWorkloadReconciler) reconcileArgoWorkflow(ctx context.Context, wor
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 
-		// Update phase based on workflow status
-		workload.Status.ArgoPhase = wfStatus.Phase
-		if wfStatus.Phase == "Succeeded" {
+		// Update phase based on normalized execution status
+		workload.Status.ArgoPhase = execStatus.Phase
+		switch execStatus.Phase {
+		case "Succeeded":
 			workload.Status.Phase = "Completed"
-		} else if wfStatus.Phase == "Failed" || wfStatus.Phase == "Error" {
+		case "Failed", "Error":
 			workload.Status.Phase = "Failed"
-		} else if wfStatus.Phase == "Running" || wfStatus.Phase == "Pending" {
-			workload.Status.Phase = "Running"
-		} else if wfStatus.Phase == "Suspended" {
+		case "Running", "Pending", "Suspended":
 			workload.Status.Phase = "Running"
 		}
 
@@ -671,13 +694,12 @@ func (r *AgentWorkloadReconciler) reconcileArgoWorkflow(ctx context.Context, wor
 		return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
 	}
 
-	// Create new workflow
-	log.Info("Creating new Argo Workflow", "jobId", workload.Spec.JobID)
+	// Create new execution
+	log.Info("Creating new execution", "jobId", workload.Spec.JobID)
 
-	// Create the workflow
-	workflow, err := wfManager.CreateArgoWorkflow(ctx, workload)
+	execStatus, err := adapter.Execute(ctx, workload)
 	if err != nil {
-		log.Error(err, "failed to create Argo workflow")
+		log.Error(err, "failed to create execution")
 		workload.Status.Phase = "Failed"
 		workload.Status.ArgoPhase = "Error"
 		if err := r.Status().Update(ctx, workload); err != nil {
@@ -686,28 +708,29 @@ func (r *AgentWorkloadReconciler) reconcileArgoWorkflow(ctx context.Context, wor
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	log.Info("Argo Workflow created successfully", "workflowName", workflow.GetName())
+	log.Info("Execution created successfully", "name", execStatus.Name)
 
-	// Update status with workflow reference
+	// Update status with execution reference
 	workload.Status.Phase = "Running"
 	workload.Status.ArgoPhase = "Pending"
 	workload.Status.ArgoWorkflow = &agenticv1alpha1.ArgoWorkflowRef{
-		Name:      workflow.GetName(),
-		Namespace: workflow.GetNamespace(),
-		UID:       string(workflow.GetUID()),
+		Name:      execStatus.Name,
+		Namespace: execStatus.Namespace,
+		UID:       execStatus.UID,
 		CreatedAt: &metav1.Time{Time: time.Now()},
 	}
 
 	if err := r.Status().Update(ctx, workload); err != nil {
-		log.Error(err, "failed to update status with workflow reference")
+		log.Error(err, "failed to update status with execution reference")
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
 }
 
-// cleanupArgoWorkflow deletes the Argo Workflow associated with this AgentWorkload.
-// Invoked from the finalizer path. Safe to call when no workflow was ever created.
+// cleanupArgoWorkflow deletes the execution associated with this AgentWorkload
+// via the runtime adapter. Invoked from the finalizer path. Safe to call when
+// no execution was ever created.
 func (r *AgentWorkloadReconciler) cleanupArgoWorkflow(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {
 	log := logf.FromContext(ctx)
 
@@ -715,18 +738,17 @@ func (r *AgentWorkloadReconciler) cleanupArgoWorkflow(ctx context.Context, workl
 		return nil
 	}
 
-	wfManager := argo.NewWorkflowManager(r.Client, r.Scheme)
-	ns := workload.Status.ArgoWorkflow.Namespace
-	if ns == "" {
-		ns = argo.DefaultWorkflowNamespace
+	r.ensureRuntimeDefaults()
+	adapter, err := r.RuntimeRegistry.For(workload)
+	if err != nil {
+		return fmt.Errorf("cleanup: %w", err)
 	}
 
-	if err := wfManager.DeleteArgoWorkflow(ctx, workload.Status.ArgoWorkflow.Name, ns); err != nil {
-		return fmt.Errorf("delete argo workflow %s/%s: %w", ns, workload.Status.ArgoWorkflow.Name, err)
+	if err := adapter.Cleanup(ctx, workload); err != nil {
+		return fmt.Errorf("cleanup execution %s: %w", workload.Status.ArgoWorkflow.Name, err)
 	}
 
-	log.Info("Argo Workflow cleaned up via finalizer",
-		"workflow", workload.Status.ArgoWorkflow.Name, "namespace", ns)
+	log.Info("Execution cleaned up via finalizer", "name", workload.Status.ArgoWorkflow.Name)
 	return nil
 }
 
