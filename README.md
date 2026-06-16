@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  gVisor isolation. Audit trails. FinOps. ACP compression. Works with your own runtime or a CNCF agent runtime like kagent.
+  gVisor isolation. Audit trails. FinOps. ACP compression. Works with any Kubernetes-native agent runtime or your own custom pods.
 </p>
 
 <p align="center">
@@ -59,24 +59,30 @@
 
 ## Why NineVigil?
 
-kagent (Solo.io, CNCF Sandbox) proves the base runtime layer is real. That is good for the ecosystem.
-
-NineVigil does not need to replace that layer. It adds the controls regulated teams need before agents can touch internal data.
-
-| Layer | What kagent covers | What NineVigil adds |
-|---|---|---|
-| Agent runtime | Agent CRDs, tools, model config | Compatible deployment controls |
-| Runtime isolation | Pod and service controls | gVisor `RuntimeClass` injection |
-| Context | Agent memory and compaction | ACP for MCP tool discovery compression |
-| Audit | Observability hooks | Tamper-evident audit chain |
-| Cost | Basic usage visibility | Per-workload budget and chargeback hooks |
-| Delivery | Helm and public OCI | Air-gapped install path and offline licensing |
-
-Platform teams running agents on Kubernetes still face the same regulated-ops questions.
+Platform teams running AI agents on Kubernetes face the same regulated-ops questions regardless of which agent runtime they use.
 
 Who can the agent call? Which runtime isolates it? What did it cost? What did it do? Can an auditor replay it later?
 
-**NineVigil focuses on that layer.** Use the built-in `AgentWorkload` path, or add NineVigil controls around kagent-managed pods with labels.
+NineVigil is a governance plane that answers those questions. It adds regulated controls around any agent workload.
+
+| Capability | What NineVigil provides |
+|---|---|
+| Runtime isolation | gVisor `RuntimeClass` injection for labeled pods |
+| Audit | Tamper-evident audit chain |
+| Cost | Per-workload budget and chargeback hooks |
+| Context | ACP for MCP tool discovery compression |
+| Delivery | Air-gapped install path and offline licensing |
+| Orchestration | Argo Workflows DAG orchestration |
+
+### Supported runtimes
+
+NineVigil works with any Kubernetes agent runtime:
+
+- **NineVigil AgentWorkload** (built-in CRD)
+- **CNCF agent runtimes** like kagent
+- **Custom agent pods** with the right labels
+
+The runtime handles agent lifecycle, tools, and model dispatch. NineVigil handles isolation, audit, spend, and compliance. Use both.
 
 | Problem | NineVigil |
 |---------|-----------------|
@@ -87,9 +93,9 @@ Who can the agent call? Which runtime isolates it? What did it cost? What did it
 | Vendor lock-in | Any LLM via LiteLLM proxy routing |
 | Cloud-only runtimes | Full air-gapped, offline-first deployment |
 
-### kagent-compatible runtime sandbox
+### Runtime sandbox for labeled pods
 
-kagent Agent deployments can opt into NineVigil's gVisor injector with one label:
+Any agent deployment can opt into NineVigil's gVisor injector with one label:
 
 ```yaml
 agentic.clawdlinux.org/runtime-sandbox: gvisor
@@ -101,7 +107,7 @@ The NineVigil webhook mutates matching Pods on create:
 runtimeClassName: gvisor
 ```
 
-No fork required. No custom kagent build required.
+No fork required. No custom build required. Works with any pod that carries the label.
 
 ---
 

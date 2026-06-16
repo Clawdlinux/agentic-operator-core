@@ -41,8 +41,9 @@ Issues that build generic registries, Envoy routing, sidecar buses, or broad mul
 - [ ] Webhook admission controller for CRD validation
 - [x] OPA policy library for common agent guardrails
 - [x] gVisor RuntimeClass + pod admission injector for labeled agent pods
-- [ ] kagent compatibility guide for runtime sandbox labels
-- [ ] ACP RemoteMCPServer wrapper example for kagent
+- [ ] Runtime adapter interface (AgentWorkload, external pods, CNCF runtimes)
+- [ ] Per-runtime sandbox label guide
+- [ ] ACP RemoteMCPServer wrapper example
 - [ ] Air-gapped install smoke test
 
 ## Future (Q3-Q4 2026)

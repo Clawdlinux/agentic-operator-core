@@ -307,7 +307,7 @@
     },
     "runtimeSandbox": {
       "type": "object",
-      "description": "RuntimeClass injection for regulated agent pods, including kagent-compatible label selection.",
+      "description": "RuntimeClass injection for labeled agent pods. Works with any Kubernetes agent runtime.",
       "properties": {
         "enabled": { "type": "boolean" },
         "createRuntimeClass": { "type": "boolean" },
