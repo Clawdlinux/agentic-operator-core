@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  gVisor isolation. Audit trails. FinOps. ACP compression. Works with any Kubernetes-native agent runtime or your own custom pods.
+  A tamper-evident attestation artifact and a zero-egress seal for every agent run. Air-gapped, verifiable offline, runtime-agnostic. Plus gVisor isolation, audit trails, and FinOps.
 </p>
 
 <p align="center">
@@ -64,6 +64,8 @@ Platform teams running AI agents on Kubernetes face the same regulated-ops quest
 Who can the agent call? Which runtime isolates it? What did it cost? What did it do? Can an auditor replay it later?
 
 NineVigil is a governance plane that answers those questions. It adds regulated controls around any agent workload.
+
+The wedge: NineVigil emits a signed, tamper-evident attestation artifact for each run and applies a zero-egress seal at the network boundary. The artifact is hash-chained and verifiable offline with `audit-verify`, so an auditor can replay what an agent did months later inside an air-gapped cluster. The same seal and attestation contract applies to a NineVigil AgentWorkload, a CNCF runtime, or your own labeled pods. This is the part most agent runtimes leave to you. NineVigil ships it in-cluster.
 
 | Capability | What NineVigil provides |
 |---|---|
