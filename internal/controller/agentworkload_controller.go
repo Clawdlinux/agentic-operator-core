@@ -35,17 +35,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
-	"github.com/shreyansh/agentic-operator/pkg/evaluation"
-	"github.com/shreyansh/agentic-operator/pkg/finops"
-	"github.com/shreyansh/agentic-operator/pkg/llm"
-	"github.com/shreyansh/agentic-operator/pkg/mcp"
-	"github.com/shreyansh/agentic-operator/pkg/metrics"
-	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
-	"github.com/shreyansh/agentic-operator/pkg/opa"
-	"github.com/shreyansh/agentic-operator/pkg/resilience"
-	"github.com/shreyansh/agentic-operator/pkg/routing"
-	runtimeadapter "github.com/shreyansh/agentic-operator/pkg/runtime"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/llm"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/mcp"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/metrics"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/opa"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/resilience"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/routing"
+	runtimeadapter "github.com/Clawdlinux/agentic-operator-core/pkg/runtime"
 )
 
 // Maximum number of actions to keep in status to prevent unbounded growth

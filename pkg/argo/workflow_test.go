@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 )
 
 // TestWorkflowManager_CreateArgoWorkflow verifies that a valid Workflow CR is created

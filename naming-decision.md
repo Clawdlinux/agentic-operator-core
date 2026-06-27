@@ -66,7 +66,7 @@ intent, but less self-explanatory.
 - Public name: keep `agentic-operator-core`. Changing the slug throws away the
   little history and the one star, and the name is fine. The README is the real
   problem, not the name (handled in Lane B3).
-- Go module path: today it is `github.com/shreyansh/agentic-operator`, a
+- Go module path: today it is `github.com/Clawdlinux/agentic-operator-core`, a
   personal handle. This reads unserious and ties the import path to one person.
   Move it to `github.com/clawdlinux/agentic-operator` to match the public org.
   This is a v0.x project, so a module-path change is acceptable now and only

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shreyansh/agentic-operator/pkg/audit"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/audit"
 )
 
 func TestEndToEnd_CleanLedgerPasses(t *testing.T) {

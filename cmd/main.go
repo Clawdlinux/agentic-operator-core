@@ -45,13 +45,13 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
-	runtimeadmission "github.com/shreyansh/agentic-operator/internal/admission"
-	"github.com/shreyansh/agentic-operator/internal/controller"
-	"github.com/shreyansh/agentic-operator/pkg/evaluation"
-	"github.com/shreyansh/agentic-operator/pkg/finops"
-	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
-	"github.com/shreyansh/agentic-operator/pkg/otel/genai"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	runtimeadmission "github.com/Clawdlinux/agentic-operator-core/internal/admission"
+	"github.com/Clawdlinux/agentic-operator-core/internal/controller"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/otel/genai"
 	// +kubebuilder:scaffold:imports
 )
 

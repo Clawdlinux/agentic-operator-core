@@ -21,8 +21,8 @@ Pre-flight gates before any new branch or issue (do not skip):
 - [x] A1 Acronym-collision matrix + one recommendation -> naming-decision.md (shared with ACP). Recommend: drop ACP acronym, mark `Concord`, operator module path github.com/clawdlinux/agentic-operator.
 - [HUMAN] A2 Approve the name.
 - [ ] A3 Mechanical local rename: README, docs, badges, chart metadata. LOCAL only.
-- [HUMAN] A4 Irreversible: GitHub repo slug + Go module path (github.com/shreyansh/agentic-operator). Staged as rename-module.sh.
+- [HUMAN] A4 Irreversible: GitHub repo slug + Go module path (github.com/Clawdlinux/agentic-operator-core). Staged as rename-module.sh.
 
 ## Notes
-- Go module today: github.com/shreyansh/agentic-operator (not under Clawdlinux org — naming debt).
+- Go module today: github.com/Clawdlinux/agentic-operator-core (not under Clawdlinux org — naming debt).
 - Strategy of record: STRATEGY_positioning_runtime_agnostic.md. Runtime-agnostic, kagent is one adapter.

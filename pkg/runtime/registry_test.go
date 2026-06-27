@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 )
 
 func strptr(s string) *string { return &s }

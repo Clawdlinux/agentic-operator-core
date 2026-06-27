@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
 )
 
 // AutoScaler evaluates SLA metrics and makes scaling decisions.

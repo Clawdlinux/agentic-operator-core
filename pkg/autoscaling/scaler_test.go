@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
 )
 
 func TestAutoScaler_CriticalThreshold(t *testing.T) {

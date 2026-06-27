@@ -36,7 +36,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/shreyansh/agentic-operator/pkg/audit"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/audit"
 )
 
 func main() {

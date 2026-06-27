@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
+	agentctl "github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
 	"github.com/olekukonko/tablewriter"
-	agentctl "github.com/shreyansh/agentic-operator/pkg/agentctl"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shreyansh/agentic-operator/pkg/agentctl"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
 )
 
 // Server holds the web server dependencies.

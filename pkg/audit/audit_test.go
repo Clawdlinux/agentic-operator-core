@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shreyansh/agentic-operator/pkg/audit"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/audit"
 )
 
 func newHasher(t *testing.T, kid string) *audit.ChainHasher {
