@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/shreyansh/agentic-operator/pkg/otel/genai"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/otel/genai"
 )
 
 func newTestRecorder(t *testing.T) (*tracetest.SpanRecorder, func()) {

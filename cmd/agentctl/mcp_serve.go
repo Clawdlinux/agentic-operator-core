@@ -28,7 +28,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shreyansh/agentic-operator/pkg/mcp"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/mcp"
 	"github.com/spf13/cobra"
 )
 

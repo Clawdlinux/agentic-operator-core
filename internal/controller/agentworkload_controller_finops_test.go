@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 )
 
 type listErrorClient struct {

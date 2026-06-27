@@ -32,7 +32,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 

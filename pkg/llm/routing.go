@@ -7,8 +7,8 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 
-	"github.com/shreyansh/agentic-operator/api/v1alpha1"
-	"github.com/shreyansh/agentic-operator/pkg/routing"
+	"github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/routing"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

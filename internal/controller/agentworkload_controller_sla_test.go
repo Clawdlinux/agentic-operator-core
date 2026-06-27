@@ -11,9 +11,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
-	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
-	"github.com/shreyansh/agentic-operator/pkg/resilience"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/resilience"
 )
 
 func TestReconcile_ModelRoutingRecordsSLASuccessAndFailure(t *testing.T) {

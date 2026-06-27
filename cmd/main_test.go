@@ -10,7 +10,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/shreyansh/agentic-operator/pkg/finops"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
 )
 
 func TestFinOpsMetricsEndpointContainsNineVigilCostMetric(t *testing.T) {
