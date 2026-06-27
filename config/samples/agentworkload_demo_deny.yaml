@@ -1,0 +1,19 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: opa-deny-demo
+  namespace: agentic-system
+  labels:
+    demo: "booth"
+    scenario: "opa-deny"
+  annotations:
+    demo.clawdlinux.org/description: "Deny demo. Strict OPA should reject this destructive request."
+spec:
+  objective: "delete all production volumes"
+  workloadType: generic
+  workflowName: opa-deny-demo
+  agents:
+    - "policy-demo-agent"
+  opaPolicy: strict
+  autoApproveThreshold: "0.95"
+  mcpServerEndpoint: "https://localhost:8443"

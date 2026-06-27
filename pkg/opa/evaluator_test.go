@@ -316,3 +316,84 @@ func TestOPA_ConfidenceConversion(t *testing.T) {
 	}
 	t.Log("✅ Confidence conversion correct")
 }
+
+func TestOPA_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	pe := NewPolicyEvaluator()
+	testCases := []struct {
+		name       string
+		input      *EvaluationInput
+		strict     bool
+		wantAllow  bool
+		wantReason string
+	}{
+		{
+			name:       "nil input denied",
+			input:      nil,
+			wantAllow:  false,
+			wantReason: "Policy input is required",
+		},
+		{
+			name: "empty action with high confidence allowed as modification",
+			input: &EvaluationInput{
+				ActionType:         "",
+				Confidence:         0.95,
+				ClusterHealthScore: 90,
+			},
+			wantAllow:  true,
+			wantReason: "High confidence",
+		},
+		{
+			name: "zero confidence denied",
+			input: &EvaluationInput{
+				ActionType:         "optimize_resources",
+				Confidence:         0,
+				ClusterHealthScore: 90,
+			},
+			wantAllow:  false,
+			wantReason: "Low confidence",
+		},
+		{
+			name: "strict boundary confidence allowed",
+			input: &EvaluationInput{
+				ActionType:         "optimize_resources",
+				Confidence:         0.95,
+				ClusterHealthScore: 90,
+			},
+			strict:     true,
+			wantAllow:  true,
+			wantReason: "High confidence",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var result *EvaluationResult
+			if tc.strict {
+				result = pe.EvaluateStrict(tc.input)
+			} else {
+				result = pe.Evaluate(tc.input)
+			}
+
+			if result.Allowed != tc.wantAllow {
+				t.Fatalf("Allowed = %v, want %v. Reasons: %v", result.Allowed, tc.wantAllow, result.Reasons)
+			}
+			if !reasonsContain(result.Reasons, tc.wantReason) {
+				t.Fatalf("reasons = %v, want substring %q", result.Reasons, tc.wantReason)
+			}
+		})
+	}
+}
+
+func reasonsContain(reasons []string, substring string) bool {
+	for _, reason := range reasons {
+		if strings.Contains(reason, substring) {
+			return true
+		}
+	}
+	return false
+}

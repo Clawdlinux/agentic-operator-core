@@ -1,0 +1,54 @@
+# helm-unittest spec for managed agent Cilium FQDN egress policy.
+# Run with: helm unittest charts
+suite: cilium fqdn egress policy
+templates:
+  - cilium-fqdn-policy.yaml
+tests:
+  - it: renders a CiliumNetworkPolicy when ciliumPolicy.enabled=true
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      ciliumPolicy:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: CiliumNetworkPolicy
+      - equal:
+          path: apiVersion
+          value: cilium.io/v2
+      - equal:
+          path: spec.endpointSelector.matchLabels["agentic.clawdlinux.org/managed"]
+          value: "true"
+      - equal:
+          path: spec.egress[0].toPorts[0].ports[0].port
+          value: "53"
+      - equal:
+          path: spec.egress[1].toServices[0].k8sService.serviceName
+          value: RELEASE-NAME-litellm
+      - contains:
+          path: spec.egress[2].toFQDNs
+          content:
+            matchName: api.openai.com
+      - contains:
+          path: spec.egress[2].toFQDNs
+          content:
+            matchName: api.anthropic.com
+      - contains:
+          path: spec.egress[2].toFQDNs
+          content:
+            matchName: api.mistral.ai
+
+  - it: renders nothing when ciliumPolicy.enabled=false
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      ciliumPolicy:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

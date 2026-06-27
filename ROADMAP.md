@@ -1,6 +1,21 @@
 # Roadmap
 
-Public roadmap for the Agentic Kubernetes Operator. Updated quarterly.
+Public roadmap for NineVigil. Updated quarterly.
+
+## Scope Note
+
+kagent is becoming a strong CNCF base runtime for agents on Kubernetes.
+
+NineVigil will not compete with that layer by default. The open-source core now focuses on regulated controls around agent workloads:
+
+- gVisor runtime isolation
+- audit trails
+- FinOps attribution
+- policy and egress controls
+- air-gapped packaging
+- ACP integration for MCP context compression
+
+Issues that build generic registries, Envoy routing, sidecar buses, or broad multi-cluster runtime features should move behind validation gates. They stay valid only if a regulated deployment needs them.
 
 ## Current (Q1 2026)
 
@@ -25,18 +40,34 @@ Public roadmap for the Agentic Kubernetes Operator. Updated quarterly.
 - [x] Cost dashboard with per-workload token spend visualization
 - [ ] Webhook admission controller for CRD validation
 - [x] OPA policy library for common agent guardrails
-- [ ] Agent marketplace: community-contributed agent templates
-- [ ] Horizontal pod autoscaling based on queue depth
+- [x] gVisor RuntimeClass + pod admission injector for labeled agent pods
+- [ ] Runtime adapter interface (AgentWorkload, external pods, CNCF runtimes)
+- [ ] Per-runtime sandbox label guide
+- [ ] ACP RemoteMCPServer wrapper example
+- [ ] Air-gapped install smoke test
 
-## Future (Q3–Q4 2026)
+## Future (Q3-Q4 2026)
 
-- [ ] Multi-cluster federation (workloads span clusters)
-- [ ] GPU-aware scheduling for local model inference
+- [ ] Multi-cluster federation (validation-gated)
+- [ ] GPU-aware scheduling for local model inference (only for regulated local model deployments)
 - [ ] Agent evaluation framework (evals-as-code)
 - [ ] Managed SaaS offering (hosted control plane)
 - [ ] SOC 2 Type II compliance certification
-- [ ] Plugin SDK for custom tool integrations
-- [ ] Visual workflow builder (web UI)
+- [ ] Plugin SDK for regulated control extensions
+- [ ] Web UI for audit, spend, and sandbox state
+
+## Issues To Re-Scope
+
+These open issues are likely too close to the base runtime layer unless a design partner asks for them:
+
+- #119 Envoy ExtProc capability routing
+- #120 Gateway API InferencePool / InferenceModel integration
+- #121 Multi-cluster discovery
+- #123 NATS/Kafka sidecar injection
+- #124 Backpressure signaling
+- #97-#112 Agent registry and identity backlog
+
+Keep these as research, not committed roadmap, until they pass a customer validation gate.
 
 ## Exploring (RFC stage — not yet committed)
 

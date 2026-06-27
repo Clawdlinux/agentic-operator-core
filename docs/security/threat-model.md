@@ -98,8 +98,7 @@ Agent pods are restricted to allowlisted domains. Two layers of enforcement:
    [`charts/templates/networkpolicy.yaml`](../charts/templates/networkpolicy.yaml).
 2. **Cilium FQDN policy** (optional, eBPF-enforced). Adds domain-level egress
    allow-listing on top of the namespace-level NetworkPolicy. Gated behind
-   `networkPolicy.cilium.enabled` (default `false`); requires the Cilium CNI
-   and tracked alongside the v0.4 RuntimeClass work.
+   `networkPolicy.cilium.enabled` (default `false`); requires the Cilium CNI.
 
 **Default posture**: Deny all egress except:
 - LiteLLM proxy (internal)

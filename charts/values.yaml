@@ -20,6 +20,29 @@ global:
   imagePullSecrets: []
   storageClass: ""           # Default StorageClass for PVCs
   namespace: agentic-system  # Target namespace (also rendered by namespace.yaml)
+  # Runtime sandbox (gVisor RuntimeClass injection)
+  #
+  # This feature injects the gVisor RuntimeClass into agent workload pods.
+  # It applies to any pod carrying the opt-in label, regardless of which
+  # agent runtime created it (NineVigil AgentWorkload, external runtimes,
+  # or custom pods).
+  #
+  # Add this label to a pod spec to opt in:
+  #
+  #   agentic.clawdlinux.org/runtime-sandbox: gvisor
+  #
+  # The operator webhook mutates matching Pods on CREATE and sets
+  # runtimeClassName: gvisor unless the Pod already set a runtimeClassName.
+  # Nodes must already have gVisor/runsc installed.
+  runtimeSandbox:
+    enabled: true
+    createRuntimeClass: true
+    runtimeClassName: gvisor
+    handler: runsc
+    selectorLabelKey: agentic.clawdlinux.org/runtime-sandbox
+    selectorLabelValue: gvisor
+    overhead: {}
+    scheduling: {}
 
 # ---------------------------------------------------------------------------
 # License (REQUIRED)
@@ -361,6 +384,17 @@ networkPolicy:
   cilium:
     enabled: false
     fqdnAllowlist: []
+
+# ---------------------------------------------------------------------------
+# Cilium FQDN egress policy for managed agent pods.
+# Disabled by default because it requires the CiliumNetworkPolicy CRD.
+# ---------------------------------------------------------------------------
+ciliumPolicy:
+  enabled: false
+  allowedFQDNs:
+    - api.openai.com
+    - api.anthropic.com
+    - api.mistral.ai
 
 # ---------------------------------------------------------------------------
 # Clawdlinux Observability (clawd-observability subchart)

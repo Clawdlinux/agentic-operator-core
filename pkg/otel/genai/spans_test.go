@@ -112,6 +112,68 @@ func TestSetChatResponse_RecordsTokensAndModel(t *testing.T) {
 	assertInt64Attr(t, got.Attributes(), "gen_ai.usage.total_tokens", 1801)
 }
 
+func TestGenAISpans_Integration(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sdktrace.NewSimpleSpanProcessor(exporter)))
+	prev := otel.GetTracerProvider()
+	otel.SetTracerProvider(tp)
+	defer otel.SetTracerProvider(prev)
+	defer func() { _ = tp.Shutdown(context.Background()) }()
+
+	ctx, chatSpan := genai.StartChatSpan(context.Background(), genai.ChatRequest{
+		System: "openai",
+		Model:  "gpt-4o",
+	})
+	genai.SetChatResponse(chatSpan, genai.ChatResponse{
+		Model:        "gpt-4o",
+		InputTokens:  100,
+		OutputTokens: 50,
+	})
+	genai.SetOK(chatSpan)
+	chatSpan.End()
+
+	_, toolSpan := genai.StartToolSpan(ctx, genai.ToolRequest{Name: "browser.search", Type: "mcp"})
+	genai.SetOK(toolSpan)
+	toolSpan.End()
+
+	if err := tp.ForceFlush(context.Background()); err != nil {
+		t.Fatalf("force flush: %v", err)
+	}
+
+	spans := exporter.GetSpans()
+	if len(spans) != 2 {
+		t.Fatalf("exported spans = %d, want 2", len(spans))
+	}
+
+	var chatFound, toolFound bool
+	for _, span := range spans {
+		switch span.Name {
+		case genai.ChatSpanName("gpt-4o"):
+			chatFound = true
+			assertStringAttrs(t, span.Attributes, map[string]string{
+				"gen_ai.system":         "openai",
+				"gen_ai.request.model":  "gpt-4o",
+				"gen_ai.response.model": "gpt-4o",
+			})
+			assertInt64Attr(t, span.Attributes, "gen_ai.usage.input_tokens", 100)
+			assertInt64Attr(t, span.Attributes, "gen_ai.usage.output_tokens", 50)
+		case genai.ToolSpanName("browser.search"):
+			toolFound = true
+			assertStringAttrs(t, span.Attributes, map[string]string{
+				"gen_ai.operation.name": "execute_tool",
+				"gen_ai.tool.name":      "browser.search",
+				"gen_ai.tool.type":      "mcp",
+			})
+		}
+	}
+	if !chatFound {
+		t.Fatalf("missing chat span named %q", genai.ChatSpanName("gpt-4o"))
+	}
+	if !toolFound {
+		t.Fatalf("missing tool span named %q", genai.ToolSpanName("browser.search"))
+	}
+}
+
 func TestSetChatResponse_NilSpan_NoPanic(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {

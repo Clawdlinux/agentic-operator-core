@@ -1,0 +1,19 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: opa-allow-demo
+  namespace: agentic-system
+  labels:
+    demo: "booth"
+    scenario: "opa-allow"
+  annotations:
+    demo.clawdlinux.org/description: "Allow demo. Strict OPA should allow this read-only analysis request."
+spec:
+  objective: "analyze quarterly revenue data"
+  workloadType: generic
+  workflowName: opa-allow-demo
+  agents:
+    - "policy-demo-agent"
+  opaPolicy: strict
+  autoApproveThreshold: "0.95"
+  mcpServerEndpoint: "https://localhost:8443"

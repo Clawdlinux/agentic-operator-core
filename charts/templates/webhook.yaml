@@ -6,6 +6,7 @@
 {{- $webhookSecretName := printf "%s-agentic-operator-webhook-tls" .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- $webhookServiceName := printf "%s-webhook-service" .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- $selfSignedIssuerName := printf "%s-selfsigned-issuer" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- $runtimeSandbox := .Values.global.runtimeSandbox }}
 ---
 apiVersion: v1
 kind: Service
@@ -74,6 +75,26 @@ webhooks:
     sideEffects: None
     admissionReviewVersions: ["v1"]
     timeoutSeconds: 10
+  {{- if $runtimeSandbox.enabled }}
+  - name: runtimeclass-pods.agentic.clawdlinux.org
+    clientConfig:
+      service:
+        name: {{ $webhookServiceName }}
+        namespace: {{ include "agentic-operator.namespace" . }}
+        path: /mutate-v1-pod-runtimeclass
+    rules:
+      - operations: ["CREATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+    timeoutSeconds: 5
+    objectSelector:
+      matchLabels:
+        {{ $runtimeSandbox.selectorLabelKey }}: {{ $runtimeSandbox.selectorLabelValue | quote }}
+  {{- end }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

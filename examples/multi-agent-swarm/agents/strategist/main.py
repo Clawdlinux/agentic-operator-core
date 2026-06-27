@@ -51,7 +51,7 @@ async def risk_assess(facts: List[str] = None, topic: str = "") -> Dict[str, Any
             "Market growing 42% YoY — favorable tailwind",
             "78% K8s adoption — strong infrastructure foundation",
             "TAM $12B — sufficient market size",
-            "Competition emerging (KAgent, Kubeflow KEP) — time-sensitive window",
+            "Multi-agent delegation is table stakes across runtimes. Our edge is governance.",
         ],
         "confidence": 0.87,  # Below 0.95 — will trigger approval gate
     }

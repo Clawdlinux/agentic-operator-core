@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, Zap, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Layers, Zap } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 const Comparison = () => {
@@ -34,42 +34,39 @@ const Comparison = () => {
     },
   };
 
-  const features = [
+  const capabilities = [
     {
       name: 'Air-Gapped Deployment',
-      agentic: 'Fully offline — no egress, no callbacks',
-      kagent: 'Cloud-connected enterprise tier required',
-      agenticWins: true,
-      description: 'FedRAMP · HIPAA · Sovereign cloud',
+      description: 'FedRAMP, HIPAA, sovereign cloud',
+      detail: 'Fully offline. No egress, no callbacks, no cloud control plane.',
     },
     {
-      name: 'Outcome-Based Billing',
-      agentic: 'Per-workload cost tracking and budget controls',
-      kagent: 'No cost metering or budget enforcement',
-      agenticWins: true,
+      name: 'Per-Workload Cost Attribution',
       description: 'Chargeback to business units',
+      detail: 'Per-workload cost tracking with budget controls and tenant isolation.',
     },
     {
       name: 'DAG Workflow Orchestration',
-      agentic: 'Argo Workflows — fan-out, retries, DAGs',
-      kagent: 'Agent runtime only, no DAG equivalent',
-      agenticWins: true,
       description: 'Multi-step agent pipelines',
+      detail: 'Argo Workflows for fan-out, retries, and DAGs.',
     },
     {
-      name: 'Per-Tenant Cost Isolation',
-      agentic: 'Namespace quota + token budget per tenant',
-      kagent: 'No tenant-level cost attribution',
-      agenticWins: true,
-      description: 'Multi-tenant SaaS & regulated orgs',
+      name: 'Multi-Tenant Isolation',
+      description: 'Multi-tenant SaaS and regulated orgs',
+      detail: 'Namespace quota plus token budget per tenant.',
     },
     {
       name: 'Open Source Core',
-      agentic: 'Apache 2.0 — self-hostable, air-gapped',
-      kagent: 'CNCF Sandbox, enterprise tier is SaaS',
-      agenticWins: true,
       description: 'Zero vendor lock-in',
+      detail: 'Apache 2.0. Self-hostable and air-gapped.',
     },
+  ];
+
+  const runtimes = [
+    { name: 'NineVigil AgentWorkload', supported: true },
+    { name: 'CNCF agent runtimes (kagent, etc.)', supported: true },
+    { name: 'Custom agent pods', supported: true },
+    { name: 'Kubeflow pipelines', supported: true },
   ];
 
   return (
@@ -96,9 +93,9 @@ const Comparison = () => {
               border: `1px solid ${currentTheme.accent.teal}66`,
             }}
           >
-            <Zap size={16} style={{ color: currentTheme.accent.teal }} />
+            <Layers size={16} style={{ color: currentTheme.accent.teal }} />
             <span className="text-sm font-semibold" style={{ color: currentTheme.accent.teal }}>
-              Agentic Operator vs kagent
+              Governance Plane
             </span>
           </div>
           <h2
@@ -114,15 +111,15 @@ const Comparison = () => {
                 backgroundClip: 'text',
               }}
             >
-              cannot use the cloud
+              cannot skip audit
             </span>
           </h2>
           <p className="text-lg max-w-2xl mx-auto" style={{ color: currentTheme.text.tertiary }}>
-            kagent is excellent for cloud-connected teams. We are the only option for environments where data cannot leave the network.
+            NineVigil adds regulated controls around any Kubernetes agent runtime. The runtime handles lifecycle. We handle compliance.
           </p>
         </motion.div>
 
-        {/* Comparison Table */}
+        {/* Capabilities */}
         <motion.div
           className="space-y-4 mb-12"
           initial="hidden"
@@ -130,85 +127,37 @@ const Comparison = () => {
           viewport={{ once: true, amount: 0.2 }}
           variants={containerVariants}
         >
-          {/* Header Row */}
-          <motion.div
-            className="grid grid-cols-[1fr_1fr_1fr] gap-6 mb-6 px-6 py-4 rounded-lg"
-            style={{
-              backgroundColor: `${currentTheme.bg.secondary}CC`,
-              border: `1px solid ${currentTheme.border.light}`,
-            }}
-            variants={itemVariants}
-          >
-            <div className="font-semibold text-sm" style={{ color: currentTheme.text.tertiary }}>
-              Capability
-            </div>
-            <div className="text-center">
-              <div className="font-bold text-base" style={{ color: currentTheme.accent.teal }}>
-                NineVigil
-              </div>
-              <div className="text-xs mt-1" style={{ color: currentTheme.text.muted }}>
-                Apache 2.0 · Zero-egress
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="font-bold text-base" style={{ color: currentTheme.text.tertiary }}>
-                kagent (Solo.io)
-              </div>
-              <div className="text-xs mt-1" style={{ color: currentTheme.text.muted }}>
-                CNCF Sandbox · Cloud-connected
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Feature Rows */}
-          {features.map((feature, idx) => (
+          {capabilities.map((cap, idx) => (
             <motion.div
               key={idx}
-              className="grid grid-cols-[1fr_1fr_1fr] gap-6 px-6 py-5 rounded-lg transition-colors duration-200"
+              className="flex items-start gap-4 px-6 py-5 rounded-lg transition-colors duration-200"
               style={{
                 background: `linear-gradient(to right, ${currentTheme.bg.secondary}99, ${currentTheme.bg.secondary}66)`,
                 border: `1px solid ${currentTheme.border.light}`,
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = currentTheme.border.medium;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = currentTheme.border.light;
-              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = currentTheme.border.medium; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = currentTheme.border.light; }}
               variants={itemVariants}
             >
-              {/* Feature Name */}
+              <CheckCircle2 size={20} className="flex-shrink-0 mt-0.5" style={{ color: currentTheme.accent.teal }} />
               <div>
                 <div className="font-semibold text-sm" style={{ color: currentTheme.text.primary }}>
-                  {feature.name}
+                  {cap.name}
                 </div>
-                <div className="text-xs mt-1.5" style={{ color: currentTheme.text.muted }}>
-                  {feature.description}
+                <div className="text-sm mt-1" style={{ color: currentTheme.text.secondary }}>
+                  {cap.detail}
                 </div>
-              </div>
-
-              {/* Agentic Column */}
-              <div className="flex items-center gap-3">
-                <CheckCircle2 size={20} className="flex-shrink-0" style={{ color: currentTheme.accent.teal }} />
-                <span className="text-sm" style={{ color: currentTheme.text.primary }}>
-                  {feature.agentic}
-                </span>
-              </div>
-
-              {/* kagent Column */}
-              <div className="flex items-center gap-3">
-                <XCircle size={20} className="flex-shrink-0" style={{ color: currentTheme.text.tertiary }} />
-                <span className="text-sm" style={{ color: currentTheme.text.tertiary }}>
-                  {feature.kagent}
-                </span>
+                <div className="text-xs mt-1" style={{ color: currentTheme.text.muted }}>
+                  {cap.description}
+                </div>
               </div>
             </motion.div>
           ))}
         </motion.div>
 
-        {/* Context callout */}
+        {/* Compatible runtimes */}
         <motion.div
-          className="mb-12 px-6 py-5 rounded-xl"
+          className="mb-12 px-6 py-6 rounded-xl"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
@@ -221,14 +170,23 @@ const Comparison = () => {
             border: `1px solid ${currentTheme.accent.teal}33`,
           }}
         >
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: currentTheme.accent.teal }} />
-            <p className="text-sm leading-relaxed" style={{ color: currentTheme.text.tertiary }}>
-              <span className="font-semibold" style={{ color: currentTheme.text.primary }}>kagent validates this market.</span>{' '}
-              When Google, Microsoft, IBM, and Red Hat all contribute to a Kubernetes agent runtime, you don&apos;t need to convince anyone the category is real. But their enterprise revenue depends on telemetry, licensing callbacks, and managed control planes — a structural conflict with air-gapped and regulated buyers.{' '}
-              <span className="font-semibold" style={{ color: currentTheme.accent.teal }}>These are different buyers. That&apos;s our market.</span>
-            </p>
+          <div className="flex items-center gap-2 mb-4">
+            <Zap size={16} style={{ color: currentTheme.accent.teal }} />
+            <span className="font-semibold text-sm" style={{ color: currentTheme.text.primary }}>
+              Compatible agent runtimes
+            </span>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {runtimes.map((rt, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <CheckCircle2 size={16} style={{ color: currentTheme.accent.teal }} />
+                <span className="text-sm" style={{ color: currentTheme.text.secondary }}>{rt.name}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs mt-4" style={{ color: currentTheme.text.muted }}>
+            The runtime handles agent lifecycle and tools. NineVigil handles multi-tenancy, audit, spend, and air-gapped compliance. Use both.
+          </p>
         </motion.div>
 
         {/* CTA Section */}

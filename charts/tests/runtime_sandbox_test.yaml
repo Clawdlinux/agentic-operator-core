@@ -1,0 +1,140 @@
+# helm-unittest spec for the regulated runtime sandbox addon.
+# Run with: helm unittest charts
+suite: regulated runtime sandbox
+templates:
+  - runtimeclass.yaml
+  - webhook.yaml
+  - charts/agentic-operator/templates/deployment.yaml
+tests:
+  - it: renders a gVisor RuntimeClass when runtimeSandbox.createRuntimeClass=true
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      global:
+        runtimeSandbox:
+          enabled: true
+          createRuntimeClass: true
+          runtimeClassName: gvisor
+          handler: runsc
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: runtimeclass.yaml
+      - equal:
+          path: kind
+          value: RuntimeClass
+        template: runtimeclass.yaml
+      - equal:
+          path: metadata.name
+          value: gvisor
+        template: runtimeclass.yaml
+      - equal:
+          path: handler
+          value: runsc
+        template: runtimeclass.yaml
+
+  - it: adds a pod mutating webhook scoped to runtime sandbox labels
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      agenticOperator:
+        webhook:
+          enabled: true
+      global:
+        runtimeSandbox:
+          enabled: true
+          runtimeClassName: gvisor
+          selectorLabelKey: agentic.clawdlinux.org/runtime-sandbox
+          selectorLabelValue: gvisor
+    asserts:
+      - documentIndex: 2
+        equal:
+          path: kind
+          value: MutatingWebhookConfiguration
+        template: webhook.yaml
+      - documentIndex: 2
+        equal:
+          path: apiVersion
+          value: admissionregistration.k8s.io/v1
+        template: webhook.yaml
+      - documentIndex: 2
+        equal:
+          path: webhooks[1].name
+          value: runtimeclass-pods.agentic.clawdlinux.org
+        template: webhook.yaml
+      - documentIndex: 2
+        equal:
+          path: webhooks[1].clientConfig.service.path
+          value: /mutate-v1-pod-runtimeclass
+        template: webhook.yaml
+      - documentIndex: 2
+        equal:
+          path: webhooks[1].objectSelector.matchLabels["agentic.clawdlinux.org/runtime-sandbox"]
+          value: gvisor
+        template: webhook.yaml
+
+  - it: propagates runtime sandbox values into the operator webhook environment
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      global:
+        runtimeSandbox:
+          enabled: true
+          runtimeClassName: kata
+          selectorLabelKey: agentic.clawdlinux.org/runtime-sandbox
+          selectorLabelValue: kata
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RUNTIME_SANDBOX_CLASS
+            value: kata
+        template: charts/agentic-operator/templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RUNTIME_SANDBOX_LABEL_KEY
+            value: agentic.clawdlinux.org/runtime-sandbox
+        template: charts/agentic-operator/templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RUNTIME_SANDBOX_LABEL_VALUE
+            value: kata
+        template: charts/agentic-operator/templates/deployment.yaml
+
+  - it: uses the same custom selector value in webhook and operator env
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      agenticOperator:
+        webhook:
+          enabled: true
+      global:
+        runtimeSandbox:
+          enabled: true
+          runtimeClassName: kata
+          selectorLabelKey: regulated.agentic.dev/sandbox
+          selectorLabelValue: strict
+    asserts:
+      - documentIndex: 2
+        equal:
+          path: webhooks[1].objectSelector.matchLabels["regulated.agentic.dev/sandbox"]
+          value: strict
+        template: webhook.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RUNTIME_SANDBOX_LABEL_KEY
+            value: regulated.agentic.dev/sandbox
+        template: charts/agentic-operator/templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RUNTIME_SANDBOX_LABEL_VALUE
+            value: strict
+        template: charts/agentic-operator/templates/deployment.yaml

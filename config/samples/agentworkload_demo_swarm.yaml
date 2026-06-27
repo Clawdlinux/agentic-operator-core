@@ -1,0 +1,24 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: demo-competitive-swarm
+  namespace: agentic-system
+  labels:
+    demo: "booth"
+    use-case: "hedge-fund-analysis"
+  annotations:
+    description: "3-agent competitive intelligence swarm for AI Summit booth demo"
+spec:
+  agents:
+    - "competitor-scraper"
+    - "llm-synthesizer"
+    - "report-generator"
+  orchestration:
+    type: "argo"
+  workflowName: "visual-analysis-template"
+  opaPolicy: "strict"
+  targetUrls:
+    - "https://notion.so/pricing"
+    - "https://linear.app/pricing"
+    - "https://asana.com/pricing"
+  targetBucket: "demo-reports"
