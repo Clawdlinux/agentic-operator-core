@@ -26,7 +26,7 @@ metadata:
     agentworkload.clawdlinux.io/cost-usd-today: "0.0142"
 spec:
   objective: |
-    Research which enterprise AI workflows require on-prem agent execution.
+    Research which regulated AI workflows require on-prem agent execution.
     Identify regulatory constraints, data residency requirements, and compliance gaps.
     Produce a structured report with sources and confidence scores.
   workloadType: generic

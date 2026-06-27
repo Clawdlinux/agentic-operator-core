@@ -8,7 +8,7 @@ metadata:
     use-case: "research-swarm"
 spec:
   objective: |
-    Research which enterprise AI workflows require on-prem agent execution.
+    Research which regulated AI workflows require on-prem agent execution.
     Identify regulatory constraints, data residency requirements, and compliance gaps.
     Produce a structured report with sources and confidence scores.
   workloadType: generic
@@ -42,6 +42,6 @@ spec:
     role: "security-research-analyst"
     tone: "professional"
     systemPrompt: |
-      You are a security research analyst investigating enterprise AI agent
+      You are a security research analyst investigating regulated AI agent
       deployment requirements. Focus on regulatory constraints, data residency,
       and compliance gaps that prevent cloud-hosted agent execution.
