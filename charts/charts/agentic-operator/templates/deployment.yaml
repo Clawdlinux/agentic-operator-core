@@ -51,6 +51,16 @@ spec:
                   name: {{ include "agentic-operator-sub.licenseName" . }}
                   key: LICENSE_PUBLIC_KEY_B64
                   optional: true
+            {{- with .Values.global.runtimeSandbox }}
+            {{- if .enabled }}
+            - name: RUNTIME_SANDBOX_CLASS
+              value: {{ .runtimeClassName | default "gvisor" | quote }}
+            - name: RUNTIME_SANDBOX_LABEL_KEY
+              value: {{ .selectorLabelKey | default "agentic.clawdlinux.org/runtime-sandbox" | quote }}
+            - name: RUNTIME_SANDBOX_LABEL_VALUE
+              value: {{ .selectorLabelValue | default "gvisor" | quote }}
+            {{- end }}
+            {{- end }}
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}

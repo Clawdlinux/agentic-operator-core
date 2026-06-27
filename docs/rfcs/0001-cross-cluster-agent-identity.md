@@ -34,7 +34,7 @@ This was raised externally by [@JacobSobolev on X](https://x.com/JacobSobolev/st
 
 ### 1.2 Why it matters for NineVigil
 
-NineVigil's positioning is **air-gapped, zero-egress, regulated-industry agent orchestration** (FedRAMP, HIPAA, sovereign cloud). Those buyers run multi-cluster by default — at minimum, prod and DR; often a separate cluster per classification level or per region. Without federated identity, the multi-cluster story falls apart. Competitors (kagent/Solo.io) lean on Istio mTLS + OIDC, which assumes cloud-connected control planes — a non-starter for our ICP.
+NineVigil's positioning is **air-gapped, zero-egress, regulated-industry agent orchestration** (FedRAMP, HIPAA, sovereign cloud). Those buyers run multi-cluster by default. At minimum, prod and DR. Often a separate cluster per classification level or region. Without federated identity, the multi-cluster story falls apart. Existing approaches (Istio mTLS + OIDC, shared static secrets) assume cloud-connected control planes or manual key rotation. Neither works air-gapped.
 
 ### 1.3 Non-goals (explicit)
 
@@ -74,7 +74,7 @@ SPIFFE/SPIRE wins because: CNCF graduated (credibility), air-gap friendly (no ph
 - **Istio** — uses SPIFFE under the hood for mTLS identity.
 - **HashiCorp Consul** — supports SPIFFE-compatible identities.
 - **Tetragon / Cilium** — eBPF + workload identity research aligning with SPIFFE.
-- **kagent (Solo.io)** — uses Istio mTLS + OIDC for cross-cluster, which is the cloud-connected approach we explicitly differentiate against.
+- **kagent (Solo.io)** — CNCF Sandbox agent runtime. Cross-cluster identity mechanisms vary by deployment. SPIFFE provides a runtime-neutral alternative.
 
 ---
 

@@ -21,10 +21,15 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
+	"net/http"
 	"os"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -35,13 +40,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
+	runtimeadmission "github.com/shreyansh/agentic-operator/internal/admission"
 	"github.com/shreyansh/agentic-operator/internal/controller"
 	"github.com/shreyansh/agentic-operator/pkg/evaluation"
+	"github.com/shreyansh/agentic-operator/pkg/finops"
 	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
 	"github.com/shreyansh/agentic-operator/pkg/otel/genai"
 	// +kubebuilder:scaffold:imports
@@ -71,6 +79,8 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var enableCostTracking bool
+	var costMetricsAddr string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -89,6 +99,10 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&enableCostTracking, "enable-cost-tracking", os.Getenv("AGENTIC_COST_TRACKING") == "memory",
+		"Enable in-memory FinOps cost tracking and Prometheus cost metrics.")
+	flag.StringVar(&costMetricsAddr, "cost-metrics-bind-address", ":8080",
+		"The HTTP address for demo cost metrics. Use 0 to disable the extra /metrics server.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -214,13 +228,38 @@ func main() {
 		os.Exit(1)
 	}
 
+	var costReporter finops.CostReporter
+	if enableCostTracking {
+		memoryCostReporter := finops.NewMemoryCostReporter()
+		if err := registerFinOpsMetrics(ctrlmetrics.Registry, memoryCostReporter); err != nil {
+			setupLog.Error(err, "Failed to register FinOps Prometheus collector")
+			os.Exit(1)
+		}
+		costReporter = memoryCostReporter
+		if costMetricsAddr != "0" && costMetricsAddr != "" {
+			if err := mgr.Add(runnableFunc(func(ctx context.Context) error {
+				return serveHTTP(ctx, &http.Server{
+					Addr:    costMetricsAddr,
+					Handler: costMetricsHandler(ctrlmetrics.Registry),
+				}, setupLog.WithName("finops-metrics"))
+			})); err != nil {
+				setupLog.Error(err, "Failed to add FinOps metrics HTTP server")
+				os.Exit(1)
+			}
+		}
+	}
+
 	// Phase 7: Initialize multi-tenancy components
 	tenantResolver := multitenancy.NewResolver()
 	tenants := []*multitenancy.TenantContext{} // Will be populated from cluster config
 	quotaMgr := multitenancy.NewQuotaManager(tenants)
 	slaMonitor := multitenancy.NewSLAMonitor(tenants)
 
-	workloadReconciler := controller.NewAgentWorkloadReconciler(mgr.GetClient(), mgr.GetScheme())
+	reconcilerOptions := []controller.AgentWorkloadReconcilerOption{}
+	if costReporter != nil {
+		reconcilerOptions = append(reconcilerOptions, controller.WithCostReporter(costReporter))
+	}
+	workloadReconciler := controller.NewAgentWorkloadReconciler(mgr.GetClient(), mgr.GetScheme(), reconcilerOptions...)
 	workloadReconciler.Evaluator = evaluation.NewEvaluator() // Phase 4: Agent Evaluation Pipeline
 	workloadReconciler.QuotaMgr = quotaMgr                   // Phase 7: Quota enforcement
 	workloadReconciler.SLAMonitor = slaMonitor               // Phase 7: SLA tracking
@@ -244,6 +283,12 @@ func main() {
 			setupLog.Error(err, "Failed to setup webhook", "webhook", "AgentWorkload")
 			os.Exit(1)
 		}
+
+		mgr.GetWebhookServer().Register("/mutate-v1-pod-runtimeclass", &webhook.Admission{
+			Handler: &runtimeadmission.RuntimeClassInjector{
+				Config: runtimeadmission.RuntimeClassInjectionConfigFromEnv(),
+			},
+		})
 	}
 	// +kubebuilder:scaffold:builder
 
@@ -260,5 +305,60 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "Failed to run manager")
 		os.Exit(1)
+	}
+}
+
+type runnableFunc func(context.Context) error
+
+func (f runnableFunc) Start(ctx context.Context) error {
+	return f(ctx)
+}
+
+func registerFinOpsMetrics(registerer prometheus.Registerer, reporter *finops.MemoryCostReporter) error {
+	if registerer == nil || reporter == nil {
+		return nil
+	}
+	err := registerer.Register(reporter.PrometheusCollector())
+	if err == nil {
+		return nil
+	}
+	var alreadyRegistered prometheus.AlreadyRegisteredError
+	if errors.As(err, &alreadyRegistered) {
+		return nil
+	}
+	return err
+}
+
+func costMetricsHandler(gatherer prometheus.Gatherer) http.Handler {
+	return promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{})
+}
+
+func serveHTTP(ctx context.Context, server *http.Server, logger logr.Logger) error {
+	errCh := make(chan error, 1)
+	go func() {
+		logger.Info("Starting HTTP server", "addr", server.Addr)
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+			return
+		}
+		errCh <- nil
+	}()
+
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		select {
+		case err := <-errCh:
+			return err
+		case <-shutdownCtx.Done():
+			return shutdownCtx.Err()
+		}
+	case err := <-errCh:
+		return err
 	}
 }

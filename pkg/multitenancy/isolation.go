@@ -43,7 +43,7 @@ func (r *Resolver) RegisterTenant(tenant *TenantContext) error {
 func (r *Resolver) ExtractFromNamespace(ctx context.Context, namespace string) (*TenantContext, error) {
 	// Pattern: agentic-customer-<name>
 	if !strings.HasPrefix(namespace, "agentic-customer-") {
-		return nil, ErrTenantNotFound
+		return nil, nil
 	}
 
 	tenantName := strings.TrimPrefix(namespace, "agentic-customer-")

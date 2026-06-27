@@ -32,8 +32,8 @@ PASS=0
 FAIL=0
 TOTAL=0
 
-pass() { echo "  ✅ PASS: $*"; ((PASS++)); ((TOTAL++)); }
-fail() { echo "  ❌ FAIL: $*"; ((FAIL++)); ((TOTAL++)); }
+pass() { echo "  ✅ PASS: $*"; ((PASS+=1)); ((TOTAL+=1)); }
+fail() { echo "  ❌ FAIL: $*"; ((FAIL+=1)); ((TOTAL+=1)); }
 log()  { echo "[smoke] $*"; }
 
 # ── Test 1: CRD installed ────────────────────────────────────────────────────
@@ -109,8 +109,9 @@ done
 # ── Test 7: Service endpoints resolvable ──────────────────────────────────────
 log "Test 7: Shared service endpoints exist"
 for SVC in postgres minio browserless litellm; do
-  EP_COUNT="$(kubectl -n "${NS_SHARED}" get endpoints "${SVC}" \
-    -o jsonpath='{.subsets[*].addresses}' 2>/dev/null | wc -c | tr -d ' ')"
+  EP_ADDRESSES="$(kubectl -n "${NS_SHARED}" get endpoints "${SVC}" \
+    -o jsonpath='{.subsets[*].addresses}' 2>/dev/null || true)"
+  EP_COUNT="$(printf "%s" "${EP_ADDRESSES}" | wc -c | tr -d ' ')"
   if (( EP_COUNT > 2 )); then
     pass "${SVC} endpoint has addresses"
   else
@@ -133,8 +134,62 @@ else
   pass "No webhook configured (acceptable for dev clusters)"
 fi
 
-# ── Test 9: Operator can watch AgentWorkloads ─────────────────────────────────
-log "Test 9: Operator RBAC — can list AgentWorkloads"
+# ── Test 9: Runtime sandbox webhook mutates opted-in Pods ────────────────────
+log "Test 9: Runtime sandbox webhook injects runtimeClassName"
+RUNTIME_WEBHOOK_CONFIG="$(kubectl get mutatingwebhookconfiguration -l app.kubernetes.io/part-of=agentic-operator \
+  -o jsonpath='{range .items[?(@.webhooks[*].name=="runtimeclass-pods.agentic.clawdlinux.org")]}{.metadata.name}{"\n"}{end}' 2>/dev/null | head -1)"
+if [[ -n "${RUNTIME_WEBHOOK_CONFIG}" ]]; then
+  SELECTOR_JSON="$(kubectl get mutatingwebhookconfiguration "${RUNTIME_WEBHOOK_CONFIG}" -o jsonpath='{.webhooks[?(@.name=="runtimeclass-pods.agentic.clawdlinux.org")].objectSelector.matchLabels}' 2>/dev/null || true)"
+  SELECTOR_PAIR="$(SELECTOR_JSON="${SELECTOR_JSON}" python3 - <<'PY'
+import json
+import os
+
+raw = os.environ.get("SELECTOR_JSON", "")
+try:
+    labels = json.loads(raw)
+except json.JSONDecodeError:
+    labels = {}
+for key, value in labels.items():
+    print(f"{key}={value}")
+    break
+PY
+  )"
+  SELECTOR_KEY="${SELECTOR_PAIR%%=*}"
+  SELECTOR_VALUE="${SELECTOR_PAIR#*=}"
+  EXPECTED_RUNTIME="$(kubectl -n "${NS_OPERATOR}" get deploy -l app.kubernetes.io/name=agentic-operator \
+    -o jsonpath='{.items[0].spec.template.spec.containers[0].env[?(@.name=="RUNTIME_SANDBOX_CLASS")].value}' 2>/dev/null || true)"
+  EXPECTED_RUNTIME="${EXPECTED_RUNTIME:-gvisor}"
+
+  if [[ -z "${SELECTOR_KEY}" || -z "${SELECTOR_VALUE}" ]]; then
+    fail "Runtime sandbox webhook has no objectSelector.matchLabels"
+  else
+    DRY_RUN_JSON="$(kubectl -n "${NS_OPERATOR}" apply --dry-run=server -o json -f - <<YAML
+apiVersion: v1
+kind: Pod
+metadata:
+  name: runtime-sandbox-smoke
+  labels:
+    ${SELECTOR_KEY}: ${SELECTOR_VALUE}
+spec:
+  restartPolicy: Never
+  containers:
+    - name: pause
+      image: registry.k8s.io/pause:3.10
+YAML
+    )" || DRY_RUN_JSON=""
+    RUNTIME_CLASS="$(echo "${DRY_RUN_JSON}" | sed -n 's/.*"runtimeClassName"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    if [[ "${RUNTIME_CLASS}" == "${EXPECTED_RUNTIME}" ]]; then
+      pass "Runtime sandbox webhook injected runtimeClassName=${RUNTIME_CLASS}"
+    else
+      fail "Runtime sandbox webhook did not inject runtimeClassName=${EXPECTED_RUNTIME} (got '${RUNTIME_CLASS:-missing}')"
+    fi
+  fi
+else
+  pass "No runtime sandbox pod mutating webhook configured (acceptable for dev clusters)"
+fi
+
+# ── Test 10: Operator can watch AgentWorkloads ────────────────────────────────
+log "Test 10: Operator RBAC — can list AgentWorkloads"
 SA="system:serviceaccount:${NS_OPERATOR}:agentic-operator-controller-manager"
 CAN_LIST="$(kubectl auth can-i list agentworkloads.agentic.clawdlinux.org \
   --as="${SA}" --all-namespaces 2>/dev/null || echo "no")"
@@ -146,8 +201,8 @@ else
   pass "Skipped (auth can-i not reliable on all clusters)"
 fi
 
-# ── Test 10: CRD schema has required fields ───────────────────────────────────
-log "Test 10: CRD spec schema includes key fields"
+# ── Test 11: CRD schema has required fields ───────────────────────────────────
+log "Test 11: CRD spec schema includes key fields"
 CRD_JSON="$(kubectl get crd agentworkloads.agentic.clawdlinux.org -o json 2>/dev/null || echo "{}")"
 FIELDS_OK=true
 for FIELD in objective mcpServerEndpoint autoApproveThreshold; do

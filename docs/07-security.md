@@ -106,12 +106,11 @@ multi-tenant clusters where one tenant's compromise must not leak into another's
 memory). Kata trades startup latency (~hundreds of ms vs. tens) for a
 qualitatively stronger isolation guarantee.
 
-> **Status:** the gVisor `RuntimeClass` and Helm toggle that wires
-> `runtimeClassName: gvisor` onto agent pods is tracked for v0.4 (see the
-> "v0.4: ship gVisor RuntimeClass + Helm toggle" issue). Today, operators must
-> install gVisor on their nodes and add the `RuntimeClass` manually if they want
-> the policy enforced cluster-wide. Documenting the chosen technology now
-> commits us to the upstream we will integrate against.
+> **Status:** the Helm chart can create the gVisor `RuntimeClass` and register a
+> pod mutating webhook. Pods opt in with the label
+> `agentic.clawdlinux.org/runtime-sandbox: gvisor`. The webhook sets
+> `runtimeClassName: gvisor` unless the Pod already chose another runtime.
+> Operators must still install gVisor/runsc on their nodes before enabling this.
 
 ## Secret Management
 

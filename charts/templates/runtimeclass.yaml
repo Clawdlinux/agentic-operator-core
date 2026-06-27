@@ -1,0 +1,21 @@
+{{- $runtimeSandbox := .Values.global.runtimeSandbox -}}
+{{- if and $runtimeSandbox.enabled $runtimeSandbox.createRuntimeClass -}}
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: {{ $runtimeSandbox.runtimeClassName | quote }}
+  labels:
+    {{- include "agentic-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runtime-sandbox
+  annotations:
+    agentic.clawdlinux.org/runtime-purpose: "syscall-isolation"
+handler: {{ $runtimeSandbox.handler | quote }}
+{{- with $runtimeSandbox.overhead }}
+overhead:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with $runtimeSandbox.scheduling }}
+scheduling:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}

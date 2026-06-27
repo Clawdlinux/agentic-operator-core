@@ -27,8 +27,10 @@ import (
 
 // MCPClient is a tool-agnostic client for calling MCP servers
 type MCPClient struct {
-	endpoint string
-	client   *http.Client
+	endpoint     string
+	client       *http.Client
+	maxRetries   int
+	retryBackoff time.Duration
 }
 
 // ToolRequest is the payload sent to the MCP server
@@ -92,14 +94,27 @@ func NewMCPClient(endpoint string) *MCPClient {
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		maxRetries:   2,
+		retryBackoff: 50 * time.Millisecond,
 	}
 }
 
 // ListTools queries the MCP server for available tools
 func (c *MCPClient) ListTools() ([]string, error) {
-	resp, err := c.client.Get(fmt.Sprintf("%s/tools", c.endpoint))
-	if err != nil {
-		return nil, fmt.Errorf("failed to list tools: %w", err)
+	var resp *http.Response
+	var err error
+	url := fmt.Sprintf("%s/tools", c.endpoint)
+	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+		resp, err = c.client.Get(url)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list tools: %w", err)
+		}
+		if !retryableStatus(resp.StatusCode) || attempt == c.maxRetries {
+			break
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+		time.Sleep(c.retryBackoff)
 	}
 	defer resp.Body.Close()
 
@@ -132,13 +147,19 @@ func (c *MCPClient) CallTool(toolName string, params map[string]interface{}) (ma
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := c.client.Post(
-		fmt.Sprintf("%s/call_tool", c.endpoint),
-		"application/json",
-		bytes.NewReader(payload),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call tool: %w", err)
+	var resp *http.Response
+	url := fmt.Sprintf("%s/call_tool", c.endpoint)
+	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+		resp, err = c.client.Post(url, "application/json", bytes.NewReader(payload))
+		if err != nil {
+			return nil, fmt.Errorf("failed to call tool: %w", err)
+		}
+		if !retryableStatus(resp.StatusCode) || attempt == c.maxRetries {
+			break
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+		time.Sleep(c.retryBackoff)
 	}
 	defer resp.Body.Close()
 
@@ -157,4 +178,8 @@ func (c *MCPClient) CallTool(toolName string, params map[string]interface{}) (ma
 	}
 
 	return toolResp.Result, nil
+}
+
+func retryableStatus(status int) bool {
+	return status >= http.StatusInternalServerError && status <= 599
 }

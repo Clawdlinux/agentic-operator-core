@@ -5,3 +5,12 @@
 
 # Guardrail script includes policy keywords by design.
 scripts/check_oss_private_boundary.sh
+
+# Multi-tenancy is already OSS: pkg/multitenancy/*, api/v1alpha1/tenant_types.go,
+# and internal/controller/tenant_controller.go all ship on main. These are the
+# generated CRD manifest and controller-level integration tests for that
+# existing public capability, so the 'multi-tenant'/'sla' keyword hits are not a
+# new private-tier leak.
+config/crd/bases/agentic.clawdlinux.org_tenants.yaml
+internal/controller/agentworkload_controller_quota_test.go
+internal/controller/agentworkload_controller_sla_test.go

@@ -26,7 +26,8 @@
           }
         },
         "storageClass": { "type": "string" },
-        "namespace": { "type": "string" }
+        "namespace": { "type": "string" },
+        "runtimeSandbox": { "$ref": "#/$defs/runtimeSandbox" }
       }
     },
     "license": {
@@ -203,6 +204,17 @@
         }
       }
     },
+    "ciliumPolicy": {
+      "type": "object",
+      "description": "Optional CiliumNetworkPolicy FQDN egress allow-list for managed agent pods.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "allowedFQDNs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "ingress": {
       "type": "object",
       "properties": {
@@ -291,6 +303,20 @@
         "enabled": { "type": "boolean" },
         "size": { "type": "string" },
         "storageClass": { "type": "string" }
+      }
+    },
+    "runtimeSandbox": {
+      "type": "object",
+      "description": "RuntimeClass injection for labeled agent pods. Works with any Kubernetes agent runtime.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "createRuntimeClass": { "type": "boolean" },
+        "runtimeClassName": { "type": "string", "minLength": 1 },
+        "handler": { "type": "string", "minLength": 1 },
+        "selectorLabelKey": { "type": "string", "minLength": 1 },
+        "selectorLabelValue": { "type": "string", "minLength": 1 },
+        "overhead": { "type": "object" },
+        "scheduling": { "type": "object" }
       }
     }
   }

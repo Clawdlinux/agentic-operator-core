@@ -9,6 +9,19 @@
     <meta name="csrf-token" content="{{.CSRFToken}}">
 </head>
 <body>
+    {{if .Demo}}
+    <nav class="navbar demo-navbar">
+        <div class="nav-brand">
+            <span class="logo">NV</span>
+            <span class="brand-text">NineVigil</span>
+        </div>
+        <div class="demo-nav-proof">
+            <span class="demo-pill">Kubernetes runtime</span>
+            <span class="demo-pill">Policy gated</span>
+            <span class="demo-pill">Audit ready</span>
+        </div>
+    </nav>
+    {{else}}
     <nav class="navbar">
         <div class="nav-brand">
             <span class="logo">⚙</span>
@@ -30,7 +43,8 @@
             {{end}}
         </div>
     </nav>
-    <main class="container">
+    {{end}}
+    <main class="container"{{if .Demo}} hx-get="/demo" hx-trigger="every 5s" hx-target="body" hx-swap="outerHTML"{{end}}>
         {{block "content" .}}{{end}}
     </main>
     <footer class="footer">

@@ -1,0 +1,47 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: secure-research-swarm
+  namespace: agentic-system
+  labels:
+    demo: "booth"
+    use-case: "research-swarm"
+spec:
+  objective: |
+    Research which regulated AI workflows require on-prem agent execution.
+    Identify regulatory constraints, data residency requirements, and compliance gaps.
+    Produce a structured report with sources and confidence scores.
+  workloadType: generic
+  workflowName: research-swarm
+  agents:
+    - "web-researcher"
+    - "policy-analyst"
+    - "report-synthesizer"
+  opaPolicy: strict
+  autoApproveThreshold: "0.95"
+  modelStrategy: cost-aware
+  collaborationMode: team
+  providers:
+    - name: local-llm
+      endpoint: "http://litellm.shared-services:8000"
+      apiKeySecret: "litellm-api-key"
+      models:
+        - "gpt-4o-mini"
+        - "gpt-3.5-turbo"
+  modelMapping:
+    validation: "gpt-3.5-turbo"
+    analysis: "gpt-4o-mini"
+    reasoning: "gpt-4o-mini"
+  resources:
+    cpuLimit: "500m"
+    memoryLimit: "512Mi"
+  timeouts:
+    actionTimeout: 120
+    totalTimeout: 600
+  persona:
+    role: "security-research-analyst"
+    tone: "professional"
+    systemPrompt: |
+      You are a security research analyst investigating regulated AI agent
+      deployment requirements. Focus on regulatory constraints, data residency,
+      and compliance gaps that prevent cloud-hosted agent execution.

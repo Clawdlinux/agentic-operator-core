@@ -31,6 +31,20 @@ type WorkflowStep struct {
 	EndedAt   string `json:"endedAt"`
 }
 
+// RuntimePodRow represents a pod running an agent workload.
+type RuntimePodRow struct {
+	Name         string `json:"name"`
+	Namespace    string `json:"namespace"`
+	Workload     string `json:"workload"`
+	Role         string `json:"role"`
+	Phase        string `json:"phase"`
+	RuntimeClass string `json:"runtimeClass"`
+	Node         string `json:"node"`
+	Image        string `json:"image"`
+	Age          string `json:"age"`
+	Restarts     int32  `json:"restarts"`
+}
+
 // ComponentStatus represents the health of a cluster component.
 type ComponentStatus struct {
 	Name      string `json:"name"`

@@ -46,12 +46,28 @@ func TestResolverExtractFromNamespace(t *testing.T) {
 	}
 }
 
-func TestResolverInvalidNamespace(t *testing.T) {
+func TestResolverExtractFromNamespaceNoTenantLabels(t *testing.T) {
+	t.Parallel()
+
 	r := NewResolver()
 	ctx := context.Background()
-	_, err := r.ExtractFromNamespace(ctx, "default")
+	tenant, err := r.ExtractFromNamespace(ctx, "default")
+	if err != nil {
+		t.Fatalf("expected no error for namespace without tenant labels, got %v", err)
+	}
+	if tenant != nil {
+		t.Fatalf("tenant = %#v, want nil", tenant)
+	}
+}
+
+func TestResolverInvalidTenantNamespace(t *testing.T) {
+	t.Parallel()
+
+	r := NewResolver()
+	ctx := context.Background()
+	_, err := r.ExtractFromNamespace(ctx, "agentic-customer-")
 	if err == nil {
-		t.Error("expected error for invalid namespace")
+		t.Fatal("expected error for invalid tenant namespace")
 	}
 }
 

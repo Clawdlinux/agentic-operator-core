@@ -1,0 +1,16 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: week1-pod-gate
+  namespace: agentic-system
+  labels:
+    app.kubernetes.io/part-of: ninevigil
+    gate: week1
+spec:
+  objective: "Run the Week 1 pod creation gate."
+  workloadType: generic
+  jobId: week1-pod-gate
+  orchestration:
+    type: argo
+  targetUrls:
+    - "https://example.com"

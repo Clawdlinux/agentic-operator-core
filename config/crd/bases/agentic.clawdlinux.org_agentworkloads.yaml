@@ -312,6 +312,13 @@ spec:
                     format: int32
                     type: integer
                 type: object
+              workflowName:
+                default: research-swarm
+                description: |-
+                  workflowName selects the registered workflow to execute.
+                  Built-in: "research-swarm", "code-review", "doc-processor"
+                  Custom workflows can be mounted at /etc/agentic/workflows/
+                type: string
               workloadType:
                 description: workloadType defines the infrastructure type (generic,
                   ceph, minio, postgres, etc.)
