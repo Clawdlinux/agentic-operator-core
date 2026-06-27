@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	agentctl "github.com/shreyansh/agentic-operator/pkg/agentctl"
+	agentctl "github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

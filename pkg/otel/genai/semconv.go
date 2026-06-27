@@ -9,10 +9,10 @@ import "go.opentelemetry.io/otel/attribute"
 
 // TracerName is the canonical tracer/instrumentation-library name for all
 // agentic-operator GenAI spans.
-const TracerName = "github.com/shreyansh/agentic-operator/pkg/otel/genai"
+const TracerName = "github.com/Clawdlinux/agentic-operator-core/pkg/otel/genai"
 
 // MeterName is the canonical meter name for GenAI metrics.
-const MeterName = "github.com/shreyansh/agentic-operator/pkg/otel/genai"
+const MeterName = "github.com/Clawdlinux/agentic-operator-core/pkg/otel/genai"
 
 // SchemaURL points at the stable OTel GenAI semconv schema. We pin a
 // concrete version so downstream tooling can detect breaking renames.

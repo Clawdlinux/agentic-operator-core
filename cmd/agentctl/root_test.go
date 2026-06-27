@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	agentctl "github.com/shreyansh/agentic-operator/pkg/agentctl"
+	agentctl "github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
 )
 
 func TestNewRootCommand_ContainsRequiredSubcommands(t *testing.T) {

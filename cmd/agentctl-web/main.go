@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shreyansh/agentic-operator/pkg/agentctl"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"

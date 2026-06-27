@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
-	"github.com/shreyansh/agentic-operator/internal/admission"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/internal/admission"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -3,7 +3,7 @@ package autoscaling
 import (
 	"testing"
 
-	"github.com/shreyansh/agentic-operator/pkg/multitenancy"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
 )
 
 // TestAutoScaler_IntegrationWithSLAMonitor tests end-to-end scaling decisions

@@ -6,7 +6,7 @@ Help improve NineVigil!
 
 ```bash
 # Clone repository
-git clone https://github.com/shreyansh/agentic-operator
+git clone https://github.com/Clawdlinux/agentic-operator-core
 cd agentic-operator
 
 # Install tools

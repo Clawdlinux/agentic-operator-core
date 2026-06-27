@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	agentctl "github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
 	"github.com/olekukonko/tablewriter"
-	agentctl "github.com/shreyansh/agentic-operator/pkg/agentctl"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

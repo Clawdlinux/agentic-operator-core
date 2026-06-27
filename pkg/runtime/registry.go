@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 )
 
 // DefaultRuntimeType is the runtime selected when a workload does not declare

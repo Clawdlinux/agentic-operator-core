@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 )
 
 var _ = Describe("AgentWorkloadReconciler", func() {

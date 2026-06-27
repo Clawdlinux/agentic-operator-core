@@ -9,7 +9,7 @@ Configure the NineVigil for your environment.
 operator:
   replicas: 1
   image:
-    repository: ghcr.io/shreyansh/agentic-operator
+    repository: ghcr.io/Clawdlinux/agentic-operator-core
     tag: latest
   resources:
     requests:

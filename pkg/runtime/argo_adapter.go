@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	agenticv1alpha1 "github.com/shreyansh/agentic-operator/api/v1alpha1"
-	"github.com/shreyansh/agentic-operator/pkg/argo"
+	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/argo"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"

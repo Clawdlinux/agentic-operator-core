@@ -1,4 +1,4 @@
-module github.com/shreyansh/agentic-operator
+module github.com/Clawdlinux/agentic-operator-core
 
 go 1.25.3
 
