@@ -27,7 +27,7 @@ spec:
             - --leader-elect={{ .Values.leaderElection }}
             - --health-probe-bind-address=:8082
             - --metrics-bind-address=:{{ .Values.service.metricsPort }}
-            - --log-level={{ .Values.logLevel }}
+            - --zap-log-level={{ .Values.logLevel }}
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -113,5 +113,6 @@ spec:
             optional: true
       securityContext:
         runAsNonRoot: true
+        runAsUser: 65532
         seccompProfile:
           type: RuntimeDefault

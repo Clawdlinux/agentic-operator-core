@@ -11,7 +11,6 @@ metadata:
 spec:
   objective: "analyze quarterly revenue data"
   workloadType: generic
-  workflowName: opa-allow-demo
   agents:
     - "policy-demo-agent"
   opaPolicy: strict

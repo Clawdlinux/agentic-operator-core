@@ -15,7 +15,6 @@ spec:
     - "report-generator"
   orchestration:
     type: "argo"
-  workflowName: "visual-analysis-template"
   opaPolicy: "strict"
   targetUrls:
     - "https://notion.so/pricing"
