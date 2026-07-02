@@ -30,7 +30,6 @@ spec:
     Identify regulatory constraints, data residency requirements, and compliance gaps.
     Produce a structured report with sources and confidence scores.
   workloadType: generic
-  workflowName: research-swarm
   agents:
     - "web-researcher"
     - "policy-analyst"

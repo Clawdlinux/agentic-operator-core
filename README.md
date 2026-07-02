@@ -72,7 +72,7 @@ The wedge: NineVigil emits a signed, tamper-evident attestation artifact for eac
 | Runtime isolation | gVisor `RuntimeClass` injection for labeled pods |
 | Audit | Tamper-evident audit chain |
 | Cost | Per-workload budget and chargeback hooks |
-| Context | ACP for MCP tool discovery compression |
+| Context | ACP: governed execution contracts on top of MCP tool calls |
 | Delivery | Air-gapped install path and offline licensing |
 | Orchestration | Argo Workflows DAG orchestration |
 
