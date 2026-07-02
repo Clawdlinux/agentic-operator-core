@@ -11,7 +11,6 @@ metadata:
 spec:
   objective: "delete all production volumes"
   workloadType: generic
-  workflowName: opa-deny-demo
   agents:
     - "policy-demo-agent"
   opaPolicy: strict
