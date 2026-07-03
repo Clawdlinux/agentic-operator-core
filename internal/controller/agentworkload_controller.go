@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -128,6 +129,9 @@ func (r *AgentWorkloadReconciler) ensureRuntimeDefaults() {
 	}
 	reg := runtimeadapter.NewRegistry()
 	reg.Register("argo", &runtimeadapter.ArgoWorkflowAdapter{Client: r.Client, Scheme: r.Scheme})
+	// pod is the bring-your-own single-pod runtime. Its image comes from the
+	// NINEVIGIL_AGENT_IMAGE env var; the adapter fails closed if it is unset.
+	reg.Register("pod", &runtimeadapter.PodRuntimeAdapter{Client: r.Client, Scheme: r.Scheme, Image: os.Getenv("NINEVIGIL_AGENT_IMAGE")})
 	r.RuntimeRegistry = reg
 }
 
@@ -174,8 +178,8 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	} else {
 		// Object is being deleted -- run cleanup if our finalizer is present.
 		if controllerutil.ContainsFinalizer(&workload, AgentWorkloadFinalizer) {
-			if err := r.cleanupArgoWorkflow(ctx, &workload); err != nil {
-				log.Error(err, "failed to cleanup Argo workflow during finalization")
+			if err := r.cleanupViaRuntime(ctx, &workload); err != nil {
+				log.Error(err, "failed to clean up runtime execution during finalization")
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			controllerutil.RemoveFinalizer(&workload, AgentWorkloadFinalizer)
@@ -345,9 +349,11 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	// Check if this is an Argo-orchestrated workload
-	if workload.Spec.Orchestration != nil && workload.Spec.Orchestration.Type != nil && *workload.Spec.Orchestration.Type == "argo" {
-		return r.reconcileArgoWorkflow(ctx, &workload)
+	// Route orchestrated workloads through the runtime adapter registry. Any
+	// registered runtime (argo, pod, and future adapters) is dispatched here and
+	// governed identically. An unknown type fails closed with an actionable error.
+	if workload.Spec.Orchestration != nil && workload.Spec.Orchestration.Type != nil && strings.TrimSpace(*workload.Spec.Orchestration.Type) != "" {
+		return r.reconcileViaRuntime(ctx, &workload)
 	}
 
 	// Step 2: Connect to MCP server and fetch status
@@ -640,11 +646,13 @@ func pruneActions(actions []agenticv1alpha1.Action, maxSize int) []agenticv1alph
 	return actions[len(actions)-maxSize:]
 }
 
-// reconcileArgoWorkflow handles reconciliation for orchestrated workloads by
+// reconcileViaRuntime handles reconciliation for orchestrated workloads by
 // dispatching to the runtime adapter resolved from spec.orchestration.type.
 // The Argo adapter preserves all historical behavior; other registered
-// runtimes get the same governance and status mapping.
-func (r *AgentWorkloadReconciler) reconcileArgoWorkflow(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) (ctrl.Result, error) {
+// runtimes (pod, and future adapters) get the same governance and status
+// mapping. The execution reference is stored in Status.ArgoWorkflow, which is
+// runtime-neutral despite its historical name.
+func (r *AgentWorkloadReconciler) reconcileViaRuntime(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 	log.Info("Reconciling orchestrated workload", "name", workload.Name)
 
@@ -728,10 +736,10 @@ func (r *AgentWorkloadReconciler) reconcileArgoWorkflow(ctx context.Context, wor
 	return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
 }
 
-// cleanupArgoWorkflow deletes the execution associated with this AgentWorkload
+// cleanupViaRuntime deletes the execution associated with this AgentWorkload
 // via the runtime adapter. Invoked from the finalizer path. Safe to call when
 // no execution was ever created.
-func (r *AgentWorkloadReconciler) cleanupArgoWorkflow(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {
+func (r *AgentWorkloadReconciler) cleanupViaRuntime(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {
 	log := logf.FromContext(ctx)
 
 	if workload.Status.ArgoWorkflow == nil || workload.Status.ArgoWorkflow.Name == "" {
