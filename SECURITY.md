@@ -13,14 +13,15 @@ responsibly. **Do not open a public GitHub issue.**
 
 ### How to report
 
-1. Email **security@clawdlinux.org** with a description of the vulnerability.
+1. Use GitHub's private vulnerability reporting: open the repository's
+   **Security** tab and choose **Report a vulnerability**.
 2. Include steps to reproduce, affected versions, and potential impact.
-3. We will acknowledge receipt within **48 hours**.
+3. We will acknowledge the report within **48 hours**.
 4. We aim to provide a fix or mitigation within **7 days** for critical issues.
 
 ### What to expect
 
-- A confirmation email within 48 hours.
+- An acknowledgement on the report within 48 hours.
 - Regular updates on the status of your report.
 - Credit in the release notes (unless you prefer anonymity).
 

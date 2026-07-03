@@ -197,8 +197,7 @@ The operator automatically provisions:
 ## 🆘 Need Help?
 
 - 📖 Check [Troubleshooting](./10-troubleshooting.md)
-- 💬 Open an issue on [GitHub](https://github.com/Clawdlinux/agentic-operator-core)
-- 📧 Email oss@clawdlinux.org
+- 💬 Open an issue on [GitHub](https://github.com/Clawdlinux/agentic-operator-core/issues)
 
 ---
 
