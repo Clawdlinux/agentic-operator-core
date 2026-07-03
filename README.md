@@ -349,7 +349,7 @@ Design proposals in flight live in [`docs/rfcs/`](docs/rfcs/). Currently in desi
 
 ## Community
 
-- **Discord** — [Join our Discord](https://discord.gg/2yJsjhPe) for questions, discussions, and design partner conversations
+- **Discord** — [Join our Discord](https://discord.gg/r4QhZJQgV) for questions, discussions, and design partner conversations
 - **Issues** — [Report bugs or request features](https://github.com/Clawdlinux/agentic-operator-core/issues)
 - **Releases** — [Subscribe to releases](https://github.com/Clawdlinux/agentic-operator-core/releases) for changelog updates
 
