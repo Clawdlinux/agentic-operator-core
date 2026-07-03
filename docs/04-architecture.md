@@ -77,15 +77,17 @@ in `pkg/runtime`.
   long-running agent jobs.
 - `pod`: a bring-your-own single pod. Use it for simple, single-shot agents. The
   pod image comes from the `NINEVIGIL_AGENT_IMAGE` env var.
-- `kagent`: a kagent `Agent` (`kagent.dev/v1alpha2`), created via the
-  unstructured client with no Go dependency on kagent. Next adapter, see the
-  roadmap.
+- `kagent`: runs the workload as a kagent `Agent` (`kagent.dev/v1alpha2`) in BYO
+  mode, created through the unstructured client with no Go dependency on kagent.
+  Requires kagent installed in the cluster. Same image source, same seal.
 
-Engineering rule: never hardcode a runtime in the controller. Add a runtime by
-implementing `runtime.RuntimeAdapter` and registering it in the registry, not by
-adding a branch in `Reconcile`. Governance (gVisor sandbox label, default-deny
-egress, audit chain) is applied at the pod and network layer, so every adapter
-is governed identically without per-adapter seal code.
+All three stamp the same governance labels onto their pods through a shared
+helper, so the gVisor sandbox and the default-deny egress policy apply
+identically. Engineering rule: never hardcode a runtime in the controller. Add a
+runtime by implementing `runtime.RuntimeAdapter` and registering it in the
+registry, not by adding a branch in `Reconcile`. Governance is applied at the pod
+and network layer, so every adapter is governed identically without per-adapter
+seal code.
 
 ## Components
 
