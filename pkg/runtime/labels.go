@@ -24,6 +24,14 @@ import (
 // GovernanceEgressPartOfKey is the label the default-deny egress NetworkPolicy
 // selects on. Pods without it are not sealed by the policy, so every adapter
 // must stamp it.
+//
+// GovernanceEgressPartOfValue MUST match the value the egress NetworkPolicy
+// selects on (charts/templates/networkpolicy.yaml). Most other platform
+// resources (Argo pods, shared services, RBAC) currently label part-of
+// "agentic-k8s-operator", which the NetworkPolicy does NOT select. Reconciling
+// the whole platform onto a single part-of value is a tracked follow-up. This
+// helper deliberately uses the NetworkPolicy's value so the pods it governs are
+// actually sealed.
 const (
 	GovernanceEgressPartOfKey   = "app.kubernetes.io/part-of"
 	GovernanceEgressPartOfValue = "agentic-operator"

@@ -139,7 +139,10 @@ func (a *KagentAdapter) buildAgent(workload *agenticv1alpha1.AgentWorkload) *uns
 }
 
 func newKagentAgent() *unstructured.Unstructured {
-	agent := &unstructured.Unstructured{}
+	// Initialize Object explicitly. SetGroupVersionKind already does this today,
+	// but a nil map here would panic on the first field write, so we do not rely
+	// on call ordering.
+	agent := &unstructured.Unstructured{Object: map[string]interface{}{}}
 	agent.SetGroupVersionKind(kagentGVK)
 	return agent
 }
