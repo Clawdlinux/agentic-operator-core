@@ -66,6 +66,27 @@ func TestEnsureRuntimeDefaults_RegistersPod(t *testing.T) {
 	}
 }
 
+// TestEnsureRuntimeDefaults_RegistersKagent verifies the kagent runtime is
+// reachable through the registry, so a workload with
+// spec.orchestration.type: kagent dispatches to the kagent adapter.
+func TestEnsureRuntimeDefaults_RegistersKagent(t *testing.T) {
+	r := &AgentWorkloadReconciler{}
+
+	r.ensureRuntimeDefaults()
+
+	registered := r.RuntimeRegistry.Registered()
+	found := false
+	for _, name := range registered {
+		if name == "kagent" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("registered runtimes = %v, want kagent present", registered)
+	}
+}
+
 // TestEnsureRuntimeDefaults_Idempotent verifies a second call does not replace
 // an already-configured registry (e.g. one injected by a test or by main).
 func TestEnsureRuntimeDefaults_Idempotent(t *testing.T) {

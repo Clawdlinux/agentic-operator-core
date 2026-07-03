@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
-	"github.com/Clawdlinux/agentic-operator-core/internal/admission"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -123,16 +122,13 @@ func PodName(workload *agenticv1alpha1.AgentWorkload) string {
 // RuntimeClassName itself; governance is applied by the platform, identically
 // for every runtime.
 func buildGovernedPod(workload *agenticv1alpha1.AgentWorkload, image string) *corev1.Pod {
+	labels := governanceLabels(workload)
+	labels["agentic.clawdlinux.org/runtime"] = "pod"
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PodName(workload),
 			Namespace: workload.GetNamespace(),
-			Labels: map[string]string{
-				admission.DefaultRuntimeLabelKey:  admission.DefaultRuntimeLabelValue,
-				"app.kubernetes.io/managed-by":    "agentic-operator",
-				"agentic.clawdlinux.org/workload": workload.GetName(),
-				"agentic.clawdlinux.org/runtime":  "pod",
-			},
+			Labels:    labels,
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyNever,
