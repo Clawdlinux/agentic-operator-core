@@ -72,7 +72,7 @@ func TestKagentAdapter_BuildAgentContract(t *testing.T) {
 	if labels[admission.DefaultRuntimeLabelKey] != admission.DefaultRuntimeLabelValue {
 		t.Errorf("missing gVisor sandbox label, got %v", labels)
 	}
-	if labels[GovernanceEgressLabelKey] != GovernanceEgressLabelValue {
+	if labels[GovernanceEgressPartOfKey] != GovernanceEgressPartOfValue {
 		t.Errorf("missing egress part-of label, got %v", labels)
 	}
 }
@@ -113,7 +113,7 @@ func TestGovernanceLabels_IncludesEgressAndSandbox(t *testing.T) {
 	if l[admission.DefaultRuntimeLabelKey] != admission.DefaultRuntimeLabelValue {
 		t.Errorf("missing gVisor sandbox label: %v", l)
 	}
-	if l[GovernanceEgressLabelKey] != GovernanceEgressLabelValue {
+	if l[GovernanceEgressPartOfKey] != GovernanceEgressPartOfValue {
 		t.Errorf("missing egress part-of label: %v", l)
 	}
 }

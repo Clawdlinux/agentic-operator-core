@@ -21,12 +21,12 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/internal/admission"
 )
 
-// GovernanceEgressLabelKey is the label the default-deny egress NetworkPolicy
+// GovernanceEgressPartOfKey is the label the default-deny egress NetworkPolicy
 // selects on. Pods without it are not sealed by the policy, so every adapter
 // must stamp it.
 const (
-	GovernanceEgressLabelKey   = "app.kubernetes.io/part-of"
-	GovernanceEgressLabelValue = "agentic-operator"
+	GovernanceEgressPartOfKey   = "app.kubernetes.io/part-of"
+	GovernanceEgressPartOfValue = "agentic-operator"
 )
 
 // governanceLabels returns the pod labels that place a workload's pods under
@@ -38,7 +38,7 @@ const (
 func governanceLabels(workload *agenticv1alpha1.AgentWorkload) map[string]string {
 	return map[string]string{
 		admission.DefaultRuntimeLabelKey:  admission.DefaultRuntimeLabelValue, // gVisor injector
-		GovernanceEgressLabelKey:          GovernanceEgressLabelValue,         // egress NetworkPolicy
+		GovernanceEgressPartOfKey:         GovernanceEgressPartOfValue,        // egress NetworkPolicy
 		"app.kubernetes.io/managed-by":    "agentic-operator",
 		"agentic.clawdlinux.org/workload": workload.GetName(),
 	}
