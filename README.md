@@ -202,7 +202,10 @@ flowchart LR
 
     subgraph plane["NineVigil governance plane"]
         OP["NineVigil Operator<br/>(license, OPA, cost)"]
+        RT["Runtime Adapter<br/>(spec.orchestration.type)"]
         ARGO["Argo Workflows"]
+        POD["BYO Pod"]
+        KAGENT["kagent Agent"]
         PODS["Agent Pods<br/>(gVisor, egress-sealed)"]
         PROXY["LiteLLM Proxy"]
     end
@@ -215,9 +218,14 @@ flowchart LR
     PE -->|Applies AgentWorkload| API
     AUD -->|Fetches chain checkpoint| API
     API -->|Watch events| OP
-    OP -->|Creates DAG| ARGO
+    OP -->|Selects runtime| RT
+    RT -->|argo| ARGO
+    RT -->|pod| POD
+    RT -->|kagent| KAGENT
     OP -->|Injects gVisor, seals egress| PODS
-    ARGO -->|Schedules steps| PODS
+    ARGO --> PODS
+    POD --> PODS
+    KAGENT --> PODS
     PODS -->|LLM calls| PROXY
     PROXY -.->|LLM: inference| LLMEP
     PODS -->|Writes artifacts| MINIO
@@ -226,11 +234,11 @@ flowchart LR
 
     classDef plane fill:#ede9fe,stroke:#7c3aed,color:#1e1b4b;
     classDef clients fill:#dcfce7,stroke:#16a34a,color:#052e16;
-    class OP,ARGO,PODS,PROXY plane;
+    class OP,RT,ARGO,POD,KAGENT,PODS,PROXY plane;
     class PE,AUD clients;
 ```
 
-The operator seals every agent pod (gVisor sandbox, default-deny egress to an approved allow-list) and appends a signed, hash-chained record of every run. An auditor verifies that record offline, months later, with `audit-verify`. The same seal and attestation apply whether the workload is a NineVigil AgentWorkload, an Argo DAG, or your own labeled pods.
+The operator picks the execution runtime from `spec.orchestration.type` (Argo, a BYO pod, or a kagent Agent) through a pluggable adapter, then seals every agent pod (gVisor sandbox, default-deny egress to an approved allow-list) and appends a signed, hash-chained record of every run. The seal and attestation are identical across runtimes because they are enforced at the pod and network layer, not the scheduler. An auditor verifies the record offline, months later, with `audit-verify`.
 
 ---
 
