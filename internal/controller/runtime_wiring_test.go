@@ -44,6 +44,28 @@ func TestEnsureRuntimeDefaults_RegistersArgo(t *testing.T) {
 	}
 }
 
+// TestEnsureRuntimeDefaults_RegistersPod verifies the bring-your-own single-pod
+// runtime is reachable through the registry, so a workload with
+// spec.orchestration.type: pod dispatches to the pod adapter instead of falling
+// through to the legacy MCP path.
+func TestEnsureRuntimeDefaults_RegistersPod(t *testing.T) {
+	r := &AgentWorkloadReconciler{}
+
+	r.ensureRuntimeDefaults()
+
+	registered := r.RuntimeRegistry.Registered()
+	found := false
+	for _, name := range registered {
+		if name == "pod" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("registered runtimes = %v, want pod present", registered)
+	}
+}
+
 // TestEnsureRuntimeDefaults_Idempotent verifies a second call does not replace
 // an already-configured registry (e.g. one injected by a test or by main).
 func TestEnsureRuntimeDefaults_Idempotent(t *testing.T) {

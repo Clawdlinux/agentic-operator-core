@@ -19,7 +19,10 @@ flowchart LR
 
     subgraph plane["NineVigil governance plane"]
         OP["NineVigil Operator<br/>(license, OPA, cost)"]
+        RT["Runtime Adapter<br/>(spec.orchestration.type)"]
         ARGO["Argo Workflows"]
+        POD["BYO Pod"]
+        KAGENT["kagent Agent"]
         PODS["Agent Pods<br/>(gVisor, egress-sealed)"]
         PROXY["LiteLLM Proxy"]
     end
@@ -32,9 +35,14 @@ flowchart LR
     PE -->|Applies AgentWorkload| API
     AUD -->|Fetches chain checkpoint| API
     API -->|Watch events| OP
-    OP -->|Creates DAG| ARGO
+    OP -->|Selects runtime| RT
+    RT -->|argo| ARGO
+    RT -->|pod| POD
+    RT -->|kagent| KAGENT
     OP -->|Injects gVisor, seals egress| PODS
-    ARGO -->|Schedules steps| PODS
+    ARGO --> PODS
+    POD --> PODS
+    KAGENT --> PODS
     PODS -->|LLM calls| PROXY
     PROXY -.->|LLM: inference| LLMEP
     PODS -->|Writes artifacts| MINIO
@@ -43,18 +51,41 @@ flowchart LR
 
     classDef plane fill:#ede9fe,stroke:#7c3aed,color:#1e1b4b;
     classDef clients fill:#dcfce7,stroke:#16a34a,color:#052e16;
-    class OP,ARGO,PODS,PROXY plane;
+    class OP,RT,ARGO,POD,KAGENT,PODS,PROXY plane;
     class PE,AUD clients;
 ```
 
 The Platform Engineer applies an `AgentWorkload`. The operator watches the API
-server, injects a gVisor sandbox and a default-deny egress seal onto the agent
-pods, and schedules the run through Argo. Agent pods reach only the approved
-LLM endpoint (via the LiteLLM proxy) and write artifacts to MinIO. Every
-consequential action is appended to a hash-chained, HMAC-signed audit chain,
-with the chain head optionally mirrored to Sigstore Rekor. An auditor fetches
-the published checkpoint and verifies the whole chain offline with
-`audit-verify`, no trust in the cluster required.
+server and picks the execution runtime from `spec.orchestration.type` through a
+pluggable adapter: an Argo DAG for multi-step jobs, a bring-your-own single pod
+for simple ones, or a kagent Agent. Whichever runs, the operator injects a
+gVisor sandbox and a default-deny egress seal onto the agent pods, because that
+governance is enforced at the pod and network layer, not the scheduler. Agent
+pods reach only the approved LLM endpoint (via the LiteLLM proxy) and write
+artifacts to MinIO. Every consequential action is appended to a hash-chained,
+HMAC-signed audit chain, with the chain head optionally mirrored to Sigstore
+Rekor. An auditor fetches the published checkpoint and verifies the whole chain
+offline with `audit-verify`, no trust in the cluster required.
+
+## Runtimes and the adapter contract
+
+The execution runtime is pluggable. The operator selects it from
+`spec.orchestration.type` through a registry of `RuntimeAdapter` implementations
+in `pkg/runtime`.
+
+- `argo` (default): multi-step DAG workflows via Argo. Use it for parallel or
+  long-running agent jobs.
+- `pod`: a bring-your-own single pod. Use it for simple, single-shot agents. The
+  pod image comes from the `NINEVIGIL_AGENT_IMAGE` env var.
+- `kagent`: a kagent `Agent` (`kagent.dev/v1alpha2`), created via the
+  unstructured client with no Go dependency on kagent. Next adapter, see the
+  roadmap.
+
+Engineering rule: never hardcode a runtime in the controller. Add a runtime by
+implementing `runtime.RuntimeAdapter` and registering it in the registry, not by
+adding a branch in `Reconcile`. Governance (gVisor sandbox label, default-deny
+egress, audit chain) is applied at the pod and network layer, so every adapter
+is governed identically without per-adapter seal code.
 
 ## Components
 
