@@ -45,9 +45,10 @@ phases and adds explicit pass/fail gates the script does not assert for you.
 - [ ] FAIL signal: deadline hit. Check `kubectl -n agentic-system describe pod`.
       Almost always an un-cached image. Go back to step 0.
 
-## 4. Stack install (script: "Installing ... stack")
+## 4. Deployment profile (script: "Installing ... profile")
 
-- [ ] Decide path before you start: full (Argo) or `--skip-argo` (Week 2 gate).
+- [ ] Decide before you start: `--profile platform` (Argo and shared services)
+      or `--profile lean` (operator and governance controls only).
       Rehearse the one you will present.
 - [ ] PASS gate: helm install completes within `HELM_TIMEOUT` (default 180s).
 - [ ] FAIL signal: helm timeout. Raise `HELM_TIMEOUT=300s` only if the laptop is
@@ -88,9 +89,9 @@ phases and adds explicit pass/fail gates the script does not assert for you.
 - [ ] If the live run hiccups, fall back to `_staging/booth/attestation-fallback.jsonl`
       and run the same verify + tamper demo. Never debug live on a prospect's time.
 
-## 10. Multi-agent swarm (script: "PHASE 2", needs --full)
+## 10. Multi-agent swarm (optional scenario, needs `--with-swarm`)
 
-- [ ] Only if presenting the swarm: run with `--full`.
+- [ ] Only if presenting the swarm: run with `--with-swarm` and the platform profile.
 - [ ] PASS gate: 3-agent swarm reaches a terminal state without manual nudging.
 
 ## 11. Teardown
@@ -113,6 +114,6 @@ demo time budget. Anything less and you are gambling on the venue.
 
 ## Optional: record a backup
 
-- [ ] `scripts/demo-booth.sh --full --record` captures terminal output with
+- [ ] `scripts/demo-booth.sh --profile platform --with-swarm --record` captures terminal output with
       script(1). Keep one clean recording as a last-resort fallback if the laptop
       itself dies.

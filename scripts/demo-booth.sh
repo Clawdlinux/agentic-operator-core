@@ -9,19 +9,21 @@ NS_OPERATOR="${NS_OPERATOR:-agentic-system}"
 NS_ARGO="${NS_ARGO:-argo-workflows}"
 NS_SHARED="${NS_SHARED:-shared-services}"
 HELM_TIMEOUT="${HELM_TIMEOUT:-180s}"
+OPERATOR_IMAGE="${OPERATOR_IMAGE:-ghcr.io/clawdlinux/agentic-operator-core/agentic-operator}"
+OPERATOR_IMAGE_TAG="${OPERATOR_IMAGE_TAG:-latest}"
 
 ALLOW_MANIFEST="${REPO_ROOT}/config/samples/agentworkload_demo_allow.yaml"
 DENY_MANIFEST="${REPO_ROOT}/config/samples/agentworkload_demo_deny.yaml"
 SWARM_MANIFEST="${REPO_ROOT}/config/samples/agentworkload_demo_swarm.yaml"
 EVIDENCE_DIR="${EVIDENCE_DIR:-${REPO_ROOT}/tests/harness/evidence/booth-$(date +%Y%m%dT%H%M%S)}"
 
-SKIP_ARGO=false
-FULL=false
+DEMO_PROFILE="${DEMO_PROFILE:-platform}"
+WITH_SWARM=false
 RECORD=false
 CLEANUP=false
 ORIGINAL_ARGS=("$@")
 
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+if [[ ( -t 1 || "${FORCE_COLOR:-}" == "1" ) && -z "${NO_COLOR:-}" ]]; then
   BOLD="$(printf '\033[1m')"
   GREEN="$(printf '\033[32m')"
   RED="$(printf '\033[31m')"
@@ -45,8 +47,10 @@ Runs the NineVigil booth demo gate.
 
 Options:
   --cluster NAME    kind cluster name. Default: ${CLUSTER_NAME}
-  --skip-argo       Skip Argo/shared-services setup. Week 2 gate path.
-  --full            Run Phase 2 multi-agent swarm demo.
+  --profile NAME    Deployment profile: platform or lean. Default: ${DEMO_PROFILE}
+  --with-swarm      Run the optional Argo multi-agent swarm scenario.
+  --skip-argo       Compatibility alias for --profile lean.
+  --full            Compatibility alias for --with-swarm.
   --record          Record terminal output with script(1).
   --cleanup         Delete the kind cluster and exit.
   -h, --help        Show this help.
@@ -55,6 +59,9 @@ Environment:
   DEMO_MCP_ENDPOINT Override https://localhost:8443 in sample manifests.
   HELM_TIMEOUT      Helm wait timeout. Default: ${HELM_TIMEOUT}
   NS_OPERATOR       Operator namespace. Default: ${NS_OPERATOR}
+  OPERATOR_IMAGE    Operator image repository. Default: ${OPERATOR_IMAGE}
+  OPERATOR_IMAGE_TAG Operator image tag. Default: ${OPERATOR_IMAGE_TAG}
+  FORCE_COLOR       Set to 1 to preserve ANSI colors through a recorder or pipe.
 EOF
 }
 
@@ -72,12 +79,24 @@ parse_args() {
         CLUSTER_NAME="$2"
         shift 2
         ;;
+      --profile)
+        [[ $# -ge 2 ]] || die "--profile requires platform or lean"
+        case "$2" in
+          platform|lean)
+            DEMO_PROFILE="$2"
+            ;;
+          *)
+            die "invalid profile: $2 (expected platform or lean)"
+            ;;
+        esac
+        shift 2
+        ;;
       --skip-argo)
-        SKIP_ARGO=true
+        DEMO_PROFILE=lean
         shift
         ;;
-      --full)
-        FULL=true
+      --with-swarm|--full)
+        WITH_SWARM=true
         shift
         ;;
       --record)
@@ -213,19 +232,25 @@ wait_for_operator() {
   die "Operator pod did not reach Running"
 }
 
-install_full_stack() {
-  step "Installing full stack with tests/harness/setup.sh"
+install_platform_profile() {
+  step "Installing platform profile with Argo and shared services"
   HELM_TIMEOUT="${HELM_TIMEOUT}" bash "${REPO_ROOT}/tests/harness/setup.sh" || {
-    die "setup.sh failed. For Week 2, rerun with --skip-argo to bypass Argo."
+    die "setup.sh failed. Rerun with --profile lean to omit Argo and shared services."
   }
   wait_for_operator
 }
 
-install_week2_stack() {
-  step "Installing Week 2 stack without Argo"
+install_lean_profile() {
+  step "Installing lean profile without Argo or shared services"
+  local operator_image="${OPERATOR_IMAGE}:${OPERATOR_IMAGE_TAG}"
+  if command -v kind >/dev/null 2>&1 && docker image inspect "${operator_image}" >/dev/null 2>&1; then
+    kind load docker-image "${operator_image}" --name "${CLUSTER_NAME}" >/dev/null
+    ok "Loaded local operator image: ${operator_image}"
+  fi
   ensure_namespace "${NS_OPERATOR}"
   kubectl apply -f "${REPO_ROOT}/config/crd/agentworkload_crd.yaml" >/dev/null
 
+  # Suppress webhook resources and process registration in the lean profile.
   helm upgrade --install agentic-operator "${REPO_ROOT}/charts" \
     --namespace "${NS_OPERATOR}" \
     --create-namespace \
@@ -240,6 +265,9 @@ install_week2_stack() {
     --set global.runtimeSandbox.enabled=true \
     --set global.runtimeSandbox.createRuntimeClass=true \
     --set agenticOperator.webhook.enabled=false \
+    --set agentic-operator.env.ENABLE_WEBHOOKS=false \
+    --set agentic-operator.image.repository="${OPERATOR_IMAGE}" \
+    --set agentic-operator.image.tag="${OPERATOR_IMAGE_TAG}" \
     --set agentic-operator.image.pullPolicy=IfNotPresent \
     --timeout "${HELM_TIMEOUT}" \
     --wait >/dev/null
@@ -304,9 +332,17 @@ deny_reason() {
 
 show_workload_evidence() {
   step "AgentWorkload status"
-  kubectl -n "${NS_OPERATOR}" get agentworkload -o wide || true
-  echo ""
-  kubectl -n "${NS_OPERATOR}" describe agentworkload opa-allow-demo || true
+  kubectl -n "${NS_OPERATOR}" get agentworkload \
+    -o custom-columns='NAME:.metadata.name,PHASE:.status.phase,OBJECTIVE:.spec.objective' || true
+
+  local action confidence
+  action="$(kubectl -n "${NS_OPERATOR}" get agentworkload opa-allow-demo \
+    -o jsonpath='{.status.executedActions[-1].name}' 2>/dev/null || true)"
+  confidence="$(kubectl -n "${NS_OPERATOR}" get agentworkload opa-allow-demo \
+    -o jsonpath='{.status.executedActions[-1].confidence}' 2>/dev/null || true)"
+  if [[ -n "${action}" ]]; then
+    printf '%bExecuted action:%b %s (confidence %s)\n' "${GREEN}" "${RESET}" "${action}" "${confidence:-unknown}"
+  fi
 }
 
 show_agent_pods() {
@@ -468,14 +504,14 @@ workflow_phase() {
 }
 
 run_swarm_demo() {
-  if [[ "${FULL}" != "true" ]]; then
-    SWARM_PHASE="skipped (use --full)"
+  if [[ "${WITH_SWARM}" != "true" ]]; then
+    SWARM_PHASE="skipped (use --with-swarm)"
     return
   fi
 
-  step "PHASE 2: Multi-Agent Swarm"
-  if [[ "${SKIP_ARGO}" == "true" ]]; then
-    warn "Swarm skipped because --skip-argo disables Argo installation"
+  step "Optional scenario: Multi-Agent Swarm"
+  if [[ "${DEMO_PROFILE}" == "lean" ]]; then
+    warn "Swarm skipped because the lean profile does not install Argo"
     SWARM_PHASE="skipped (no argo)"
     return
   fi
@@ -528,7 +564,7 @@ print_summary() {
     "${GVISOR_OK:-no}" \
     "${NETWORK_POLICY_OK:-no}" \
     "${COST_OK:-no}" \
-    "${SWARM_PHASE:-skipped (use --full)}"
+    "${SWARM_PHASE:-skipped (use --with-swarm)}"
   echo ""
   if [[ "${DENY_PHASE:-}" != "PolicyDenied" ]]; then
     warn "DENY needs a reachable HTTPS MCP endpoint to reach OPA. Set DEMO_MCP_ENDPOINT for live booth runs."
@@ -537,6 +573,15 @@ print_summary() {
 
 main() {
   parse_args "$@"
+  case "${DEMO_PROFILE}" in
+    platform|lean) ;;
+    *)
+      die "invalid profile: ${DEMO_PROFILE} (expected platform or lean)"
+      ;;
+  esac
+  if [[ "${WITH_SWARM}" == "true" && "${DEMO_PROFILE}" == "lean" ]]; then
+    die "--with-swarm requires --profile platform because the swarm uses Argo"
+  fi
   start_recording_if_requested
 
   if [[ "${CLEANUP}" == "true" ]]; then
@@ -546,10 +591,10 @@ main() {
 
   check_prerequisites
   ensure_cluster
-  if [[ "${SKIP_ARGO}" == "true" ]]; then
-    install_week2_stack
+  if [[ "${DEMO_PROFILE}" == "lean" ]]; then
+    install_lean_profile
   else
-    install_full_stack
+    install_platform_profile
   fi
   verify_gvisor
   verify_network_policy

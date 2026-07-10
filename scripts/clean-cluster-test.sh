@@ -12,7 +12,7 @@ kind delete cluster --name "${CLUSTER}" || true
 kind create cluster --name "${CLUSTER}" --wait 60s
 
 set +e
-./scripts/demo-booth.sh --skip-argo
+./scripts/demo-booth.sh --profile lean
 exit_code=$?
 set -e
 if (( exit_code == 0 )); then
