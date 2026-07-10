@@ -5,11 +5,7 @@
 <h1 align="center">NineVigil</h1>
 
 <p align="center">
-  <strong>Regulated controls for AI agents on Kubernetes.</strong>
-</p>
-
-<p align="center">
-  <em>Formerly Agentic Operator · <code>Clawdlinux/agentic-operator-core</code></em>
+  <strong>Air-gapped governance and attestation for AI agents on Kubernetes.</strong>
 </p>
 
 <p align="center">
@@ -42,18 +38,6 @@
   <a href="docs/04-architecture.md"><img src="https://img.shields.io/badge/📐_Architecture-Deep_Dive-1e293b?style=for-the-badge" alt="Architecture" /></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/🤝_Contribute-Guidelines-1e293b?style=for-the-badge" alt="Contribute" /></a>
 </p>
-
----
-
-## 🎬 Demo
-
-<p align="center">
-  <a href="https://github.com/Clawdlinux/agentic-operator-core/raw/main/assets/agentic-operator-demo.mp4">
-    <img src="assets/agentic-operator-demo.gif" alt="Agentic Operator Demo" width="800" />
-  </a>
-</p>
-
-> 24-second walkthrough: problem → manifest → `kubectl apply` → live workload status. [Watch MP4 (HD)](https://github.com/Clawdlinux/agentic-operator-core/raw/main/assets/agentic-operator-demo.mp4) · [View source](video/)
 
 ---
 
