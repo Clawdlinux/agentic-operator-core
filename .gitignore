@@ -44,6 +44,8 @@ manager
 
 # Logs and test outputs
 *.log
+demos/*.cast
+demos/live/*.typescript
 # Build artifacts
 *.log
 generate-license
