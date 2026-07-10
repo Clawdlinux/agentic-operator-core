@@ -10,9 +10,13 @@ phases and adds explicit pass/fail gates the script does not assert for you.
 ## 0. One-time offline prep (do once, before rehearsals)
 
 - [ ] Laptop has `kubectl`, `helm`, and `kind` (or `k3s`) installed and on PATH.
+- [ ] Seed the kind node-image cache with the same command the demo script uses:
+      `kind create cluster --name ninevigil-demo --wait 120s`
+      This pulls the exact `kindest/node` tag for your installed `kind` binary.
+      Without this, wifi-off `kind create cluster` fails immediately.
 - [ ] Pre-pull every image the demo needs, then point kind at the local cache so
       no phase pulls from the network:
-      - [ ] `kind create cluster --name ninevigil-demo`
+      - [ ] Keep `ninevigil-demo` running while you load images.
       - [ ] For each image the chart and samples use: `docker pull <img>` then
             `kind load docker-image <img> --name ninevigil-demo`.
       - [ ] Re-run the demo with wifi OFF. If any phase blocks on ImagePull, the

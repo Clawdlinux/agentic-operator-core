@@ -38,5 +38,5 @@ chain breaks. That is what an auditor wants to see.
 
 - The key here is a demo key, committed on purpose so the fallback is
   self-contained. Never use this key for a real run.
-- The verify works fully offline. No cluster, no network, no trust in the host.
-  That is the air-gapped review-room story.
+- The verify works fully offline. No cluster, no network, no external
+  dependencies. That is the air-gapped review-room story.
