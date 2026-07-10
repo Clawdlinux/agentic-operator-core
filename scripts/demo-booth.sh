@@ -59,8 +59,8 @@ Environment:
   DEMO_MCP_ENDPOINT Override https://localhost:8443 in sample manifests.
   HELM_TIMEOUT      Helm wait timeout. Default: ${HELM_TIMEOUT}
   NS_OPERATOR       Operator namespace. Default: ${NS_OPERATOR}
-  OPERATOR_IMAGE    Operator image repository. Default: ${OPERATOR_IMAGE}
-  OPERATOR_IMAGE_TAG Operator image tag. Default: ${OPERATOR_IMAGE_TAG}
+  OPERATOR_IMAGE    Lean-profile operator image repository. Default: ${OPERATOR_IMAGE}
+  OPERATOR_IMAGE_TAG Lean-profile operator image tag. Default: ${OPERATOR_IMAGE_TAG}
   FORCE_COLOR       Set to 1 to preserve ANSI colors through a recorder or pipe.
 EOF
 }
