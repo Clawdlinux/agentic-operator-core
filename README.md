@@ -2,7 +2,7 @@
   <img src="assets/ninevigil-logo.svg" alt="NineVigil" width="90" height="90" />
 </p>
 
-<h1 align="center">NineVigil</h1>
+<h1 align="center">Clawdlinux Operator</h1>
 
 <p align="center">
   <strong>Air-gapped governance and attestation for AI agents on Kubernetes.</strong>
