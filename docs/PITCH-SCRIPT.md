@@ -54,7 +54,7 @@ Transition straight into the demo. No gap.
 
 **Phase 5, swarm (`--with-swarm` only).** Applies `demo-competitive-swarm`: three agents (competitor-scraper, llm-synthesizer, report-generator) compiled into an Argo Workflow DAG. What this proves: the same controls wrap a multi-agent pipeline, and orchestration is delegated to Argo rather than reinvented.
 
-**The audit tamper closer is manual, not in the script.** It uses `cmd/audit-verify` against an audit snapshot: run it clean for PASS, edit one row, run again for FAIL at the broken seq. Rehearse this end to end at least once before the call. If you cannot get a clean PASS/FAIL cycle working in the demo environment, cut it from the live demo and show the `pkg/audit` design instead; a fumbled trust demo is worse than none.
+**The audit tamper closer uses the signed fallback artifact.** Follow [`_staging/booth/README.md`](../_staging/booth/README.md): run `audit-verify --source jsonl --path _staging/booth/attestation-fallback.jsonl --key <demo-kid=base64-key>` for PASS, use the documented `sed` command to create `/tmp/tampered.jsonl`, then verify that file for FAIL. Rehearse this end to end at least once before the call. If you cannot get a clean PASS/FAIL cycle working, cut it from the live demo and show the `pkg/audit` design instead; a fumbled trust demo is worse than none.
 
 **Flags cheat sheet.** `--profile platform|lean` selects the deployment profile, `--with-swarm` adds the Argo swarm scenario, `--record` captures the terminal with script(1), and `--cleanup` deletes the cluster. Evidence lands in `tests/harness/evidence/booth-<timestamp>/`.
 

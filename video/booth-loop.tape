@@ -10,8 +10,8 @@
 # - one beat every ~15-20s: policy deny -> signed chain -> tamper caught
 # - brand colors: navy background, ice-blue text, green/red for pass/fail
 #
-# PREREQ: run against the live demo cluster (scripts/demo-booth.sh --profile lean done once,
-# audit snapshot present at /tmp/audit-snapshot.db). Rehearse before recording.
+# PREREQ: run against the live demo cluster (scripts/demo-booth.sh --profile lean done once)
+# from the repository root. The signed fallback artifact is checked in under _staging/booth/.
 
 Output video/booth-loop.gif
 Output video/booth-loop.mp4
@@ -33,10 +33,10 @@ Sleep 2s
 Type "# an agent asks to delete production volumes"
 Enter
 Sleep 1s
-Type "kubectl apply -f agentworkload_demo_deny.yaml"
+Type "kubectl apply -f config/samples/agentworkload_demo_deny.yaml"
 Enter
 Sleep 3s
-Type "kubectl get agentworkload opa-deny-demo -o jsonpath='{.status.phase}'"
+Type "kubectl -n agentic-system get agentworkload opa-deny-demo -o jsonpath='{.status.phase}'"
 Enter
 Sleep 2.5s
 # expected output: PolicyDenied
@@ -48,7 +48,7 @@ Sleep 4s
 Type "clear && echo '  every action -> hash-chained, HMAC-signed audit entry'"
 Enter
 Sleep 1s
-Type "audit-verify /tmp/audit-snapshot.db"
+Type "audit-verify --source jsonl --path _staging/booth/attestation-fallback.jsonl --key booth-demo-2026=bmluZXZpZ2lsLWJvb3RoLWRlbW8tYXR0ZXN0YXRpb24ta2V5LTMyYg=="
 Enter
 Sleep 3s
 # expected output: chain OK ... PASS
@@ -60,13 +60,13 @@ Sleep 4s
 Type "# now someone edits one row of history..."
 Enter
 Sleep 1s
-Type "sqlite3 /tmp/audit-snapshot.db \"UPDATE audit SET actor='nobody' WHERE seq=42\""
+Type "sed 's/\"actor\":\"policy-analyst\"/\"actor\":\"ghost-actor\"/' _staging/booth/attestation-fallback.jsonl > /tmp/tampered.jsonl"
 Enter
 Sleep 2s
-Type "audit-verify /tmp/audit-snapshot.db"
+Type "audit-verify --source jsonl --path /tmp/tampered.jsonl --key booth-demo-2026=bmluZXZpZ2lsLWJvb3RoLWRlbW8tYXR0ZXN0YXRpb24ta2V5LTMyYg=="
 Enter
 Sleep 3s
-# expected output: chain BROKEN at seq=42 ... FAIL
+# expected output: FAIL at seq=4 ... entry_hash mismatch
 Type "# CAUGHT. Signed, not just logged."
 Enter
 Sleep 3s

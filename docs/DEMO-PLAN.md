@@ -23,13 +23,13 @@ Run it once the night before. It provisions the kind cluster (`ninevigil-demo`),
 
 3. Policy allow vs deny (2 min). Apply the allow workload (`objective: analyze quarterly revenue data`), it proceeds. Apply the deny workload (`objective: delete all production volumes`), OPA rejects it. Same policy, no model involved in the decision.
 
-4. Isolation and egress (2 min). Show the agent pod running under the gVisor RuntimeClass and the generated NetworkPolicy. The agent can only reach the FQDNs its manifest declared. This is enforced at the kernel and network layer, not by asking the model nicely.
+4. Isolation and egress (2 min). Show the gVisor RuntimeClass injection and the generated NetworkPolicy. On kind, demonstrate that the Kubernetes-native controls exist and are reviewable. Do not claim live packet enforcement in this environment. Production clusters with Cilium enforce the declared FQDN boundary at the network layer.
 
 5. Cost (1 min). Show the per-workload cost metric. Every run has an owner and a price.
 
-6. The closer: tamper-evident audit (3 min). Show the audit chain entries for the run. Run `audit-verify` against a snapshot: PASS. Now edit one row in the snapshot and run it again: FAIL, chain broken at that seq. "This is what your auditor gets. They do not have to trust us or you. They recompute the chain offline."
+6. The closer: tamper-evident audit (3 min). Use the checked-in signed artifact and demo key from [`_staging/booth/README.md`](../_staging/booth/README.md). Run `audit-verify --source jsonl --path _staging/booth/attestation-fallback.jsonl --key <demo-kid=base64-key>` for PASS. Create `/tmp/tampered.jsonl` with the documented `sed` command, then run the same verifier against it for FAIL. "This is what your auditor gets. They do not have to trust us or you. They recompute the chain offline."
 
-7. Optional, if audience is technical and time allows (`--with-swarm`): the three-agent swarm (`agentworkload_demo_swarm.yaml`), scraper, synthesizer, report generator through an Argo DAG, same controls applied to a multi-agent run.
+7. Optional, if audience is technical and time allows (`--with-swarm`): the three-agent swarm (`config/samples/agentworkload_demo_swarm.yaml`), scraper, synthesizer, report generator through an Argo DAG, same controls applied to a multi-agent run.
 
 ## Talk track guardrails
 

@@ -71,4 +71,4 @@ The rule we run by: anything that smells like rebuilding the runtime layer sits 
 
 ## Positioning constraints (read before writing public copy)
 
-We sell the attestation and governance plane. Runtimes underneath are supported details. Never make a named runtime the subject of a problem sentence, never claim a competitor lacks something it has, mention competitors at most once per asset in a supported-runtimes context. Full guardrails in STRATEGY_positioning_runtime_agnostic.md.
+We sell the attestation and governance plane. Runtimes underneath are supported details. Never make a named runtime the subject of a problem sentence, never claim a competitor lacks something it has, and mention competitors only in a supported-runtimes context. See [the architecture guide](04-architecture.md) and [roadmap](../ROADMAP.md).
