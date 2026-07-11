@@ -1,23 +1,28 @@
 # Roadmap
 
-Public roadmap for NineVigil. Updated quarterly.
+Public roadmap for Clawdlinux. Updated quarterly. For the architecture and use case, read [docs/DESIGN.md](docs/DESIGN.md) first.
 
-## Scope Note
+## The problem we are solving
 
-kagent is becoming a strong CNCF base runtime for agents on Kubernetes.
+Enterprises in regulated industries cannot ship AI agents to production. Not because the agents do not work, but because nobody can answer the governance questions: who is the agent acting as, what can it reach, what did it cost, and can an auditor verify what it did after the fact. Gartner expects over 40% of agentic AI projects to be canceled by end of 2027, with inadequate risk controls named as a cause. The runtimes are getting good. The controls around them are the gap.
 
-NineVigil will not compete with that layer by default. The open-source core now focuses on regulated controls around agent workloads:
+## The vision
 
-- gVisor runtime isolation
-- audit trails
-- FinOps attribution
-- policy and egress controls
-- air-gapped packaging
-- ACP integration for MCP context compression
+Every agent run on Kubernetes leaves a signed, tamper-evident, offline-verifiable attestation artifact, and runs inside a declared egress boundary, regardless of which runtime executes it. Clawdlinux is that governance plane: air-gapped by default, runtime-agnostic by design, delivered as one Helm chart.
 
-Issues that build generic registries, Envoy routing, sidecar buses, or broad multi-cluster runtime features should move behind validation gates. They stay valid only if a regulated deployment needs them.
+## How we got here
 
-## Current (Q1 2026)
+- **Feb 2026.** Project started as an enterprise agent-swarm orchestration platform (operator, AgentWorkload CRD, Argo DAGs, multi-tenancy, licensing, cost tracking). Initial wedge idea: visual market analysis for hedge funds needing zero data leakage.
+- **Mar to Apr 2026.** Core platform hardened: Cilium FQDN egress generation, LiteLLM routing, MinIO artifacts, Python LangGraph runtime with A2A, full-cycle integration tests, Helm umbrella chart.
+- **May 2026.** ACP (Agent Contract Protocol) spun out as its own repo and spec. Benchmarks landed: 64.7% to 97.4% token reduction vs raw MCP, one round trip. Briefly explored a consumer AgentOS direction; reversed within the month. Enterprise K8s is the business.
+- **Jun 2026.** Positioning locked: we sell the attestation and governance plane, not a runtime. CNCF runtimes are supported, not competed with. Runtime adapter interface shipped so AgentWorkload, BYO pods, and external runtimes get the same seal and attestation. ACP repositioned from token compression to governed execution contracts. gVisor RuntimeClass injector and offline audit-verify shipped.
+- **Jul 2026.** Demo gate (`scripts/demo-booth.sh`) reproducible on kind. Focus: validation conversations and the Jul 22 Agentic Summit booth. Fintech is the anchor vertical.
+
+## Scope note
+
+Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Clawdlinux does not compete with that layer. The open-source core focuses on regulated controls around agent workloads: gVisor isolation, audit trails, FinOps attribution, policy and egress controls, air-gapped packaging, and ACP integration. Issues that build generic registries, Envoy routing, sidecar buses, or broad multi-cluster runtime features stay behind validation gates. They are valid only if a regulated deployment needs them.
+
+## Shipped (Q1 2026)
 
 - [x] AgentWorkload CRD with full reconciliation lifecycle
 - [x] Argo Workflows DAG orchestration
@@ -31,62 +36,44 @@ Issues that build generic registries, Envoy routing, sidecar buses, or broad mul
 - [x] Helm chart with subchart dependencies
 - [x] Full-cycle integration test suite
 
-## Next (Q2 2026)
+## Shipped (Q2 2026)
 
-- [x] `agentctl` CLI for workload management from terminal
-- [x] **MCP server (`agentctl mcp serve`) — agent-callable workload provisioning** ([#140](https://github.com/Clawdlinux/agentic-operator-core/issues/140))
-- [ ] Homebrew tap for agentctl
-- [x] Agent observability dashboard (Grafana templates)
-- [x] Cost dashboard with per-workload token spend visualization
-- [ ] Webhook admission controller for CRD validation
-- [x] OPA policy library for common agent guardrails
+- [x] `agentctl` CLI for workload management
+- [x] MCP server (`agentctl mcp serve`) for agent-callable provisioning ([#140](https://github.com/Clawdlinux/agentic-operator-core/issues/140))
+- [x] Tamper-evident audit chain with offline `audit-verify`
 - [x] gVisor RuntimeClass + pod admission injector for labeled agent pods
-- [ ] Runtime adapter interface (AgentWorkload, external pods, CNCF runtimes)
+- [x] Runtime adapter interface (AgentWorkload, BYO pods, external runtimes)
+- [x] OPA policy library for common agent guardrails
+- [x] Grafana observability and per-workload cost dashboards
+- [x] Reproducible booth demo gate on kind
+
+## Now (Q3 2026)
+
+Priority order. Validation before features.
+
+- [ ] 10 real conversations with named platform/security engineers by Jul 15 (kill criterion for everything below it)
+- [ ] Jul 22 Agentic Summit booth demo, fintech use case
+- [ ] Air-gapped install smoke test in CI
+- [ ] Webhook admission controller for CRD validation
 - [ ] Per-runtime sandbox label guide
 - [ ] ACP RemoteMCPServer wrapper example
-- [ ] Air-gapped install smoke test
+- [ ] Homebrew tap for agentctl
 
-## Future (Q3-Q4 2026)
+## Later (Q4 2026+, all validation-gated)
 
-- [ ] Multi-cluster federation (validation-gated)
-- [ ] GPU-aware scheduling for local model inference (only for regulated local model deployments)
+- [ ] Cross-cluster agent identity federation (SPIFFE/SPIRE). RFC: [docs/rfcs/0001-cross-cluster-agent-identity.md](docs/rfcs/0001-cross-cluster-agent-identity.md). Gate: 6+ distinct external use cases or 1 paying customer request.
+- [ ] Multi-cluster federation
+- [ ] GPU-aware scheduling for local model inference (regulated local-model deployments only)
 - [ ] Agent evaluation framework (evals-as-code)
-- [ ] Managed SaaS offering (hosted control plane)
-- [ ] SOC 2 Type II compliance certification
-- [ ] Plugin SDK for regulated control extensions
+- [ ] SOC 2 Type II
 - [ ] Web UI for audit, spend, and sandbox state
+- [ ] Managed SaaS offering (hosted control plane)
+- [ ] Plugin SDK for regulated control extensions
 
-## Issues To Re-Scope
+## Issues to re-scope
 
-These open issues are likely too close to the base runtime layer unless a design partner asks for them:
+Too close to the base runtime layer unless a design partner asks: #119 Envoy ExtProc routing, #120 Gateway API InferencePool, #121 multi-cluster discovery, #123 NATS/Kafka sidecars, #124 backpressure, #97-#112 registry/identity backlog. Research, not committed roadmap, until they pass a customer validation gate.
 
-- #119 Envoy ExtProc capability routing
-- #120 Gateway API InferencePool / InferenceModel integration
-- #121 Multi-cluster discovery
-- #123 NATS/Kafka sidecar injection
-- #124 Backpressure signaling
-- #97-#112 Agent registry and identity backlog
+## How to influence the roadmap
 
-Keep these as research, not committed roadmap, until they pass a customer validation gate.
-
-## Exploring (RFC stage — not yet committed)
-
-These items have published design documents and are collecting community signal. Implementation begins only after the validation gate in each RFC is met.
-
-### Cross-Cluster Agent Identity Federation (SPIFFE/SPIRE)
-
-- **RFC:** [`docs/rfcs/0001-cross-cluster-agent-identity.md`](docs/rfcs/0001-cross-cluster-agent-identity.md)
-- **Discussion:** _(link added when GitHub Discussion is open)_
-- **Tentative target:** v0.4.0 (Q3 2026)
-- **Validation gate:** 6+ distinct external use cases in the Discussion **OR** 1 paying customer request
-- **Motivation:** Enterprise NineVigil deployments span multiple K8s clusters (multi-region, multi-tenant, multi-org). Agents in Cluster A need verifiable identity when calling services or other agents in Cluster B. Existing options (shared secrets, mTLS without workload identity, central OIDC) all fail for air-gapped and regulated environments.
-- **Proposed approach:** SPIFFE/SPIRE (CNCF graduated) for workload identity federation. Opt-in per `AgentWorkload`, additive to existing ServiceAccount + JWT identity. A2A protocol gains v2 handshake carrying JWT-SVIDs across trust domains.
-- **Triggered by:** [@JacobSobolev on X](https://x.com/JacobSobolev/status/2056631848009085244) (19 May 2026)
-
-## How to Influence the Roadmap
-
-- Open an issue with the `enhancement` label
-- Join the discussion in GitHub Discussions
-- Submit a PR — we review all contributions
-
-Items are prioritized by community demand and production adoption feedback.
+Open an issue with the `enhancement` label, join GitHub Discussions, or send a PR. Items are prioritized by community demand and production deployment feedback. Anything a regulated design partner needs jumps the queue.
