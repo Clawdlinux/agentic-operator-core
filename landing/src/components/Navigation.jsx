@@ -99,8 +99,8 @@ export default function Navigation() {
           >
             <div className="relative">
               <img
-                src="/ninevigil-logo.svg"
-                alt="NineVigil"
+                src="/clawdlinux-mark.svg"
+                alt="Clawdlinux"
                 className="w-8 h-8 transition-transform duration-300 group-hover:rotate-12 rounded-lg"
               />
             </div>
@@ -108,7 +108,7 @@ export default function Navigation() {
               className="font-semibold text-lg tracking-tight transition-colors duration-300"
               style={{ fontFamily: "'Syne', sans-serif", color: currentTheme.text.primary }}
             >
-              Nine<span style={{ color: currentTheme.accent.teal }}>Vigil</span>
+              clawd<span style={{ color: currentTheme.accent.teal }}>linux</span>
             </span>
           </motion.a>
 
