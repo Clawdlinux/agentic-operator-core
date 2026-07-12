@@ -37,7 +37,8 @@ func (p *MockOpenAIProvider) Type() string {
 }
 
 // CallModel returns a mock response for testing
-func (p *MockOpenAIProvider) CallModel(ctx context.Context, model string, prompt string) (*ModelResponse, error) {
+func (p *MockOpenAIProvider) CallModel(ctx context.Context, operationID, model, prompt string) (*ModelResponse, error) {
+	_ = operationID
 	// Track call count
 	p.callCount[model]++
 

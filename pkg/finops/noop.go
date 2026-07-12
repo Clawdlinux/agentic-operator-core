@@ -15,9 +15,10 @@ func NewNoOpCostReporter() *NoOpCostReporter {
 	return &NoOpCostReporter{}
 }
 
-func (n *NoOpCostReporter) RecordUsage(ctx context.Context, workloadName, namespace, model string, promptTokens, completionTokens int64) error {
+func (n *NoOpCostReporter) RecordUsage(ctx context.Context, operationID, workloadName, namespace, model string, promptTokens, completionTokens int64) error {
 	logf.FromContext(ctx).V(1).Info(
 		"finops: no-op reporter, cost not enforced",
+		"operationID", operationID,
 		"workload", workloadName,
 		"namespace", namespace,
 		"model", model,

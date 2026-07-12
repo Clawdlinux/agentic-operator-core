@@ -8,16 +8,12 @@ mkdir -p demos
 STAMP="$(date +%Y%m%d)"
 LOG_FILE="demos/demo-${STAMP}.log"
 CAST_FILE="demos/demo-${STAMP}.cast"
-DEMO_PROFILE="${DEMO_PROFILE:-lean}"
-case "${DEMO_PROFILE}" in
-  platform|lean) ;;
-  *)
-    echo "Invalid DEMO_PROFILE: ${DEMO_PROFILE} (expected platform or lean)" >&2
-    exit 1
-    ;;
-esac
+DEMO_ARGS=(--present)
+if [[ "${DEMO_TAMPER_AUDIT:-false}" == "true" ]]; then
+  DEMO_ARGS+=(--tamper-audit)
+fi
 
-printf -v DEMO_RUNNER '%q ' env FORCE_COLOR=1 ./scripts/demo-booth.sh --profile "${DEMO_PROFILE}"
+printf -v DEMO_RUNNER '%q ' env FORCE_COLOR=1 ./scripts/demo-booth.sh "${DEMO_ARGS[@]}"
 printf -v QUOTED_LOG_FILE '%q' "${LOG_FILE}"
 DEMO_CMD="set -o pipefail; ${DEMO_RUNNER}| tee ${QUOTED_LOG_FILE}"
 

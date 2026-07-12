@@ -242,19 +242,22 @@ litellm:
     type: ClusterIP
     port: 4000
   openaiKey: ""     # REQUIRED when litellm.enabled=true (dev only -- prefer existingSecret)
+  anthropicKey: ""  # Optional Anthropic API key (dev only -- prefer existingSecret)
   masterKey: ""     # LiteLLM master API key (leave blank to auto-generate)
   # PRODUCTION: set existingSecret to the name of a pre-created Secret containing
-  # OPENAI_API_KEY and LITELLM_MASTER_KEY. When set, openaiKey/masterKey are ignored
-  # and the chart will NOT create a Secret -- keys never enter Helm values or release Secret.
+  # OPENAI_API_KEY, ANTHROPIC_API_KEY, and LITELLM_MASTER_KEY. Workloads may also
+  # reference an api-key entry in the same Secret. When set, openaiKey,
+  # anthropicKey, and masterKey are ignored. The chart will NOT create a Secret.
+  # Keys never enter Helm values. This is recommended for booth and production use.
   existingSecret: ""
-  # Setting allowPlaintextKeys=true acknowledges the risk of providing openaiKey or masterKey
-  # via Helm values. Required for chart install when either key is non-empty and
-  # existingSecret is unset.
+  # Setting allowPlaintextKeys=true acknowledges the risk of providing openaiKey,
+  # anthropicKey, or masterKey via Helm values. Required when any key is non-empty
+  # and existingSecret is unset.
   allowPlaintextKeys: false
   models: []        # Extra model definitions passed to config.yaml
   # Example:
   # models:
-  #   - model_name: gpt-4o
+  #   - model_name: custom-openai
   #     litellm_params:
   #       model: openai/gpt-4o
   #       api_key: "os.environ/OPENAI_API_KEY"

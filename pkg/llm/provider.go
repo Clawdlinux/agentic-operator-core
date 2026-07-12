@@ -16,8 +16,9 @@ import (
 
 // Provider defines the interface for LLM providers
 type Provider interface {
-	// CallModel sends a prompt to the model and returns the response
-	CallModel(ctx context.Context, model string, prompt string) (*ModelResponse, error)
+	// CallModel sends a prompt to the model and returns the response. Providers
+	// receive a stable operation ID for upstream idempotency support.
+	CallModel(ctx context.Context, operationID, model, prompt string) (*ModelResponse, error)
 
 	// Name returns the provider name
 	Name() string
@@ -74,7 +75,7 @@ func (p *OpenAICompatibleProvider) Type() string {
 }
 
 // CallModel sends a request to the OpenAI-compatible API
-func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, model string, prompt string) (*ModelResponse, error) {
+func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, operationID, model, prompt string) (*ModelResponse, error) {
 	// Cloudflare Workers AI requires model names prefixed with "@cf/"
 	// If provider is Cloudflare and model doesn't already have the prefix, add it.
 	if (strings.Contains(p.name, "cloudflare") || strings.Contains(p.name, "workers-ai")) &&
@@ -104,6 +105,9 @@ func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, model string, 
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", p.apiKey))
+	if operationID != "" {
+		req.Header.Set("Idempotency-Key", operationID)
+	}
 
 	// Send request
 	client := &http.Client{}

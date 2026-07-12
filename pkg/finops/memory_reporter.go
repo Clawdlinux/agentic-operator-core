@@ -38,10 +38,13 @@ type WorkloadUsage struct {
 
 // MemoryCostReporter implements CostReporter with in-memory tracking.
 type MemoryCostReporter struct {
-	mu      sync.RWMutex
-	usage   map[string]*WorkloadUsage // key: "namespace/workloadName"
-	pricing map[string]ModelPricing   // key: "provider/model"
-	budget  map[string]float64        // key: "namespace/workloadName" → max USD
+	mu    sync.RWMutex
+	usage map[string]*WorkloadUsage // key: "namespace/workloadName"
+	// Process-local and unbounded by design for the OSS/demo reporter. Production
+	// reporters must persist, deduplicate, and expire operation IDs.
+	recordedOperations map[string]struct{}     // key: deterministic operation ID
+	pricing            map[string]ModelPricing // key: "provider/model"
+	budget             map[string]float64      // key: "namespace/workloadName" → max USD
 
 	// Prometheus metrics
 	costGauge        *prometheus.GaugeVec
@@ -75,21 +78,23 @@ func NewMemoryCostReporter() *MemoryCostReporter {
 	)
 
 	return &MemoryCostReporter{
-		usage:            make(map[string]*WorkloadUsage),
-		pricing:          defaultPricing(),
-		budget:           make(map[string]float64),
-		costGauge:        costGauge,
-		costDollarsGauge: costDollarsGauge,
-		tokensCount:      tokensCount,
+		usage:              make(map[string]*WorkloadUsage),
+		recordedOperations: make(map[string]struct{}),
+		pricing:            defaultPricing(),
+		budget:             make(map[string]float64),
+		costGauge:          costGauge,
+		costDollarsGauge:   costDollarsGauge,
+		tokensCount:        tokensCount,
 	}
 }
 
 func defaultPricing() map[string]ModelPricing {
 	return map[string]ModelPricing{
 		// OpenAI
-		"openai/gpt-4o-mini": {InputPer1KTokens: 0.00015, OutputPer1KTokens: 0.0006},
-		"openai/gpt-4o":      {InputPer1KTokens: 0.005, OutputPer1KTokens: 0.015},
-		"openai/gpt-4-turbo": {InputPer1KTokens: 0.01, OutputPer1KTokens: 0.03},
+		"openai/gpt-4o-mini":        {InputPer1KTokens: 0.00015, OutputPer1KTokens: 0.0006},
+		"openai/gpt-4o":             {InputPer1KTokens: 0.005, OutputPer1KTokens: 0.015},
+		"openai/gpt-4-turbo":        {InputPer1KTokens: 0.01, OutputPer1KTokens: 0.03},
+		"litellm/clawdlinux-openai": {InputPer1KTokens: 0.00015, OutputPer1KTokens: 0.0006},
 		// Anthropic
 		"anthropic/claude-sonnet": {InputPer1KTokens: 0.003, OutputPer1KTokens: 0.015},
 		"anthropic/claude-haiku":  {InputPer1KTokens: 0.00025, OutputPer1KTokens: 0.00125},
@@ -126,12 +131,19 @@ func (m *MemoryCostReporter) estimateCost(model string, promptTokens, completion
 		(float64(completionTokens) / 1000.0 * p.OutputPer1KTokens)
 }
 
-// RecordUsage records token usage and updates estimated cost.
-func (m *MemoryCostReporter) RecordUsage(ctx context.Context, workloadName, namespace, model string,
+// RecordUsage records token usage and updates estimated cost once per operation ID.
+func (m *MemoryCostReporter) RecordUsage(ctx context.Context, operationID, workloadName, namespace, model string,
 	promptTokens, completionTokens int64) error {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if operationID != "" {
+		if _, recorded := m.recordedOperations[operationID]; recorded {
+			return nil
+		}
+		m.recordedOperations[operationID] = struct{}{}
+	}
 
 	k := m.key(workloadName, namespace)
 	u := m.getOrCreateUsage(k)
@@ -153,6 +165,7 @@ func (m *MemoryCostReporter) RecordUsage(ctx context.Context, workloadName, name
 		"finops: cost recorded",
 		"workload", workloadName,
 		"namespace", namespace,
+		"operationID", operationID,
 		"model", model,
 		"promptTokens", promptTokens,
 		"completionTokens", completionTokens,

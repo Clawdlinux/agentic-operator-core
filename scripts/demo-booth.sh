@@ -11,6 +11,14 @@ NS_SHARED="${NS_SHARED:-shared-services}"
 HELM_TIMEOUT="${HELM_TIMEOUT:-180s}"
 OPERATOR_IMAGE="${OPERATOR_IMAGE:-ghcr.io/clawdlinux/agentic-operator-core/agentic-operator}"
 OPERATOR_IMAGE_TAG="${OPERATOR_IMAGE_TAG:-latest}"
+CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.17.2}"
+DEMO_RELEASE="${DEMO_RELEASE:-clawdlinux-demo}"
+DEMO_SECRET="${DEMO_SECRET:-clawdlinux-demo-litellm}"
+DEMO_ENV_FILE="${DEMO_ENV_FILE:-${REPO_ROOT}/.env}"
+RESEARCH_MANIFEST="${REPO_ROOT}/examples/research-agent.yaml"
+AUDIT_FIXTURE="${REPO_ROOT}/_staging/booth/attestation-fallback.jsonl"
+# Committed demo fixture key. Never use it as a production secret.
+AUDIT_DEMO_KEY="booth-demo-2026=bmluZXZpZ2lsLWJvb3RoLWRlbW8tYXR0ZXN0YXRpb24ta2V5LTMyYg=="
 
 ALLOW_MANIFEST="${REPO_ROOT}/config/samples/agentworkload_demo_allow.yaml"
 DENY_MANIFEST="${REPO_ROOT}/config/samples/agentworkload_demo_deny.yaml"
@@ -21,6 +29,8 @@ DEMO_PROFILE="${DEMO_PROFILE:-platform}"
 WITH_SWARM=false
 RECORD=false
 CLEANUP=false
+DEMO_MODE=legacy
+TAMPER_AUDIT=false
 ORIGINAL_ARGS=("$@")
 
 if [[ ( -t 1 || "${FORCE_COLOR:-}" == "1" ) && -z "${NO_COLOR:-}" ]]; then
@@ -46,6 +56,9 @@ Usage: $(basename "$0") [OPTIONS]
 Runs the Clawdlinux booth demo gate.
 
 Options:
+  --prepare         Create and prepare the real-provider kind demo cluster.
+  --present         Run the 5-7 minute real-provider booth presentation.
+  --tamper-audit    Tamper with the prior-run audit fixture and prove rejection.
   --cluster NAME    kind cluster name. Default: ${CLUSTER_NAME}
   --profile NAME    Deployment profile: platform or lean. Default: ${DEMO_PROFILE}
   --with-swarm      Run the optional Argo multi-agent swarm scenario.
@@ -61,6 +74,8 @@ Environment:
   NS_OPERATOR       Operator namespace. Default: ${NS_OPERATOR}
   OPERATOR_IMAGE    Lean-profile operator image repository. Default: ${OPERATOR_IMAGE}
   OPERATOR_IMAGE_TAG Lean-profile operator image tag. Default: ${OPERATOR_IMAGE_TAG}
+  CERT_MANAGER_VERSION Pinned cert-manager chart version. Default: ${CERT_MANAGER_VERSION}
+  DEMO_ENV_FILE     Credential file. Default: ${REPO_ROOT}/.env
   FORCE_COLOR       Set to 1 to preserve ANSI colors through a recorder or pipe.
 EOF
 }
@@ -74,6 +89,20 @@ die() { printf '%b[FAIL]%b %s\n' "${RED}" "${RESET}" "$*" >&2; exit 1; }
 parse_args() {
   while (($#)); do
     case "$1" in
+      --prepare)
+        [[ "${DEMO_MODE}" == "legacy" || "${DEMO_MODE}" == "prepare" ]] || die "--prepare and --present are mutually exclusive"
+        DEMO_MODE=prepare
+        shift
+        ;;
+      --present)
+        [[ "${DEMO_MODE}" == "legacy" || "${DEMO_MODE}" == "present" ]] || die "--prepare and --present are mutually exclusive"
+        DEMO_MODE=present
+        shift
+        ;;
+      --tamper-audit)
+        TAMPER_AUDIT=true
+        shift
+        ;;
       --cluster)
         [[ $# -ge 2 ]] || die "--cluster requires a value"
         CLUSTER_NAME="$2"
@@ -206,6 +235,535 @@ ensure_cluster() {
 
 ensure_namespace() {
   kubectl create namespace "$1" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+}
+
+trim_horizontal_space() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "${value}"
+}
+
+parse_demo_credential_value() {
+  local key="$1"
+  local raw_value="$2"
+  local source_file="$3"
+  local line_number="$4"
+  local value
+  value="$(trim_horizontal_space "${raw_value}")"
+
+  if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* || "${value}" == *'\' ]]; then
+    die "malformed definition for ${key} in ${source_file}:${line_number}"
+  fi
+  if [[ "${value}" == "'"* ]]; then
+    [[ ${#value} -ge 2 && "${value: -1}" == "'" ]] || die "malformed definition for ${key} in ${source_file}:${line_number}"
+    value="${value:1:${#value}-2}"
+  elif [[ "${value}" == '"'* ]]; then
+    [[ ${#value} -ge 2 && "${value: -1}" == '"' ]] || die "malformed definition for ${key} in ${source_file}:${line_number}"
+    value="${value:1:${#value}-2}"
+  fi
+
+  printf '%s' "${value}"
+}
+
+reject_credential_newlines() {
+  local key="$1"
+  local value="$2"
+  local source="$3"
+  if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* ]]; then
+    die "unsafe newline in ${key} from ${source}"
+  fi
+}
+
+load_demo_credentials() {
+  local openai_from_environment=false
+  local anthropic_from_environment=false
+  local openai_definitions=0
+  local anthropic_definitions=0
+  local line line_number=0 key raw_value parsed_value
+
+  if [[ ${OPENAI_API_KEY+x} == x ]]; then
+    reject_credential_newlines "OPENAI_API_KEY" "${OPENAI_API_KEY}" "environment"
+    openai_from_environment=true
+    OPENAI_API_KEY_SOURCE="environment"
+  fi
+  if [[ ${ANTHROPIC_API_KEY+x} == x ]]; then
+    reject_credential_newlines "ANTHROPIC_API_KEY" "${ANTHROPIC_API_KEY}" "environment"
+    anthropic_from_environment=true
+    ANTHROPIC_API_KEY_SOURCE="environment"
+  fi
+
+  if [[ ! -e "${DEMO_ENV_FILE}" ]]; then
+    return 0
+  fi
+  [[ -f "${DEMO_ENV_FILE}" && -r "${DEMO_ENV_FILE}" ]] || die "credential file is not readable: ${DEMO_ENV_FILE}"
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    ((line_number += 1))
+    if [[ "${line}" == *$'\r' ]]; then
+      line="${line%$'\r'}"
+    fi
+
+    if [[ "${line}" =~ ^[[:space:]]*(export[[:space:]]+)?(OPENAI_API_KEY|ANTHROPIC_API_KEY)([[:space:]]|=|$) ]]; then
+      key="${BASH_REMATCH[2]}"
+    else
+      continue
+    fi
+
+    case "${key}" in
+      OPENAI_API_KEY)
+        ((openai_definitions += 1))
+        ((openai_definitions == 1)) || die "duplicate definition for OPENAI_API_KEY in ${DEMO_ENV_FILE}"
+        ;;
+      ANTHROPIC_API_KEY)
+        ((anthropic_definitions += 1))
+        ((anthropic_definitions == 1)) || die "duplicate definition for ANTHROPIC_API_KEY in ${DEMO_ENV_FILE}"
+        ;;
+    esac
+
+    if [[ "${line}" =~ ^[[:space:]]*(export[[:space:]]+)?(OPENAI_API_KEY|ANTHROPIC_API_KEY)[[:space:]]*=(.*)$ ]]; then
+      raw_value="${BASH_REMATCH[3]}"
+    else
+      die "malformed definition for ${key} in ${DEMO_ENV_FILE}:${line_number}"
+    fi
+    parsed_value="$(parse_demo_credential_value "${key}" "${raw_value}" "${DEMO_ENV_FILE}" "${line_number}")"
+
+    case "${key}" in
+      OPENAI_API_KEY)
+        if [[ "${openai_from_environment}" != "true" ]]; then
+          OPENAI_API_KEY="${parsed_value}"
+          export OPENAI_API_KEY
+          OPENAI_API_KEY_SOURCE="${DEMO_ENV_FILE}"
+        fi
+        ;;
+      ANTHROPIC_API_KEY)
+        if [[ "${anthropic_from_environment}" != "true" ]]; then
+          ANTHROPIC_API_KEY="${parsed_value}"
+          export ANTHROPIC_API_KEY
+          ANTHROPIC_API_KEY_SOURCE="${DEMO_ENV_FILE}"
+        fi
+        ;;
+    esac
+  done <"${DEMO_ENV_FILE}"
+}
+
+require_real_provider_keys() {
+  local missing=()
+  load_demo_credentials
+  [[ -n "${OPENAI_API_KEY:-}" ]] || missing+=(OPENAI_API_KEY)
+  [[ -n "${ANTHROPIC_API_KEY:-}" ]] || missing+=(ANTHROPIC_API_KEY)
+  if ((${#missing[@]})); then
+    printf '%b[FAIL]%b Real-provider preparation requires: %s\n' "${RED}" "${RESET}" "${missing[*]}" >&2
+    printf 'Export the missing values or define them in %s, then rerun.\n' "${DEMO_ENV_FILE}" >&2
+    exit 1
+  fi
+  printf 'OPENAI_API_KEY=available\n'
+  printf 'ANTHROPIC_API_KEY=available\n'
+  printf 'Credential variable OPENAI_API_KEY loaded from %s\n' "${OPENAI_API_KEY_SOURCE}"
+  printf 'Credential variable ANTHROPIC_API_KEY loaded from %s\n' "${ANTHROPIC_API_KEY_SOURCE}"
+}
+
+require_demo_context() {
+  local expected_context="kind-${CLUSTER_NAME}"
+  local current_context
+  current_context="$(kubectl config current-context 2>/dev/null || true)"
+  [[ "${current_context}" == "${expected_context}" ]] || {
+    die "wrong kubectl context: ${current_context:-none}. Expected ${expected_context}. Run --prepare first."
+  }
+}
+
+ensure_demo_kind_cluster() {
+  step "Preparing kind cluster ${CLUSTER_NAME}"
+  require_command kind
+  if kind get clusters | grep -Fxq "${CLUSTER_NAME}"; then
+    ok "Reusing kind cluster ${CLUSTER_NAME}"
+  else
+    kind create cluster --name "${CLUSTER_NAME}" --wait 120s
+    ok "Created kind cluster ${CLUSTER_NAME}"
+  fi
+  kubectl config use-context "kind-${CLUSTER_NAME}" >/dev/null
+  require_demo_context
+}
+
+install_cert_manager() {
+  step "Installing cert-manager ${CERT_MANAGER_VERSION}"
+  helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --namespace cert-manager \
+    --create-namespace \
+    --version "${CERT_MANAGER_VERSION}" \
+    --set crds.enabled=true \
+    --timeout "${HELM_TIMEOUT}" \
+    --wait >/dev/null
+  kubectl -n cert-manager rollout status deployment/cert-manager --timeout="${HELM_TIMEOUT}" >/dev/null
+  kubectl -n cert-manager rollout status deployment/cert-manager-webhook --timeout="${HELM_TIMEOUT}" >/dev/null
+  kubectl -n cert-manager rollout status deployment/cert-manager-cainjector --timeout="${HELM_TIMEOUT}" >/dev/null
+  ok "cert-manager is ready"
+}
+
+create_runtime_provider_secret() {
+  step "Creating runtime provider Secret"
+  local master_key
+  if [[ -n "${LITELLM_MASTER_KEY:-}" ]]; then
+    reject_credential_newlines "LITELLM_MASTER_KEY" "${LITELLM_MASTER_KEY}" "environment"
+    master_key="${LITELLM_MASTER_KEY}"
+  else
+    require_command openssl
+    master_key="$(openssl rand -hex 24)"
+  fi
+
+  {
+    printf 'OPENAI_API_KEY=%s\n' "${OPENAI_API_KEY}"
+    printf 'ANTHROPIC_API_KEY=%s\n' "${ANTHROPIC_API_KEY}"
+    printf 'LITELLM_MASTER_KEY=%s\n' "${master_key}"
+    printf 'api-key=%s\n' "${master_key}"
+  } | kubectl -n "${NS_OPERATOR}" create secret generic "${DEMO_SECRET}" \
+    --from-env-file=/dev/stdin \
+    --dry-run=client \
+    -o yaml | kubectl apply -f - >/dev/null
+  unset master_key
+  ok "Runtime Secret ${DEMO_SECRET} created without printing key values"
+}
+
+load_local_operator_image() {
+  local operator_image="${OPERATOR_IMAGE}:${OPERATOR_IMAGE_TAG}"
+  if command -v docker >/dev/null 2>&1 && docker image inspect "${operator_image}" >/dev/null 2>&1; then
+    kind load docker-image "${operator_image}" --name "${CLUSTER_NAME}" >/dev/null
+    ok "Loaded local operator image ${operator_image}"
+  else
+    log "Local operator image not found. Helm will pull ${operator_image}."
+  fi
+}
+
+wait_for_demo_components() {
+  step "Waiting for webhook, operator, and LiteLLM"
+  kubectl -n "${NS_OPERATOR}" wait \
+    --for=condition=Ready \
+    "certificate/${DEMO_RELEASE}-agentic-operator-webhook-cert" \
+    --timeout="${HELM_TIMEOUT}" >/dev/null
+
+  local operator_deployment
+  operator_deployment="$(kubectl -n "${NS_OPERATOR}" get deployment \
+    -l app.kubernetes.io/name=agentic-operator \
+    -o jsonpath='{.items[0].metadata.name}')"
+  [[ -n "${operator_deployment}" ]] || die "operator Deployment not found"
+  kubectl -n "${NS_OPERATOR}" rollout status "deployment/${operator_deployment}" --timeout="${HELM_TIMEOUT}" >/dev/null
+  kubectl -n "${NS_OPERATOR}" rollout status "deployment/${DEMO_RELEASE}-litellm" --timeout="${HELM_TIMEOUT}" >/dev/null
+
+  local deadline endpoint_ip
+  deadline=$(( $(date +%s) + 120 ))
+  while (( $(date +%s) < deadline )); do
+    endpoint_ip="$(kubectl -n "${NS_OPERATOR}" get endpoints "${DEMO_RELEASE}-webhook-service" \
+      -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null || true)"
+    [[ -n "${endpoint_ip}" ]] && break
+    sleep 2
+  done
+  [[ -n "${endpoint_ip:-}" ]] || die "webhook Service has no ready endpoint"
+  ok "Webhook, operator, and LiteLLM are ready"
+}
+
+prepare_real_demo() {
+  step "Preparing real-provider booth demo"
+  require_real_provider_keys
+  require_command kubectl
+  require_command helm
+  ensure_demo_kind_cluster
+  install_cert_manager
+  ensure_namespace "${NS_OPERATOR}"
+  create_runtime_provider_secret
+
+  step "Applying CRDs before the Helm release"
+  kubectl apply -f "${REPO_ROOT}/config/crd/bases" >/dev/null
+  kubectl wait --for=condition=Established crd/agentworkloads.agentic.clawdlinux.org --timeout=60s >/dev/null
+  ok "AgentWorkload CRD established"
+
+  load_local_operator_image
+
+  step "Installing Clawdlinux booth components"
+  helm upgrade --install "${DEMO_RELEASE}" "${REPO_ROOT}/charts" \
+    --namespace "${NS_OPERATOR}" \
+    --create-namespace \
+    --set-string license.key=dev-license \
+    --set argo.enabled=false \
+    --set browserless.enabled=false \
+    --set minio.enabled=false \
+    --set postgresql.enabled=false \
+    --set clawdlinuxObservability.enabled=false \
+    --set networkPolicy.enabled=true \
+    --set ciliumPolicy.enabled=false \
+    --set global.runtimeSandbox.enabled=true \
+    --set global.runtimeSandbox.createRuntimeClass=true \
+    --set agenticOperator.webhook.enabled=true \
+    --set-string agentic-operator.env.ENABLE_WEBHOOKS=true \
+    --set-string agentic-operator.env.AGENTIC_COST_TRACKING=memory \
+    --set agentic-operator.image.repository="${OPERATOR_IMAGE}" \
+    --set agentic-operator.image.tag="${OPERATOR_IMAGE_TAG}" \
+    --set agentic-operator.image.pullPolicy=IfNotPresent \
+    --set litellm.enabled=true \
+    --set litellm.replicaCount=1 \
+    --set-string litellm.existingSecret="${DEMO_SECRET}" \
+    --timeout "${HELM_TIMEOUT}" \
+    --wait >/dev/null
+
+  wait_for_demo_components
+  ok "Preparation complete. Run: $(basename "$0") --present"
+}
+
+assert_runtime_secret_shape() {
+  local secret_keys required_key
+  secret_keys="$(kubectl -n "${NS_OPERATOR}" get secret "${DEMO_SECRET}" \
+    -o go-template='{{range $key, $value := .data}}{{$key}}{{"\n"}}{{end}}')"
+  for required_key in OPENAI_API_KEY ANTHROPIC_API_KEY LITELLM_MASTER_KEY api-key; do
+    grep -Fxq "${required_key}" <<<"${secret_keys}" || die "Secret ${DEMO_SECRET} is missing key ${required_key}. Run --prepare again."
+  done
+  ok "Runtime Secret has all required key names"
+}
+
+apply_research_workload() {
+  step "REAL: OpenAI-routed AgentWorkload through in-cluster LiteLLM"
+  kubectl -n "${NS_OPERATOR}" delete agentworkload booth-incident-investigation \
+    --ignore-not-found --wait=true --timeout=30s >/dev/null
+
+  local agentctl_command=""
+  local agentctl_source=""
+  if [[ -x "${REPO_ROOT}/bin/agentctl" ]]; then
+    agentctl_command="${REPO_ROOT}/bin/agentctl"
+    agentctl_source="repo-local agentctl"
+  elif command -v agentctl >/dev/null 2>&1; then
+    agentctl_command="$(command -v agentctl)"
+    agentctl_source="agentctl from PATH"
+  fi
+
+  if [[ -n "${agentctl_command}" ]]; then
+    if "${agentctl_command}" apply -f "${RESEARCH_MANIFEST}"; then
+      ok "Applied with ${agentctl_source}"
+      return
+    fi
+    warn "${agentctl_source} failed. Falling back to kubectl."
+  fi
+
+  kubectl apply -f "${RESEARCH_MANIFEST}" >/dev/null
+  if [[ -n "${agentctl_command}" ]]; then
+    ok "agentctl failed. Applied with kubectl."
+  else
+    ok "agentctl unavailable. Applied with kubectl."
+  fi
+}
+
+wait_for_research_completion() {
+  local deadline phase
+  deadline=$(( $(date +%s) + 240 ))
+  while (( $(date +%s) < deadline )); do
+    phase="$(kubectl -n "${NS_OPERATOR}" get agentworkload booth-incident-investigation \
+      -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+    case "${phase}" in
+      Completed)
+        ok "AgentWorkload reached Completed"
+        return
+        ;;
+      Failed|PolicyDenied)
+        die "AgentWorkload reached terminal phase ${phase}"
+        ;;
+    esac
+    sleep 2
+  done
+  die "AgentWorkload did not reach Completed. Last phase: ${phase:-empty}"
+}
+
+assert_nonzero_routing_tokens() {
+  local routing_message="$1"
+  if [[ ! "${routing_message}" =~ input:([0-9]+)[[:space:]]tokens,[[:space:]]output:([0-9]+)[[:space:]]tokens ]] ||
+    ((10#${BASH_REMATCH[1]} <= 0 || 10#${BASH_REMATCH[2]} <= 0)); then
+    die "routing condition has missing or zero token counts"
+  fi
+}
+
+show_real_routing_and_cost() {
+  step "REAL: Routing, token, and cost evidence"
+  local routing_message cost_annotation metric_output metric_line metric_value
+  routing_message="$(kubectl -n "${NS_OPERATOR}" get agentworkload booth-incident-investigation \
+    -o jsonpath='{range .status.conditions[?(@.type=="ModelRoutingSucceeded")]}{.message}{end}')"
+  [[ -n "${routing_message}" ]] || die "ModelRoutingSucceeded condition is missing"
+  assert_nonzero_routing_tokens "${routing_message}"
+  printf 'Model routing: %s\n' "${routing_message}"
+
+  cost_annotation="$(kubectl -n "${NS_OPERATOR}" get agentworkload booth-incident-investigation \
+    -o go-template='{{index .metadata.annotations "agentworkload.clawdlinux.io/cost-usd-today"}}')"
+  awk -v cost="${cost_annotation:-0}" 'BEGIN { exit !(cost + 0 > 0) }' || die "cost annotation is missing or zero"
+  printf 'Cost annotation: $%s\n' "${cost_annotation}"
+
+  local pod_name local_port port_forward_pid
+  pod_name="$(operator_pod_name)"
+  [[ -n "${pod_name}" ]] || die "operator pod not found"
+  local_port="${DEMO_METRICS_PORT:-18080}"
+  kubectl -n "${NS_OPERATOR}" port-forward "pod/${pod_name}" "${local_port}:8080" >/dev/null 2>&1 &
+  port_forward_pid=$!
+  metric_output=""
+  for _ in {1..20}; do
+    metric_output="$(curl -fsS --max-time 2 "http://127.0.0.1:${local_port}/metrics" 2>/dev/null || true)"
+    [[ -n "${metric_output}" ]] && break
+    sleep 1
+  done
+  kill "${port_forward_pid}" >/dev/null 2>&1 || true
+  wait "${port_forward_pid}" 2>/dev/null || true
+
+  metric_line="$(printf '%s\n' "${metric_output}" | grep '^clawdlinux_agent_cost_dollars{' | grep 'workload="booth-incident-investigation"' | head -1 || true)"
+  [[ -n "${metric_line}" ]] || die "clawdlinux_agent_cost_dollars metric is missing for the booth workload"
+  metric_value="$(awk '{print $NF}' <<<"${metric_line}")"
+  awk -v cost="${metric_value:-0}" 'BEGIN { exit !(cost + 0 > 0) }' || die "clawdlinux_agent_cost_dollars is zero"
+  printf 'Cost metric: %s\n' "${metric_line}"
+}
+
+verify_anthropic_route() {
+  step "REAL: Small Anthropic reachability check through LiteLLM"
+  local litellm_pod
+  litellm_pod="$(kubectl -n "${NS_OPERATOR}" get pod \
+    -l app.kubernetes.io/name=litellm \
+    -o jsonpath='{.items[0].metadata.name}')"
+  [[ -n "${litellm_pod}" ]] || die "LiteLLM pod not found"
+
+  kubectl -n "${NS_OPERATOR}" exec -i "${litellm_pod}" -- python - <<'PY'
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+payload = json.dumps({
+    "model": "clawdlinux-anthropic",
+    "messages": [{"role": "user", "content": "Reply with the word reachable."}],
+    "max_tokens": 8,
+    "temperature": 0,
+}).encode()
+request = urllib.request.Request(
+    "http://127.0.0.1:4000/v1/chat/completions",
+    data=payload,
+    headers={
+        "Authorization": "Bearer " + os.environ["LITELLM_MASTER_KEY"],
+        "Content-Type": "application/json",
+    },
+)
+try:
+    with urllib.request.urlopen(request, timeout=45) as response:
+        result = json.load(response)
+except urllib.error.HTTPError as exc:
+    print(f"Anthropic route failed with HTTP {exc.code}", file=sys.stderr)
+    raise SystemExit(1)
+except Exception:
+    print("Anthropic route failed", file=sys.stderr)
+    raise SystemExit(1)
+
+usage = result.get("usage", {})
+input_tokens = usage.get("prompt_tokens", 0)
+output_tokens = usage.get("completion_tokens", 0)
+if not result.get("choices") or input_tokens <= 0 or output_tokens <= 0:
+    print("Anthropic route returned no usable completion or token counts", file=sys.stderr)
+    raise SystemExit(1)
+print(f"Anthropic provider reachable through LiteLLM. input_tokens={input_tokens} output_tokens={output_tokens}")
+PY
+  ok "Anthropic provider reachable. This was a separate check, not the AgentWorkload provider."
+}
+
+show_gvisor_configuration_proof() {
+  step "SIMULATION / CONFIGURATION PROOF: gVisor admission mutation"
+  local runtime_class
+  runtime_class="$(kubectl -n "${NS_OPERATOR}" apply --dry-run=server -o jsonpath='{.spec.runtimeClassName}' -f - <<'YAML'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: booth-gvisor-dry-run
+  labels:
+    agentic.clawdlinux.org/runtime-sandbox: gvisor
+spec:
+  restartPolicy: Never
+  containers:
+    - name: pause
+      image: registry.k8s.io/pause:3.10
+YAML
+)"
+  [[ "${runtime_class}" == "gvisor" ]] || die "webhook dry-run did not inject runtimeClassName=gvisor"
+  printf 'SIMULATION / CONFIGURATION PROOF: server-side dry-run injected runtimeClassName=%s. No pod was scheduled.\n' "${runtime_class}"
+}
+
+show_network_policy_presence() {
+  step "NetworkPolicy object"
+  local policy_names
+  policy_names="$(kubectl -n "${NS_OPERATOR}" get networkpolicy -o name)"
+  [[ -n "${policy_names}" ]] || die "NetworkPolicy object not found"
+  printf '%s\n' "${policy_names}"
+  printf 'NETWORKPOLICY OBJECT PRESENCE ONLY. Packet enforcement requires an enforcing CNI.\n'
+}
+
+find_audit_verifier() {
+  if [[ -x "${REPO_ROOT}/bin/audit-verify" ]]; then
+    printf '%s' "${REPO_ROOT}/bin/audit-verify"
+    return
+  fi
+  if command -v audit-verify >/dev/null 2>&1; then
+    command -v audit-verify
+    return
+  fi
+  require_command go
+  mkdir -p "${REPO_ROOT}/bin"
+  go build -o "${REPO_ROOT}/bin/audit-verify" "${REPO_ROOT}/cmd/audit-verify"
+  printf '%s' "${REPO_ROOT}/bin/audit-verify"
+}
+
+run_prior_run_audit() {
+  local tamper="${1:-false}"
+  step "PRIOR-RUN HMAC-SIGNED AUDIT FIXTURE: offline verification"
+  [[ -f "${AUDIT_FIXTURE}" ]] || die "missing prior-run audit fixture: ${AUDIT_FIXTURE}"
+  printf 'PRIOR-RUN ARTIFACT: the current AgentWorkload did not generate this file.\n'
+
+  local verifier
+  verifier="$(find_audit_verifier)"
+  "${verifier}" --source jsonl --path "${AUDIT_FIXTURE}" --key "${AUDIT_DEMO_KEY}"
+
+  if [[ "${tamper}" != "true" ]]; then
+    return
+  fi
+
+  local tampered_file
+  tampered_file="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-audit-tampered.XXXXXX.jsonl")"
+  sed 's/"actor":"policy-analyst"/"actor":"tampered-actor"/' "${AUDIT_FIXTURE}" > "${tampered_file}"
+  if cmp -s "${AUDIT_FIXTURE}" "${tampered_file}"; then
+    rm -f "${tampered_file}"
+    die "tamper operation did not change the prior-run fixture"
+  fi
+  if "${verifier}" --source jsonl --path "${tampered_file}" --key "${AUDIT_DEMO_KEY}"; then
+    rm -f "${tampered_file}"
+    die "tampered audit artifact unexpectedly verified"
+  fi
+  rm -f "${tampered_file}"
+  ok "Tampered prior-run artifact was rejected"
+}
+
+print_present_summary() {
+  cat <<'EOF'
+
+CURRENT --present EVIDENCE
+- Real OpenAI-routed model call through LiteLLM.
+- Genuine input/output tokens plus nonzero cost metric and annotation.
+- Separate Anthropic reachability check.
+- Webhook mutation simulation/configuration proof for runtimeClassName=gvisor. No pod was scheduled.
+- NetworkPolicy object presence only. Packet enforcement was not tested.
+- Prior-run HMAC-signed audit fixture verification. Optional tamper failure.
+EOF
+}
+
+present_real_demo() {
+  require_command kubectl
+  require_command curl
+  require_demo_context
+  [[ -f "${RESEARCH_MANIFEST}" ]] || die "missing ${RESEARCH_MANIFEST}"
+  assert_runtime_secret_shape
+  apply_research_workload
+  wait_for_research_completion
+  show_real_routing_and_cost
+  verify_anthropic_route
+  show_gvisor_configuration_proof
+  show_network_policy_presence
+  run_prior_run_audit "${TAMPER_AUDIT}"
+  print_present_summary
 }
 
 wait_for_operator() {
@@ -452,7 +1010,7 @@ verify_network_policy() {
 }
 
 run_opa_demo() {
-  step "Applying OPA allow workload"
+  step "LEGACY DEFAULT FLOW: Applying OPA allow workload"
   kubectl -n "${NS_OPERATOR}" delete agentworkload opa-allow-demo --ignore-not-found >/dev/null 2>&1 || true
   apply_manifest "${ALLOW_MANIFEST}"
   if ALLOW_PHASE="$(wait_for_allow_phase opa-allow-demo)"; then
@@ -466,7 +1024,7 @@ run_opa_demo() {
   show_workload_evidence
   show_agent_pods
 
-  step "Applying OPA deny workload"
+  step "LEGACY DEFAULT FLOW: Applying OPA deny workload"
   kubectl -n "${NS_OPERATOR}" delete agentworkload opa-deny-demo --ignore-not-found >/dev/null 2>&1 || true
   apply_manifest "${DENY_MANIFEST}"
   if DENY_PHASE="$(wait_for_deny_phase opa-deny-demo)"; then
@@ -557,8 +1115,8 @@ run_swarm_demo() {
 
 print_summary() {
   echo ""
-  printf '%bBooth Demo Summary%b\n' "${BOLD}" "${RESET}"
-  printf 'ALLOW path: %s. DENY path: %s. gVisor: %s. NetworkPolicy: %s. Cost: %s. Swarm: %s.\n' \
+  printf '%bLegacy Default Flow Summary%b\n' "${BOLD}" "${RESET}"
+  printf 'ALLOW path: %s. DENY path: %s. gVisor configuration: %s. NetworkPolicy object: %s. Cost: %s. Swarm: %s.\n' \
     "${ALLOW_PHASE:-<empty>}" \
     "${DENY_PHASE:-<empty>}" \
     "${GVISOR_OK:-no}" \
@@ -567,12 +1125,36 @@ print_summary() {
     "${SWARM_PHASE:-skipped (use --with-swarm)}"
   echo ""
   if [[ "${DENY_PHASE:-}" != "PolicyDenied" ]]; then
-    warn "DENY needs a reachable HTTPS MCP endpoint to reach OPA. Set DEMO_MCP_ENDPOINT for live booth runs."
+    warn "Legacy OPA DENY needs a reachable HTTPS MCP endpoint. Set DEMO_MCP_ENDPOINT for development runs."
   fi
 }
 
 main() {
   parse_args "$@"
+  start_recording_if_requested
+
+  if [[ "${CLEANUP}" == "true" ]]; then
+    cleanup_cluster
+    return
+  fi
+
+  case "${DEMO_MODE}" in
+    prepare)
+      prepare_real_demo
+      return
+      ;;
+    present)
+      present_real_demo
+      return
+      ;;
+    legacy)
+      if [[ "${TAMPER_AUDIT}" == "true" ]]; then
+        run_prior_run_audit true
+        return
+      fi
+      ;;
+  esac
+
   case "${DEMO_PROFILE}" in
     platform|lean) ;;
     *)
@@ -582,13 +1164,6 @@ main() {
   if [[ "${WITH_SWARM}" == "true" && "${DEMO_PROFILE}" == "lean" ]]; then
     die "--with-swarm requires --profile platform because the swarm uses Argo"
   fi
-  start_recording_if_requested
-
-  if [[ "${CLEANUP}" == "true" ]]; then
-    cleanup_cluster
-    return
-  fi
-
   check_prerequisites
   ensure_cluster
   if [[ "${DEMO_PROFILE}" == "lean" ]]; then
@@ -603,4 +1178,6 @@ main() {
   print_summary
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

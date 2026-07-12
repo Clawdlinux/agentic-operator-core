@@ -34,6 +34,7 @@ func (mr *ModelRouter) RouteAndCall(
 	namespace string,
 	spec *v1alpha1.AgentWorkloadSpec,
 	instructions string,
+	operationID string,
 ) (*ModelResponse, *RoutingInfo, error) {
 	routingInfo := &RoutingInfo{}
 
@@ -132,7 +133,7 @@ func (mr *ModelRouter) RouteAndCall(
 
 	// Call the model with tracing
 	callCtx, callSpan := StartModelCallSpan(ctx, providerName, modelName)
-	response, err := provider.CallModel(callCtx, modelName, instructions)
+	response, err := provider.CallModel(callCtx, operationID, modelName, instructions)
 	if err != nil {
 		SetModelCallAttributes(callSpan, 0, 0, false)
 		callSpan.End()

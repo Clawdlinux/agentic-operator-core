@@ -500,6 +500,11 @@ spec:
                 description: lastReconcileTime is the last time the resource was reconciled
                 format: date-time
                 type: string
+              modelRoutingOperationID:
+                description: |-
+                  modelRoutingOperationID is the stable idempotency key for the current
+                  workload generation's model call.
+                type: string
               phase:
                 description: 'phase is the current lifecycle phase: Pending, Running,
                   Completed, Failed'

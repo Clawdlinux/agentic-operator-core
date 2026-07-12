@@ -115,9 +115,18 @@
         "service": { "$ref": "#/$defs/service" },
         "openaiKey": {
           "type": "string",
-          "description": "OpenAI API key for LiteLLM proxy — required at install time"
+          "description": "OpenAI API key for chart-managed development installs"
+        },
+        "anthropicKey": {
+          "type": "string",
+          "description": "Optional Anthropic API key for chart-managed development installs"
         },
         "masterKey": { "type": "string" },
+        "existingSecret": {
+          "type": "string",
+          "description": "Pre-created Secret containing OpenAI, Anthropic, and LiteLLM master keys"
+        },
+        "allowPlaintextKeys": { "type": "boolean" },
         "models": {
           "type": "array",
           "items": { "type": "object" }
