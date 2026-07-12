@@ -1,6 +1,6 @@
 # Booth staging
 
-Fallback assets for the NineVigil attestation demo. Use these if the live run
+Fallback assets for the Clawdlinux attestation demo. Use these if the live run
 hiccups. Do not present from these by default. The live demo is the demo.
 
 ## attestation-fallback.jsonl

@@ -114,7 +114,7 @@ func TestMemoryCostReporter_OllamaFree(t *testing.T) {
 	}
 }
 
-func TestMemoryCostReporter_PrometheusCollectorEmitsNineVigilCostMetric(t *testing.T) {
+func TestMemoryCostReporter_PrometheusCollectorEmitsClawdlinuxCostMetric(t *testing.T) {
 	t.Parallel()
 
 	r := NewMemoryCostReporter()
@@ -133,7 +133,7 @@ func TestMemoryCostReporter_PrometheusCollectorEmitsNineVigilCostMetric(t *testi
 		t.Fatalf("gather metrics: %v", err)
 	}
 	for _, family := range metricFamilies {
-		if family.GetName() != "ninevigil_agent_cost_dollars" {
+		if family.GetName() != "clawdlinux_agent_cost_dollars" {
 			continue
 		}
 		if len(family.GetMetric()) != 1 {
@@ -145,5 +145,5 @@ func TestMemoryCostReporter_PrometheusCollectorEmitsNineVigilCostMetric(t *testi
 		}
 		return
 	}
-	t.Fatal("ninevigil_agent_cost_dollars metric not found")
+	t.Fatal("clawdlinux_agent_cost_dollars metric not found")
 }

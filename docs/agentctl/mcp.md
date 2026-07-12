@@ -30,16 +30,16 @@ truth a client needs.
 
 ```bash
 # 1. Set a bearer token (any opaque string)
-export NINEVIGIL_MCP_TOKEN=$(uuidgen)
+export CLAWDLINUX_MCP_TOKEN=$(uuidgen)
 
 # 2. Boot the server (uses your KUBECONFIG context)
 agentctl mcp serve --addr :8765 --default-namespace agentic-system
 
 # 3. From another terminal — discover tools
-curl -H "Authorization: Bearer $NINEVIGIL_MCP_TOKEN" http://127.0.0.1:8765/tools | jq
+curl -H "Authorization: Bearer $CLAWDLINUX_MCP_TOKEN" http://127.0.0.1:8765/tools | jq
 
 # 4. Create a workload
-curl -H "Authorization: Bearer $NINEVIGIL_MCP_TOKEN" \
+curl -H "Authorization: Bearer $CLAWDLINUX_MCP_TOKEN" \
      -H "Content-Type: application/json" \
      -X POST http://127.0.0.1:8765/call_tool \
      -d '{"tool":"create_workload","params":{
@@ -60,7 +60,7 @@ kubectl get agentworkloads -n agentic-system
 ## Auth
 
 `agentctl mcp serve` enforces `Authorization: Bearer <token>` when
-`NINEVIGIL_MCP_TOKEN` (or `--auth-token`) is non-empty. An unset token
+`CLAWDLINUX_MCP_TOKEN` (or `--auth-token`) is non-empty. An unset token
 **disables auth entirely** — only do this for local stdio transport on a
 trusted host.
 

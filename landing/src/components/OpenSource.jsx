@@ -134,7 +134,7 @@ export default function OpenSource() {
           className="text-center text-lg mb-12"
           style={{ color: currentTheme.text.tertiary, fontFamily: "'DM Sans', sans-serif" }}
         >
-          NineVigil is open source for policy-aware AI workloads on Kubernetes. Inspect, extend, and self-host.
+          Clawdlinux is open source for policy-aware AI workloads on Kubernetes. Inspect, extend, and self-host.
         </motion.p>
 
         {/* Repo card */}

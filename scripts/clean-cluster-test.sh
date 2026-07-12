@@ -4,7 +4,7 @@ set -euo pipefail
 GREEN="$(printf '\033[32m')"
 RED="$(printf '\033[31m')"
 RESET="$(printf '\033[0m')"
-CLUSTER="ninevigil-demo"
+CLUSTER="clawdlinux-demo"
 cleanup() { kind delete cluster --name "${CLUSTER}" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 

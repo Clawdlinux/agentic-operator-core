@@ -53,7 +53,7 @@ metadata:
     agentic.io/job-id: secure-research-swarm
     agentworkload.clawdlinux.io/name: secure-research-swarm
     agentworkload.clawdlinux.io/role: researcher
-    app.kubernetes.io/part-of: ninevigil
+    app.kubernetes.io/part-of: clawdlinux
 spec:
   runtimeClassName: gvisor
   containers:
@@ -70,7 +70,7 @@ metadata:
     agentic.io/job-id: secure-research-swarm
     agentworkload.clawdlinux.io/name: secure-research-swarm
     agentworkload.clawdlinux.io/role: policy-analyst
-    app.kubernetes.io/part-of: ninevigil
+    app.kubernetes.io/part-of: clawdlinux
 spec:
   runtimeClassName: gvisor
   containers:
@@ -87,7 +87,7 @@ metadata:
     agentic.io/job-id: secure-research-swarm
     agentworkload.clawdlinux.io/name: secure-research-swarm
     agentworkload.clawdlinux.io/role: report-synthesizer
-    app.kubernetes.io/part-of: ninevigil
+    app.kubernetes.io/part-of: clawdlinux
 spec:
   runtimeClassName: gvisor
   containers:

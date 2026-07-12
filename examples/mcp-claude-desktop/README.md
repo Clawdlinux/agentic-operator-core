@@ -1,7 +1,7 @@
-# Claude Desktop ↔ NineVigil MCP
+# Claude Desktop ↔ Clawdlinux MCP
 
 This example shows how to wire [Claude Desktop](https://claude.ai/download)
-to NineVigil's MCP server, so Claude can provision and manage AgentWorkloads
+to Clawdlinux's MCP server, so Claude can provision and manage AgentWorkloads
 on your cluster from a chat conversation.
 
 We use the **stdio transport** here — no separate HTTP server, no shim
@@ -24,10 +24,10 @@ Copy `claude_desktop_config.json` to:
 - Linux: `~/.config/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-If you already have other MCP servers configured, merge the `mcpServers.ninevigil`
+If you already have other MCP servers configured, merge the `mcpServers.clawdlinux`
 entry into your existing config — do not overwrite the file.
 
-Then **restart Claude Desktop**. The six NineVigil tools will appear in the
+Then **restart Claude Desktop**. The six Clawdlinux tools will appear in the
 tool picker (Settings → Developer → MCP servers).
 
 ## 3. Try it
@@ -49,7 +49,7 @@ Claude will call `create_workload`. Then ask:
 - Stdio mode does **not** enforce bearer auth — it assumes the spawning
   process (Claude Desktop) is trusted on your machine. Do not use stdio
   transport over SSH, sockets, or any non-local channel. For remote agents,
-  use `--transport http` with `NINEVIGIL_MCP_TOKEN`.
+  use `--transport http` with `CLAWDLINUX_MCP_TOKEN`.
 - The bundled config sets `KUBECONFIG` to `~/.kube/config`. For
   out-of-cluster use against a managed cluster, point `KUBECONFIG` at a
   context whose ServiceAccount has CRUD on `agentworkloads` plus read on

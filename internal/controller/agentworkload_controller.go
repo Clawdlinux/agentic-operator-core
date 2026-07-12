@@ -130,11 +130,11 @@ func (r *AgentWorkloadReconciler) ensureRuntimeDefaults() {
 	reg := runtimeadapter.NewRegistry()
 	reg.Register("argo", &runtimeadapter.ArgoWorkflowAdapter{Client: r.Client, Scheme: r.Scheme})
 	// pod is the bring-your-own single-pod runtime. Its image comes from the
-	// NINEVIGIL_AGENT_IMAGE env var; the adapter fails closed if it is unset.
-	reg.Register("pod", &runtimeadapter.PodRuntimeAdapter{Client: r.Client, Scheme: r.Scheme, Image: os.Getenv("NINEVIGIL_AGENT_IMAGE")})
+	// CLAWDLINUX_AGENT_IMAGE env var; the adapter fails closed if it is unset.
+	reg.Register("pod", &runtimeadapter.PodRuntimeAdapter{Client: r.Client, Scheme: r.Scheme, Image: os.Getenv("CLAWDLINUX_AGENT_IMAGE")})
 	// kagent runs the workload as a kagent Agent (kagent.dev/v1alpha2) via the
 	// unstructured client, no Go dependency. Same image source, same governance.
-	reg.Register("kagent", &runtimeadapter.KagentAdapter{Client: r.Client, Image: os.Getenv("NINEVIGIL_AGENT_IMAGE")})
+	reg.Register("kagent", &runtimeadapter.KagentAdapter{Client: r.Client, Image: os.Getenv("CLAWDLINUX_AGENT_IMAGE")})
 	r.RuntimeRegistry = reg
 }
 

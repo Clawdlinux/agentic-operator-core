@@ -51,7 +51,7 @@ func TestHandleDemoRendersLiveRuntimePods(t *testing.T) {
 				Labels: map[string]string{
 					"agentic.io/job-id":         "secure-research-swarm",
 					agentctl.RoleLabelKey:       "researcher",
-					"app.kubernetes.io/part-of": "ninevigil",
+					"app.kubernetes.io/part-of": "clawdlinux",
 				},
 			},
 			Spec: corev1.PodSpec{

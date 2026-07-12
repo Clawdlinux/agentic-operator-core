@@ -1,4 +1,4 @@
-"""Tiny orchestrator that drives the NineVigil MCP server over plain HTTP.
+"""Tiny orchestrator that drives the Clawdlinux MCP server over plain HTTP.
 
 We deliberately use stdlib `urllib` rather than the `mcp` SDK so this script
 runs with zero pip installs against the local server. Swap in `mcp.Client` if
@@ -13,9 +13,9 @@ import time
 import urllib.request
 import urllib.error
 
-ENDPOINT = os.environ.get("NINEVIGIL_MCP_ENDPOINT", "http://127.0.0.1:8765")
-TOKEN = os.environ.get("NINEVIGIL_MCP_TOKEN", "")
-NAMESPACE = os.environ.get("NINEVIGIL_NAMESPACE", "agentic-system")
+ENDPOINT = os.environ.get("CLAWDLINUX_MCP_ENDPOINT", "http://127.0.0.1:8765")
+TOKEN = os.environ.get("CLAWDLINUX_MCP_TOKEN", "")
+NAMESPACE = os.environ.get("CLAWDLINUX_NAMESPACE", "agentic-system")
 
 WORKLOADS = [
     {

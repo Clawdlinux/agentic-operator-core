@@ -38,7 +38,7 @@ const (
 )
 
 // governanceLabels returns the pod labels that place a workload's pods under
-// NineVigil governance. Two are load-bearing: the gVisor RuntimeClass injector
+// Clawdlinux governance. Two are load-bearing: the gVisor RuntimeClass injector
 // keys on the sandbox label, and the default-deny egress NetworkPolicy selects
 // on part-of. Every adapter stamps these onto the pods it creates so the seal
 // is identical across runtimes, whether the scheduler is Argo, a plain pod, or
