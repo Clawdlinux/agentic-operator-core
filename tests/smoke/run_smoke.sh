@@ -36,6 +36,14 @@ pass() { echo "  ✅ PASS: $*"; ((PASS+=1)); ((TOTAL+=1)); }
 fail() { echo "  ❌ FAIL: $*"; ((FAIL+=1)); ((TOTAL+=1)); }
 log()  { echo "[smoke] $*"; }
 
+# ── Local CLI contract ───────────────────────────────────────────────────────
+log "Local CLI: booth demo safety and fallback checks"
+if bash "${SCRIPT_DIR}/test_demo_booth_cli.sh"; then
+  pass "Booth demo CLI contract"
+else
+  fail "Booth demo CLI contract"
+fi
+
 # ── Test 1: CRD installed ────────────────────────────────────────────────────
 log "Test 1: AgentWorkload CRD exists"
 if kubectl get crd agentworkloads.agentic.clawdlinux.org >/dev/null 2>&1; then

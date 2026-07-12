@@ -1,0 +1,39 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: booth-incident-investigation
+  namespace: agentic-system
+  labels:
+    app.kubernetes.io/name: booth-incident-investigation
+    app.kubernetes.io/part-of: clawdlinux-booth-demo
+    demo.clawdlinux.org/evidence: real-openai-via-litellm
+  annotations:
+    demo.clawdlinux.org/provider-proof: "OpenAI is called through in-cluster LiteLLM. Anthropic is checked separately."
+spec:
+  objective: |
+    Investigate a production checkout latency incident from these facts:
+    p95 rose from 280ms to 2.4s after a database connection-pool change,
+    error rate reached 7%, and rollback restored normal service in 6 minutes.
+    Produce a concise incident assessment with the likely cause, evidence,
+    immediate containment, and 3 follow-up checks. Do not invent missing telemetry.
+  workloadType: kubernetes
+  agents:
+    - incident-investigator
+  collaborationMode: solo
+  opaPolicy: strict
+  autoApproveThreshold: "0.95"
+  modelStrategy: cost-aware
+  taskClassifier: default
+  providers:
+    - name: litellm
+      type: openai-compatible
+      endpoint: http://clawdlinux-demo-litellm.agentic-system.svc.cluster.local:4000/v1
+      apiKeySecret:
+        name: clawdlinux-demo-litellm
+        key: api-key
+  modelMapping:
+    validation: litellm/clawdlinux-openai
+    analysis: litellm/clawdlinux-openai
+    reasoning: litellm/clawdlinux-openai
+  timeouts:
+    execution: 180

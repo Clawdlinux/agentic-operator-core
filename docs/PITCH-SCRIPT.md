@@ -7,7 +7,7 @@ Companion to the current co-founder deck and [DEMO-PLAN.md](DEMO-PLAN.md). Total
 Times are targets. If she interrupts with questions, good, let her. The deck is a spine, not a cage.
 
 **Slide 1, Title (30s).**
-"Clawdlinux provides regulated controls for AI agents on Kubernetes. One sentence version: every agent run leaves a signed, offline-verifiable record, and runs inside a network seal it cannot escape. I am not building another agent framework. I am building the thing that lets a bank say yes to one."
+"Clawdlinux is building regulated controls for AI agents on Kubernetes. The target contract is offline-verifiable attestation with packet-enforced egress controls. Today's booth proof is narrower, and I will label every boundary. I am not building another agent framework. I am building the control plane that lets a bank review one."
 
 **Slide 2, Problem (90s).**
 "Agents work now. What does not work is getting them past a security review. These are not my numbers." Walk the rings left to right. Land on: "Gartner says 40 percent of these projects die, and names inadequate risk controls as a reason. Only 11 percent of production agents pass an independent security bar. The demand curve and the controls curve have a gap. That gap is the company."
@@ -16,13 +16,13 @@ Times are targets. If she interrupts with questions, good, let her. The deck is 
 "Four things happened at once. Strong open runtimes became available, so we no longer need to rebuild that layer. Incidents went from hypothetical to a bank self-reporting to its regulator. Fed guidance explicitly excludes agentic AI, so auditors are improvising. The buyers who need verifiable evidence most are also the ones that often cannot use a hosted control plane. We start with self-hosted and air-gapped deployments."
 
 **Slide 4, What we built (90s).**
-"Our wedge combines two controls in one self-hosted deployment. First, attestation: every LLM call, tool call, and approval goes into a hash chain, HMAC-signed, and a small CLI recomputes the whole chain offline. The auditor does not have to trust me, or you, or the customer. Second, the egress seal: the agent reaches only the endpoints its manifest declares, enforced by Cilium at the network layer. Not a system prompt asking the model to behave. gVisor and OPA wrap around those." Pause. "Key design decision: same contract whether the workload is our CRD, someone's existing pods, or a third-party runtime. We wrap, we do not replace."
+"Our target product is an in-cluster governance and attestation plane. The booth proves one OpenAI-routed model call through LiteLLM. It shows genuine tokens, nonzero cost evidence, and a separate Anthropic reachability check. It also shows webhook mutation simulation, NetworkPolicy object presence, and prior-run HMAC audit verification. The current path does not execute OPA. It does not prove packet enforcement, a scheduled gVisor workload, or current-run audit generation."
 
 **Slide 5, How a run works (60s).**
-Walk the six steps quickly. The line that matters: "Notice policy is decided before anything runs, and evidence is produced whether or not anyone asks for it. Compliance is a byproduct of running, not a project after running."
+Walk the six target steps quickly. Say: "This slide describes the target product contract. Policy allow or deny happens before execution in that contract. The current `--present` path does not execute OPA. It also does not produce current-run attestation."
 
 **Slide 6, Use case (90s).**
-"Concrete customer: a fund's platform team wants agents analyzing filings and market data. Infosec banned agent SaaS, so the project is stuck. With us: they helm install one bundle inside their perimeter, point LiteLLM at whatever model they already approved, and label their existing agent pods. Three people get unblocked: platform lead ships, security reviews a YAML diff instead of a prompt, compliance hands the auditor a snapshot and a binary instead of a week of log archaeology."
+"Target customer: a fund's platform team wants agents analyzing filings and market data. Infosec banned agent SaaS, so the project is stuck. In the target deployment, they install one bundle inside their perimeter. They point LiteLLM at an approved model and label existing agent pods. Platform ships the workload. Security reviews the controls. Compliance receives the product attestation package."
 
 **Slide 7, What exists (60s).**
 "Everything on this slide is in a public repo you can read tonight. 180 commits since February. The ACP numbers are measured, checked-in benchmarks, not projections: 64 to 97 percent context reduction against raw MCP, one round trip instead of up to 21."
@@ -38,27 +38,63 @@ Walk the six steps quickly. The line that matters: "Notice policy is decided bef
 
 Transition straight into the demo. No gap.
 
-## Part 2: What the demo actually is, technically
+## Part 2: Current booth proof and target product contract
 
-`scripts/demo-booth.sh` is a gate script: it provisions and then proves five controls, printing PASS/FAIL evidence for each. Know what each phase does so you can narrate it instead of reading it.
+Prepare once with both provider keys exported or stored in the ignored repo-root `.env` file:
 
-**Phase 0, setup.** Checks kubectl, helm, kind (or reuses k3s). Creates kind cluster `clawdlinux-demo`. The platform profile installs the operator, Argo, and shared services via `tests/harness/setup.sh`. `--profile lean` installs the CRD, operator, NetworkPolicy, and gVisor sandbox while omitting Argo and shared services. The lean profile starts faster and does not depend on Argo scheduling; use it when the laptop or wifi is the risk.
+```bash
+scripts/demo-booth.sh --prepare
+```
 
-**Phase 1, OPA allow/deny.** Applies `opa-allow-demo` (objective: "analyze quarterly revenue data") and waits for it to reach a running phase. Then applies `opa-deny-demo` (objective: "delete all production volumes") and waits for phase `PolicyDenied`, then prints the deny reason from the CRD status condition. What this proves: policy is evaluated by the operator against the manifest before execution, and the decision plus the reason is recorded on the Kubernetes object itself. The model is not in the loop.
+Set `DEMO_ENV_FILE=/path/to/file` to use another credential file.
+Exported variables override file values.
+The script parses only the 2 provider key names.
+It never sources the file or prints values.
 
-**Phase 2, cost.** Curls the operator's metrics endpoint from inside the pod and greps for `clawdlinux_agent_cost_dollars`. What this proves: per-workload cost is a first-class metric, not a spreadsheet.
+Preparation creates kind cluster `clawdlinux-demo`. It installs pinned cert-manager.
+It creates one runtime Secret without printing values. Helm receives only the Secret name.
 
-**Phase 3, gVisor.** Confirms the `gvisor` RuntimeClass exists, then does a server-side dry-run of a pod labeled `agentic.clawdlinux.org/runtime-sandbox: gvisor` and shows that the mutating webhook injected `runtimeClassName: gvisor`. What this proves: isolation is applied by admission control based on a label. No agent code changes.
+Run the 5-7 minute path:
 
-**Phase 4, NetworkPolicy.** Confirms the egress policy objects are installed in the namespace. What this proves: the seal exists as a Kubernetes-native object security can review. (On kind, Cilium FQDN enforcement is not fully live; do not claim packet-level blocking in this environment, claim policy generation and show the object.)
+```bash
+scripts/demo-booth.sh --present
+```
 
-**Phase 5, swarm (`--with-swarm` only).** Applies `demo-competitive-swarm`: three agents (competitor-scraper, llm-synthesizer, report-generator) compiled into an Argo Workflow DAG. What this proves: the same controls wrap a multi-agent pipeline, and orchestration is delegated to Argo rather than reinvented.
+### CURRENT BOOTH PROOF
 
-**The audit tamper closer uses the signed fallback artifact.** Follow [`_staging/booth/README.md`](../_staging/booth/README.md): run `audit-verify --source jsonl --path _staging/booth/attestation-fallback.jsonl --key <demo-kid=base64-key>` for PASS, use the documented `sed` command to create `/tmp/tampered.jsonl`, then verify that file for FAIL. Rehearse this end to end at least once before the call. If you cannot get a clean PASS/FAIL cycle working, cut it from the live demo and show the `pkg/audit` design instead; a fumbled trust demo is worse than none.
+Say each proof label aloud. Do not blend target behavior into the current demo.
 
-**Flags cheat sheet.** `--profile platform|lean` selects the deployment profile, `--with-swarm` adds the Argo swarm scenario, `--record` captures the terminal with script(1), and `--cleanup` deletes the cluster. Evidence lands in `tests/harness/evidence/booth-<timestamp>/`.
+**REAL LLM CALL AND COST.** `examples/research-agent.yaml` uses one incident investigator.
+Every task category maps to `clawdlinux-openai`. LiteLLM routes that alias to OpenAI.
+The status condition shows genuine token counts. The annotation and metric show nonzero cost.
 
-**What the demo does NOT show. Say so if asked.** No real LLM traffic unless an endpoint is configured; the allow workload exercises lifecycle, not inference quality. No packet-level egress blocking on kind. No SPIFFE, no multi-cluster, no SOC 2. Saying "that part is roadmap" out loud is what makes the rest believable.
+**REAL, separate Anthropic check.** A small request uses `clawdlinux-anthropic` through LiteLLM.
+It proves provider reachability. Do not claim the AgentWorkload used Anthropic.
+
+**WEBHOOK MUTATION SIMULATION.** A server-side dry-run shows webhook mutation.
+It injects `runtimeClassName=gvisor`. No gVisor pod is scheduled on kind/macOS.
+
+**NETWORKPOLICY OBJECT PRESENCE ONLY.** The script shows the generated NetworkPolicy object.
+Say: "Packet enforcement requires an enforcing CNI." This iteration installs no Cilium.
+
+**PRIOR-RUN HMAC AUDIT FIXTURE.** The checked-in JSONL fixture passes HMAC verification offline.
+The current workload did not generate it. Do not call it a current-run artifact or asymmetric signature.
+
+Add `--tamper-audit` to alter a temporary copy and show verification failure.
+Use `scripts/record-demo.sh` to record the present path.
+
+**OPA IS LEGACY OR TARGET ONLY.** The legacy default flow retains its OPA allow/deny development path.
+The target product contract also includes policy evaluation. `--present` executes neither path.
+
+**What this demo does not prove.** It does not prove packet enforcement on kind.
+It does not prove a scheduled gVisor workload. It does not prove current-run attestation.
+It does not prove every runtime pod has a sandbox label. It does not prove an OPA decision or policy gate.
+
+### TARGET PRODUCT CONTRACT
+
+The target product emits offline-verifiable, tamper-evident attestation for each governed run.
+The target product applies packet-enforced egress controls through a supported enforcing CNI.
+These are product acceptance criteria. They are not outcomes from the current booth path.
 
 ## Part 3: Turning the demo into signal and customers
 

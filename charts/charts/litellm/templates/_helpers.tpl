@@ -17,7 +17,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Resolve the Secret name that holds OPENAI_API_KEY / LITELLM_MASTER_KEY.
+Resolve the Secret that holds OPENAI_API_KEY, ANTHROPIC_API_KEY, and LITELLM_MASTER_KEY.
 If .Values.existingSecret is set, use it (BYO secret -- recommended for production).
 Otherwise fall back to the chart-managed Secret (dev/demo only).
 */}}

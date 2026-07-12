@@ -8,8 +8,11 @@ import "context"
 // The OSS default implementation is a no-op that logs cost data
 // but does not enforce limits or report externally.
 type CostReporter interface {
-	// RecordUsage records token usage for a workload. Non-blocking.
-	RecordUsage(ctx context.Context, workloadName, namespace, model string,
+	// RecordUsage records token usage for a workload before cost queries run.
+	// It must provide read-after-write visibility before returning. The controller
+	// calls WorkloadCostToday next to build the workload cost annotation. Repeated
+	// calls with the same non-empty operationID must not count usage twice.
+	RecordUsage(ctx context.Context, operationID, workloadName, namespace, model string,
 		promptTokens, completionTokens int64) error
 
 	// CheckBudget returns an error if the workload has exceeded its

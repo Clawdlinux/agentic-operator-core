@@ -162,6 +162,8 @@ spec:
                     format: date-time
               argoPhase:
                 type: string
+              modelRoutingOperationID:
+                type: string
               workflowArtifacts:
                 type: object
                 additionalProperties:

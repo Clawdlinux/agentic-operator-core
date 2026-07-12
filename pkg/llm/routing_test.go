@@ -125,6 +125,7 @@ func TestModelRouterWithMockProvider(t *testing.T) {
 				"test-routing",
 				spec,
 				tc.objective,
+				"routing-test-operation",
 			)
 
 			// We expect errors because there's no real API
@@ -183,7 +184,7 @@ func TestModelRouterProviderNotFound(t *testing.T) {
 		},
 	}
 
-	_, _, err := router.RouteAndCall(ctx, client, "default", spec, objective)
+	_, _, err := router.RouteAndCall(ctx, client, "default", spec, objective, "provider-not-found")
 
 	// Error is expected because the provider in the mapping is missing
 	if err == nil {
@@ -212,7 +213,7 @@ func TestModelRouterMissingModelMapping(t *testing.T) {
 		// No ModelMapping specified
 	}
 
-	_, _, err := router.RouteAndCall(ctx, client, "default", spec, objective)
+	_, _, err := router.RouteAndCall(ctx, client, "default", spec, objective, "missing-model-mapping")
 
 	if err == nil {
 		t.Errorf("expected error when modelMapping is empty")

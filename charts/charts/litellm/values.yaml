@@ -14,7 +14,13 @@ resources:
     cpu: "1000m"
     memory: "512Mi"
 openaiKey: ""
+anthropicKey: ""
 masterKey: ""
+# Name of a pre-created Secret. LiteLLM reads OPENAI_API_KEY,
+# ANTHROPIC_API_KEY, and LITELLM_MASTER_KEY from it via envFrom.
+# Recommended for booth and production deployments.
+existingSecret: ""
+allowPlaintextKeys: false
 models: []
 
 # LiteLLM Routing Configuration

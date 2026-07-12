@@ -12,7 +12,7 @@ func TestMemoryCostReporter_RecordAndQuery(t *testing.T) {
 	ctx := context.Background()
 
 	// Record some usage
-	err := r.RecordUsage(ctx, "test-workload", "test-ns", "openai/gpt-4o-mini", 1000, 500)
+	err := r.RecordUsage(ctx, "record-and-query", "test-workload", "test-ns", "openai/gpt-4o-mini", 1000, 500)
 	if err != nil {
 		t.Fatalf("RecordUsage failed: %v", err)
 	}
@@ -46,6 +46,48 @@ func TestMemoryCostReporter_RecordAndQuery(t *testing.T) {
 	}
 }
 
+func TestMemoryCostReporter_DuplicateOperationIDDoesNotDoubleCount(t *testing.T) {
+	reporter := NewMemoryCostReporter()
+	ctx := context.Background()
+
+	for attempt := 0; attempt < 2; attempt++ {
+		if err := reporter.RecordUsage(ctx, "operation-123", "test-workload", "test-ns", "openai/gpt-4o-mini", 1000, 500); err != nil {
+			t.Fatalf("RecordUsage attempt %d failed: %v", attempt+1, err)
+		}
+	}
+
+	usage := reporter.GetUsage("test-workload", "test-ns")
+	if usage == nil {
+		t.Fatal("expected usage record")
+	}
+	if usage.RequestCount != 1 {
+		t.Fatalf("request count = %d, want 1", usage.RequestCount)
+	}
+	if usage.TotalPromptTokens != 1000 {
+		t.Fatalf("prompt tokens = %d, want 1000", usage.TotalPromptTokens)
+	}
+	if usage.TotalCompletionTokens != 500 {
+		t.Fatalf("completion tokens = %d, want 500", usage.TotalCompletionTokens)
+	}
+}
+
+func TestMemoryCostReporter_LiteLLMOpenAIAliasPricing(t *testing.T) {
+	reporter := NewMemoryCostReporter()
+	ctx := context.Background()
+
+	if err := reporter.RecordUsage(ctx, "litellm-alias", "booth-demo", "agentic-system", "litellm/clawdlinux-openai", 1000, 500); err != nil {
+		t.Fatalf("RecordUsage failed: %v", err)
+	}
+
+	cost, err := reporter.WorkloadCostToday(ctx, "booth-demo", "agentic-system")
+	if err != nil {
+		t.Fatalf("WorkloadCostToday failed: %v", err)
+	}
+	if cost < 0.0004 || cost > 0.0005 {
+		t.Fatalf("expected GPT-4o-mini alias cost near $0.00045, got $%.6f", cost)
+	}
+}
+
 func TestMemoryCostReporter_BudgetEnforcement(t *testing.T) {
 	r := NewMemoryCostReporter()
 	ctx := context.Background()
@@ -54,7 +96,7 @@ func TestMemoryCostReporter_BudgetEnforcement(t *testing.T) {
 	r.SetBudget("budget-test", "test-ns", 0.001)
 
 	// First call should be under budget
-	err := r.RecordUsage(ctx, "budget-test", "test-ns", "openai/gpt-4o", 1000, 1000)
+	err := r.RecordUsage(ctx, "budget-enforcement", "budget-test", "test-ns", "openai/gpt-4o", 1000, 1000)
 	if err != nil {
 		t.Fatalf("RecordUsage failed: %v", err)
 	}
@@ -74,7 +116,7 @@ func TestMemoryCostReporter_NoBudgetUnlimited(t *testing.T) {
 	ctx := context.Background()
 
 	// Record large usage with no budget set
-	err := r.RecordUsage(ctx, "no-budget", "test-ns", "openai/gpt-4o", 100000, 100000)
+	err := r.RecordUsage(ctx, "no-budget", "no-budget", "test-ns", "openai/gpt-4o", 100000, 100000)
 	if err != nil {
 		t.Fatalf("RecordUsage failed: %v", err)
 	}
@@ -103,7 +145,7 @@ func TestMemoryCostReporter_OllamaFree(t *testing.T) {
 	r := NewMemoryCostReporter()
 	ctx := context.Background()
 
-	err := r.RecordUsage(ctx, "ollama-test", "test-ns", "ollama/gemma3:1b", 5000, 3000)
+	err := r.RecordUsage(ctx, "ollama-free", "ollama-test", "test-ns", "ollama/gemma3:1b", 5000, 3000)
 	if err != nil {
 		t.Fatalf("RecordUsage failed: %v", err)
 	}
@@ -119,7 +161,7 @@ func TestMemoryCostReporter_PrometheusCollectorEmitsClawdlinuxCostMetric(t *test
 
 	r := NewMemoryCostReporter()
 	ctx := context.Background()
-	if err := r.RecordUsage(ctx, "demo-workload", "demo-ns", "openai/gpt-4o-mini", 1000, 500); err != nil {
+	if err := r.RecordUsage(ctx, "prometheus-metric", "demo-workload", "demo-ns", "openai/gpt-4o-mini", 1000, 500); err != nil {
 		t.Fatalf("RecordUsage failed: %v", err)
 	}
 

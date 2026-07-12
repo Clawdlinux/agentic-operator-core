@@ -1,18 +1,38 @@
-# Booth staging
+# Booth evidence boundaries
 
-Fallback assets for the Clawdlinux attestation demo. Use these if the live run
-hiccups. Do not present from these by default. The live demo is the demo.
+The booth flow has 6 evidence items. State the boundary before each step.
 
-## attestation-fallback.jsonl
+- **REAL:** The AgentWorkload makes one OpenAI-routed call through in-cluster LiteLLM.
+- **REAL:** Its status reports genuine nonzero tokens. Its cost metric and annotation are nonzero.
+- **REAL, SEPARATE CHECK:** A LiteLLM request checks Anthropic reachability.
+- **SIMULATION / CONFIGURATION PROOF:** A server-side dry-run shows gVisor mutation.
+- **NETWORKPOLICY OBJECT PRESENCE ONLY:** The script lists the NetworkPolicy object.
+- **PRIOR-RUN ARTIFACT:** The checked-in HMAC-signed audit fixture verifies offline.
 
-A real, hash-chained, HMAC-signed audit artifact. 6 entries simulating one
-regulated agent run: manifest emit, LLM call, an allowed egress, a denied
-egress, a human approval, and a state change to Succeeded. Produced with the
-production `pkg/audit` recorder, so it verifies with the shipped `audit-verify`.
+The current AgentWorkload does not generate the audit fixture. Audit recording
+is not wired into reconciliation yet.
+The `--present` path does not execute OPA allow or deny evaluation.
+OPA remains in the legacy default flow and target product contract.
 
-This is genuine evidence, not a mock. It verifies clean and rejects tampering.
+## Credential loading
 
-### Verify it offline (the money shot)
+`scripts/demo-booth.sh --prepare` reads provider keys from exported variables first.
+Missing keys can load from the repo-root `.env` file.
+
+Set `DEMO_ENV_FILE=/path/to/file` to use another file.
+The parser accepts only `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` definitions.
+It supports optional `export` prefixes and quoted values.
+It does not source the file or evaluate its contents.
+
+Preparation prints each variable name as `available` and reports its source.
+It never prints credential values.
+
+## Prior-run audit fixture
+
+`attestation-fallback.jsonl` is a real hash-chained, HMAC-signed artifact.
+It was produced earlier with `pkg/audit`. It contains 6 audit entries.
+
+### Verify it offline
 
 ```bash
 audit-verify --source jsonl \
@@ -20,9 +40,9 @@ audit-verify --source jsonl \
   --key booth-demo-2026=bmluZXZpZ2lsLWJvb3RoLWRlbW8tYXR0ZXN0YXRpb24ta2V5LTMyYg==
 ```
 
-Expect: `PASS — chain is intact and all checkpoints match.`
+Expect a pass showing the chain is intact.
 
-### Tamper demo (prove it is real evidence)
+### Optional tamper proof
 
 ```bash
 sed 's/"actor":"policy-analyst"/"actor":"ghost-actor"/' \
@@ -31,12 +51,10 @@ audit-verify --source jsonl --path /tmp/tampered.jsonl \
   --key booth-demo-2026=bmluZXZpZ2lsLWJvb3RoLWRlbW8tYXR0ZXN0YXRpb24ta2V5LTMyYg==
 ```
 
-Expect: `FAIL at seq=4: ... entry_hash mismatch`. One altered field and the
-chain breaks. That is what an auditor wants to see.
+Expect a failure at the changed entry. The script removes its temporary file.
 
 ## Notes
 
-- The key here is a demo key, committed on purpose so the fallback is
-  self-contained. Never use this key for a real run.
-- The verify works fully offline. No cluster, no network, no external
-  dependencies. That is the air-gapped review-room story.
+- The committed key is only for this fixture.
+- Never use it for a real workload.
+- Verification works offline without the cluster.
