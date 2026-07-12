@@ -20,6 +20,7 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -57,6 +58,8 @@ const maxActionsInStatus = 100
 // Kubernetes garbage collection does not honor cross-namespace ownerReferences,
 // so the workflow in `argo-workflows` namespace would otherwise leak.
 const AgentWorkloadFinalizer = "agentic.clawdlinux.org/finalizer"
+
+const modelRoutingPendingCondition = "ModelRoutingPending"
 
 // AgentWorkloadReconciler reconciles a AgentWorkload object
 type AgentWorkloadReconciler struct {
@@ -249,8 +252,20 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// ========== MODEL ROUTING (Phase 3) with Retry (Phase 5) ==========
-	// Handle cost-aware model routing if enabled
+	// Provider delivery is at least once. A persisted operation ID gives each
+	// retry the same upstream idempotency key when the provider supports it.
 	if workload.Spec.ModelStrategy != nil && *workload.Spec.ModelStrategy == "cost-aware" {
+		if modelRoutingSucceededForGeneration(&workload) {
+			log.Info("model routing already completed for workload generation", "generation", workload.Generation)
+			return ctrl.Result{}, nil
+		}
+
+		operationID, err := r.persistModelRoutingIntent(ctx, &workload)
+		if err != nil {
+			log.Error(err, "failed to persist model routing intent")
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+
 		type routeResult struct {
 			response    *llm.ModelResponse
 			routingInfo *llm.RoutingInfo
@@ -265,7 +280,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		})
 		response := result.response
 		routingInfo := result.routingInfo
-		err := retryInfo.LastErr
+		err = retryInfo.LastErr
 
 		if err != nil {
 			log.Error(err, "model routing failed after retries",
@@ -305,6 +320,15 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			if workload.Status.Conditions == nil {
 				workload.Status.Conditions = []metav1.Condition{}
 			}
+			workload.Status.ModelRoutingOperationID = operationID
+			workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
+				Type:               modelRoutingPendingCondition,
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: workload.Generation,
+				Reason:             "RoutingCompleted",
+				Message:            fmt.Sprintf("Model routing operation %s completed", operationID),
+				LastTransitionTime: metav1.Now(),
+			})
 
 			condition := metav1.Condition{
 				Type:               "ModelRoutingSucceeded",
@@ -319,19 +343,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				LastTransitionTime: metav1.Now(),
 			}
 
-			// Replace or append condition
-			foundIdx := -1
-			for i, c := range workload.Status.Conditions {
-				if c.Type == "ModelRoutingSucceeded" {
-					foundIdx = i
-					break
-				}
-			}
-			if foundIdx >= 0 {
-				workload.Status.Conditions[foundIdx] = condition
-			} else {
-				workload.Status.Conditions = append(workload.Status.Conditions, condition)
-			}
+			workload.Status.Conditions = upsertCondition(workload.Status.Conditions, condition)
 
 			workload.Status.Phase = "Completed"
 
@@ -766,6 +778,55 @@ func (r *AgentWorkloadReconciler) cleanupViaRuntime(ctx context.Context, workloa
 // routeAndCallModel handles cost-aware model routing for instructions
 // It classifies the task, selects the appropriate model/provider, and calls it
 // Returns the model response and routing metadata for tracking
+func modelRoutingSucceededForGeneration(workload *agenticv1alpha1.AgentWorkload) bool {
+	for _, condition := range workload.Status.Conditions {
+		if condition.Type == "ModelRoutingSucceeded" &&
+			condition.Status == metav1.ConditionTrue &&
+			condition.ObservedGeneration == workload.Generation {
+			return true
+		}
+	}
+	return false
+}
+
+func modelRoutingOperationID(workload *agenticv1alpha1.AgentWorkload) string {
+	source := fmt.Sprintf("%s/%s/%s/%d", workload.Namespace, workload.Name, workload.UID, workload.Generation)
+	digest := sha256.Sum256([]byte(source))
+	return fmt.Sprintf("agentworkload-g%d-%x", workload.Generation, digest[:12])
+}
+
+func persistedModelRoutingOperationID(workload *agenticv1alpha1.AgentWorkload) string {
+	if workload.Status.ModelRoutingOperationID != "" {
+		return workload.Status.ModelRoutingOperationID
+	}
+	return modelRoutingOperationID(workload)
+}
+
+func (r *AgentWorkloadReconciler) persistModelRoutingIntent(
+	ctx context.Context,
+	workload *agenticv1alpha1.AgentWorkload,
+) (string, error) {
+	operationID := modelRoutingOperationID(workload)
+	if workload.Status.ModelRoutingOperationID == operationID {
+		return operationID, nil
+	}
+
+	workload.Status.ModelRoutingOperationID = operationID
+	workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
+		Type:               modelRoutingPendingCondition,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: workload.Generation,
+		Reason:             "RoutingIntentPersisted",
+		Message:            fmt.Sprintf("Model routing operation %s is pending", operationID),
+		LastTransitionTime: metav1.Now(),
+	})
+
+	if err := r.Status().Update(ctx, workload); err != nil {
+		return "", fmt.Errorf("persist routing operation %s: %w", operationID, err)
+	}
+	return operationID, nil
+}
+
 func (r *AgentWorkloadReconciler) routeAndCallModel(
 	ctx context.Context,
 	workload *agenticv1alpha1.AgentWorkload,
@@ -825,6 +886,7 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 		workload.Namespace,
 		&workload.Spec,
 		instructions,
+		persistedModelRoutingOperationID(workload),
 	)
 
 	if err != nil {
@@ -832,21 +894,19 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 		return nil, routingInfo, err
 	}
 
-	go func() {
-		recordCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-
-		if recordErr := r.CostReporter.RecordUsage(
-			recordCtx,
-			workload.Name,
-			workload.Namespace,
-			routingInfo.ProviderName+"/"+routingInfo.ModelName,
-			int64(routingInfo.InputTokens),
-			int64(routingInfo.OutputTokens),
-		); recordErr != nil {
-			log.Error(recordErr, "failed to record usage")
-		}
-	}()
+	recordCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	if recordErr := r.CostReporter.RecordUsage(
+		recordCtx,
+		persistedModelRoutingOperationID(workload),
+		workload.Name,
+		workload.Namespace,
+		routingInfo.ProviderName+"/"+routingInfo.ModelName,
+		int64(routingInfo.InputTokens),
+		int64(routingInfo.OutputTokens),
+	); recordErr != nil {
+		log.Error(recordErr, "failed to record usage")
+	}
 
 	if annotateErr := r.updateWorkloadCostAnnotation(ctx, workload); annotateErr != nil {
 		log.Error(annotateErr, "failed to update workload cost annotation")

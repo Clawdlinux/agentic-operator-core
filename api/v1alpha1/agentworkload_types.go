@@ -358,6 +358,11 @@ type AgentWorkloadStatus struct {
 	// +optional
 	WorkflowArtifacts map[string]string `json:"workflowArtifacts,omitempty"`
 
+	// modelRoutingOperationID is the stable idempotency key for the current
+	// workload generation's model call.
+	// +optional
+	ModelRoutingOperationID string `json:"modelRoutingOperationID,omitempty"`
+
 	// conditions represent the current state of the AgentWorkload resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
 	//

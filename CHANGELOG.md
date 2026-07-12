@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added a working booth prepare/present flow with real provider and cost proof.
+
+### Changed
+- Changed the internal Go `CostReporter.RecordUsage` and `Provider.CallModel` interfaces to carry operation IDs for idempotency. This breaks out-of-tree implementations.
+- Added the optional `litellm.anthropicKey` chart value. Use `litellm.existingSecret` for booth and production deployments.
+
 ## [0.2.0] - 2026-04-25
 
 Production-ready agent orchestration release with multi-agent demos, pluggable workflows, CLI onboarding, and landing page overhaul.

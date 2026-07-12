@@ -17,7 +17,7 @@ func TestFinOpsMetricsEndpointContainsClawdlinuxCostMetric(t *testing.T) {
 	t.Parallel()
 
 	reporter := finops.NewMemoryCostReporter()
-	if err := reporter.RecordUsage(context.Background(), "demo-workload", "demo-ns", "openai/gpt-4o-mini", 1000, 500); err != nil {
+	if err := reporter.RecordUsage(context.Background(), "main-cost-reporter", "demo-workload", "demo-ns", "openai/gpt-4o-mini", 1000, 500); err != nil {
 		t.Fatalf("record usage: %v", err)
 	}
 
