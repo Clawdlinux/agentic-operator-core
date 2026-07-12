@@ -15,7 +15,7 @@
 
 ## Abstract
 
-NineVigil today issues agent identity per-cluster via Kubernetes ServiceAccounts plus an operator-issued JWT for agent-to-agent (A2A) calls within the cluster. Enterprise deployments increasingly span multiple clusters — multi-region, multi-tenant, and multi-org — and there is no verifiable, zero-secret mechanism for an agent in Cluster A to authenticate to a service or another agent in Cluster B. This RFC proposes adopting **SPIFFE/SPIRE** (CNCF graduated) as the workload identity layer to enable federated, cryptographically verifiable agent identity across trust domains. The proposal is additive — existing ServiceAccount-based identity remains the default; SPIFFE is opt-in per `AgentWorkload`.
+Clawdlinux today issues agent identity per-cluster via Kubernetes ServiceAccounts plus an operator-issued JWT for agent-to-agent (A2A) calls within the cluster. Enterprise deployments increasingly span multiple clusters — multi-region, multi-tenant, and multi-org — and there is no verifiable, zero-secret mechanism for an agent in Cluster A to authenticate to a service or another agent in Cluster B. This RFC proposes adopting **SPIFFE/SPIRE** (CNCF graduated) as the workload identity layer to enable federated, cryptographically verifiable agent identity across trust domains. The proposal is additive — existing ServiceAccount-based identity remains the default; SPIFFE is opt-in per `AgentWorkload`.
 
 ---
 
@@ -23,7 +23,7 @@ NineVigil today issues agent identity per-cluster via Kubernetes ServiceAccounts
 
 ### 1.1 The pain
 
-A platform engineer running NineVigil across two clusters (say, US-East and EU-West, or `prod` and `restricted-data`) currently has three options to let agents authenticate across clusters, all bad:
+A platform engineer running Clawdlinux across two clusters (say, US-East and EU-West, or `prod` and `restricted-data`) currently has three options to let agents authenticate across clusters, all bad:
 
 1. **Shared static secret** — copy a JWT signing key between operator deployments. Violates zero-trust. Rotation is manual and risky.
 2. **mTLS via cert-manager + shared CA** — works for service-to-service but doesn't carry workload identity (the receiving side only knows "some pod in Cluster A," not "the research-agent workload owned by tenant-fintech").
@@ -32,9 +32,9 @@ A platform engineer running NineVigil across two clusters (say, US-East and EU-W
 This was raised externally by [@JacobSobolev on X](https://x.com/JacobSobolev/status/2056631848009085244) on 19 May 2026:
 > "How are you handling the cross-cluster identity for those agents?"
 
-### 1.2 Why it matters for NineVigil
+### 1.2 Why it matters for Clawdlinux
 
-NineVigil's positioning is **air-gapped, zero-egress, regulated-industry agent orchestration** (FedRAMP, HIPAA, sovereign cloud). Those buyers run multi-cluster by default. At minimum, prod and DR. Often a separate cluster per classification level or region. Without federated identity, the multi-cluster story falls apart. Existing approaches (Istio mTLS + OIDC, shared static secrets) assume cloud-connected control planes or manual key rotation. Neither works air-gapped.
+Clawdlinux's positioning is **air-gapped, zero-egress, regulated-industry agent orchestration** (FedRAMP, HIPAA, sovereign cloud). Those buyers run multi-cluster by default. At minimum, prod and DR. Often a separate cluster per classification level or region. Without federated identity, the multi-cluster story falls apart. Existing approaches (Istio mTLS + OIDC, shared static secrets) assume cloud-connected control planes or manual key rotation. Neither works air-gapped.
 
 ### 1.3 Non-goals (explicit)
 
@@ -103,10 +103,10 @@ SPIFFE/SPIRE wins because: CNCF graduated (credibility), air-gap friendly (no ph
 ### 4.1 Topology
 
 ```
-┌────────────────── Trust Domain: ninevigil-us-east ──────────────────┐
+┌────────────────── Trust Domain: clawdlinux-us-east ─────────────────┐
 │                                                                      │
 │   ┌──────────────┐         ┌──────────────────┐                     │
-│   │ SPIRE Server │────────▶│ NineVigil        │                     │
+│   │ SPIRE Server │────────▶│ Clawdlinux       │                     │
 │   │ (us-east)    │         │ Operator         │                     │
 │   └──────┬───────┘         └────────┬─────────┘                     │
 │          │ Workload API              │ Reconciles                    │
@@ -120,9 +120,9 @@ SPIFFE/SPIRE wins because: CNCF graduated (credibility), air-gap friendly (no ph
                 │ Federation API
                 │ (trust bundle exchange)
                 ▼
-┌────────────────── Trust Domain: ninevigil-eu-west ──────────────────┐
+┌────────────────── Trust Domain: clawdlinux-eu-west ─────────────────┐
 │   ┌──────────────┐         ┌──────────────────┐                     │
-│   │ SPIRE Server │────────▶│ NineVigil        │                     │
+│   │ SPIRE Server │────────▶│ Clawdlinux       │                     │
 │   │ (eu-west)    │         │ Operator         │                     │
 │   └──────────────┘         └──────────────────┘                     │
 └──────────────────────────────────────────────────────────────────────┘
@@ -202,7 +202,7 @@ Two modes:
 
 1. **Connected mode (default for cloud customers):** SPIRE servers federate via the SPIFFE Federation API over HTTPS. Operator configures federation relationships from `spec.identity.spiffe.federatedTo`.
 
-2. **Air-gapped mode (FedRAMP, sovereign):** Trust bundles are exported as JSON, manually transferred, and loaded into the remote SPIRE server via `spire-server bundle set`. NineVigil ships a CLI helper: `agentctl identity export-bundle` / `agentctl identity import-bundle`.
+2. **Air-gapped mode (FedRAMP, sovereign):** Trust bundles are exported as JSON, manually transferred, and loaded into the remote SPIRE server via `spire-server bundle set`. Clawdlinux ships a CLI helper: `agentctl identity export-bundle` / `agentctl identity import-bundle`.
 
 ### 4.6 Helm chart changes
 
@@ -255,7 +255,7 @@ SPIRE remains optional. Users who don't enable it pay zero footprint cost.
 
 - SPIFFE/SPIRE has been adopted by federal vendors (Bloomberg, Square, ByteDance disclosed).
 - Air-gapped trust bundle exchange aligns with FedRAMP boundary controls.
-- SPIRE server logs are auditable and integrate with the existing NineVigil audit chain.
+- SPIRE server logs are auditable and integrate with the existing Clawdlinux audit chain.
 
 ---
 
@@ -275,7 +275,7 @@ Deprecation timeline: **no deprecation of v1 planned.** Operator-issued JWT rema
 
 1. **Sidecar vs init vs hostpath default** — sidecar is the safest for long-running LangGraph agents. Confirm with users.
 2. **Trust bundle refresh cadence** — SPIRE federation polls every 30s by default. Acceptable for air-gapped where manual import is rare?
-3. **Should NineVigil bundle SPIRE in the Helm chart, or document BYO only?** Bundling adds maintenance burden; BYO raises adoption friction. Lean: bundle as opt-in sub-chart.
+3. **Should Clawdlinux bundle SPIRE in the Helm chart, or document BYO only?** Bundling adds maintenance burden; BYO raises adoption friction. Lean: bundle as opt-in sub-chart.
 4. **A2A skill-level authorization** — once we have SPIFFE IDs, do we add a policy like "only `spiffe://*/agent/tenant-fintech/*` can call the `analyze-portfolio` skill"? OPA-based, separate from this RFC?
 5. **Performance of JWT-SVID validation on every A2A call** — measure overhead, consider caching verified IDs for short windows.
 6. **Cross-cloud (AWS IAM ↔ GCP SA ↔ Azure AD)** — explicitly deferred to a future RFC. Confirm scope is acceptable.
@@ -303,7 +303,7 @@ Use cert-manager to issue per-pod certs from a shared root. Rejected: no workloa
 
 ### 8.5 ACME agent enrollment (deferred, see [#106](https://github.com/Clawdlinux/agentic-operator-core/issues/106))
 
-Extend the ACME protocol (RFC 8555) so each agent enrolls for its own certificate via a NineVigil-hosted ACME server. ACME is widely understood (Let's Encrypt, cert-manager users), and pairing it with DNS-01 or HTTP-01 challenges gives an automation story without bringing in SPIRE.
+Extend the ACME protocol (RFC 8555) so each agent enrolls for its own certificate via a Clawdlinux-hosted ACME server. ACME is widely understood (Let's Encrypt, cert-manager users), and pairing it with DNS-01 or HTTP-01 challenges gives an automation story without bringing in SPIRE.
 
 **Why deferred, not rejected:** ACME is a credible alternative for clusters already heavily invested in cert-manager and uncomfortable adopting SPIRE. The trade-offs vs SPIFFE/SPIRE:
 
@@ -365,8 +365,8 @@ This RFC is the canonical design for a problem already present on the project's 
 - [SPIRE Documentation](https://spiffe.io/docs/latest/spire-about/)
 - [SPIFFE Federation API](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE_Federation.md)
 - [CNCF SPIFFE/SPIRE Graduation Announcement (2022)](https://www.cncf.io/announcements/2022/09/20/cloud-native-computing-foundation-announces-spiffe-and-spire-graduation/)
-- [NineVigil A2A Architecture](../a2a-architecture.md)
-- [NineVigil Threat Model](../threat-model.md)
+- [Clawdlinux A2A Architecture](../a2a-architecture.md)
+- [Clawdlinux Threat Model](../threat-model.md)
 - [Original X discussion (@JacobSobolev, 19 May 2026)](https://x.com/JacobSobolev/status/2056631848009085244)
 
 ---

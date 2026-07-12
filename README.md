@@ -41,17 +41,17 @@
 
 ---
 
-## Why NineVigil?
+## Why Clawdlinux?
 
 Platform teams running AI agents on Kubernetes face the same regulated-ops questions regardless of which agent runtime they use.
 
 Who can the agent call? Which runtime isolates it? What did it cost? What did it do? Can an auditor replay it later?
 
-NineVigil is a governance plane that answers those questions. It adds regulated controls around any agent workload.
+Clawdlinux is a governance plane that answers those questions. It adds regulated controls around any agent workload.
 
-The wedge: NineVigil emits a signed, tamper-evident attestation artifact for each run and applies a zero-egress seal at the network boundary. The artifact is hash-chained and verifiable offline with `audit-verify`, so an auditor can replay what an agent did months later inside an air-gapped cluster. The same seal and attestation contract applies to a NineVigil AgentWorkload, a CNCF runtime, or your own labeled pods. This is the part most agent runtimes leave to you. NineVigil ships it in-cluster.
+The wedge: Clawdlinux emits a signed, tamper-evident attestation artifact for each run and applies a zero-egress seal at the network boundary. The artifact is hash-chained and verifiable offline with `audit-verify`, so an auditor can replay what an agent did months later inside an air-gapped cluster. The same seal and attestation contract applies to a Clawdlinux AgentWorkload, a CNCF runtime, or your own labeled pods. This is the part most agent runtimes leave to you. Clawdlinux ships it in-cluster.
 
-| Capability | What NineVigil provides |
+| Capability | What Clawdlinux provides |
 |---|---|
 | Runtime isolation | gVisor `RuntimeClass` injection for labeled pods |
 | Audit | Tamper-evident audit chain |
@@ -62,15 +62,15 @@ The wedge: NineVigil emits a signed, tamper-evident attestation artifact for eac
 
 ### Supported runtimes
 
-NineVigil works with any Kubernetes agent runtime:
+Clawdlinux works with any Kubernetes agent runtime:
 
-- **NineVigil AgentWorkload** (built-in CRD)
+- **Clawdlinux AgentWorkload** (built-in CRD)
 - **CNCF agent runtimes** like kagent
 - **Custom agent pods** with the right labels
 
-The runtime handles agent lifecycle, tools, and model dispatch. NineVigil handles isolation, audit, spend, and compliance. Use both.
+The runtime handles agent lifecycle, tools, and model dispatch. Clawdlinux handles isolation, audit, spend, and compliance. Use both.
 
-| Problem | NineVigil |
+| Problem | Clawdlinux |
 |---------|-----------------|
 | Agent sprawl across namespaces | Single `AgentWorkload` CRD per agent |
 | No network boundaries | Cilium FQDN egress policies auto-applied |
@@ -81,13 +81,13 @@ The runtime handles agent lifecycle, tools, and model dispatch. NineVigil handle
 
 ### Runtime sandbox for labeled pods
 
-Any agent deployment can opt into NineVigil's gVisor injector with one label:
+Any agent deployment can opt into Clawdlinux's gVisor injector with one label:
 
 ```yaml
 agentic.clawdlinux.org/runtime-sandbox: gvisor
 ```
 
-The NineVigil webhook mutates matching Pods on create:
+The Clawdlinux webhook mutates matching Pods on create:
 
 ```yaml
 runtimeClassName: gvisor
@@ -122,10 +122,10 @@ $ kubectl logs -n aw-research-run agent-pod --tail=5
 
 ## Agent-callable API (MCP)
 
-NineVigil's `AgentWorkload` CRD is already an agent-readable interface — agents
+Clawdlinux's `AgentWorkload` CRD is already an agent-readable interface — agents
 can read the schema and reason about the spec. `agentctl mcp serve` is the
 **wire-protocol** surface so an external orchestrator agent (Claude Desktop,
-Cursor, ChatGPT, custom Python) can provision its own NineVigil execution
+Cursor, ChatGPT, custom Python) can provision its own Clawdlinux execution
 environments without a human running `kubectl`.
 
 ```bash
@@ -184,8 +184,8 @@ flowchart LR
 
     API["Kubernetes<br/>API Server"]
 
-    subgraph plane["NineVigil governance plane"]
-        OP["NineVigil Operator<br/>(license, OPA, cost)"]
+    subgraph plane["Clawdlinux governance plane"]
+        OP["Clawdlinux Operator<br/>(license, OPA, cost)"]
         RT["Runtime Adapter<br/>(spec.orchestration.type)"]
         ARGO["Argo Workflows"]
         POD["BYO Pod"]
@@ -265,7 +265,7 @@ Enterprise inquiries: [shreyanshsancheti09@gmail.com](mailto:shreyanshsancheti09
 
 ## Security & Sandbox
 
-NineVigil ships **default-deny egress NetworkPolicies** for every agent namespace (Helm-toggleable via `networkPolicy.enabled`, default true). It can also create a gVisor `RuntimeClass` and register a pod mutating webhook for labeled agent pods. See [docs/07-security.md](docs/07-security.md) for details.
+Clawdlinux ships **default-deny egress NetworkPolicies** for every agent namespace (Helm-toggleable via `networkPolicy.enabled`, default true). It can also create a gVisor `RuntimeClass` and register a pod mutating webhook for labeled agent pods. See [docs/07-security.md](docs/07-security.md) for details.
 
 ---
 

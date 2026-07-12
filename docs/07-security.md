@@ -85,7 +85,7 @@ This closes [issue #129](https://github.com/Clawdlinux/agentic-operator-core/iss
 
 Agent code runs untrusted by definition — both because the agent's instructions
 come from end users (prompt injection surface) and because tool outputs may
-contain hostile content. NineVigil sandboxes agent pods at the syscall layer so
+contain hostile content. Clawdlinux sandboxes agent pods at the syscall layer so
 a successful container-escape primitive does not yield host kernel access.
 
 **Default sandbox: gVisor** ([gvisor.dev](https://gvisor.dev/)). gVisor

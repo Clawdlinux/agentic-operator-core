@@ -3,11 +3,11 @@
 `agentctl mcp serve` exposes six [Model Context Protocol](https://modelcontextprotocol.io)
 tools that map 1:1 to AgentWorkload CRD verbs. External orchestrator agents
 (Claude Desktop, Cursor, ChatGPT, custom) can call these tools to provision
-their own NineVigil execution environments without a human running `kubectl`.
+their own Clawdlinux execution environments without a human running `kubectl`.
 
 ## Why this exists
 
-A NineVigil AgentWorkload is already an agent-readable interface — agents can
+A Clawdlinux AgentWorkload is already an agent-readable interface — agents can
 read the schema and reason about the spec. What was missing was the **wire
 protocol** so an external agent can actually `POST` a workload into the cluster.
 `agentctl mcp serve` is that wire protocol. See [issue #140](https://github.com/Clawdlinux/agentic-operator-core/issues/140).

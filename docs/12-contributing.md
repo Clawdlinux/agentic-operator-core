@@ -1,6 +1,6 @@
 # Contributing
 
-Help improve NineVigil!
+Help improve Clawdlinux!
 
 ## Development Setup
 
