@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package runtime defines the RuntimeAdapter interface that decouples NineVigil
+// Package runtime defines the RuntimeAdapter interface that decouples Clawdlinux
 // governance controls from the underlying agent execution engine.
 //
 // The reconciler calls RuntimeAdapter methods instead of Argo-specific code
 // directly. Each adapter implements the same egress-seal, attestation, and
-// lifecycle contract. This lets NineVigil work with AgentWorkload CRDs,
+// lifecycle contract. This lets Clawdlinux work with AgentWorkload CRDs,
 // external labeled pods, CNCF agent runtimes, or any future engine without
 // code changes in the controller.
 package runtime
@@ -48,7 +48,7 @@ type ExecutionStatus struct {
 }
 
 // RuntimeAdapter is the interface every execution engine must implement.
-// NineVigil governance controls (gVisor injection, egress seal, audit,
+// Clawdlinux governance controls (gVisor injection, egress seal, audit,
 // attestation) apply identically regardless of which adapter is active.
 type RuntimeAdapter interface {
 	// Capabilities returns what this adapter supports.

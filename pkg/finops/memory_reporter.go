@@ -60,7 +60,7 @@ func NewMemoryCostReporter() *MemoryCostReporter {
 	)
 	costDollarsGauge := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "ninevigil_agent_cost_dollars",
+			Name: "clawdlinux_agent_cost_dollars",
 			Help: "Estimated USD cost per agent workload.",
 		},
 		[]string{"workload", "namespace", "model"},

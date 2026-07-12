@@ -27,7 +27,7 @@ limitations under the License.
 //	get_workload_cost    -> LiteLLM cost-attribution hook
 //	delete_workload      -> delete
 //
-// Auth is bearer-token only this sprint (env NINEVIGIL_MCP_TOKEN). Full RBAC
+// Auth is bearer-token only this sprint (env CLAWDLINUX_MCP_TOKEN). Full RBAC
 // integration (OIDC/SPIFFE) is deferred to v0.5 per the Phase 2 spec.
 package mcp
 

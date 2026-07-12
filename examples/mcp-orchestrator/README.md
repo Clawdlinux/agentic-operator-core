@@ -1,6 +1,6 @@
-# NineVigil MCP demo — Python orchestrator
+# Clawdlinux MCP demo — Python orchestrator
 
-Tiny script that drives the NineVigil MCP server over HTTP using only Python
+Tiny script that drives the Clawdlinux MCP server over HTTP using only Python
 stdlib (`urllib`). Demonstrates discovery + sequential creation of three
 AgentWorkloads + status polling. The script that powers the YC demo recording.
 
@@ -16,8 +16,8 @@ AgentWorkloads + status polling. The script that powers the YC demo recording.
 agentctl mcp serve --addr 127.0.0.1:8765 --auth-token demo
 
 # 2. In this directory
-NINEVIGIL_MCP_ENDPOINT=http://127.0.0.1:8765 \
-NINEVIGIL_MCP_TOKEN=demo \
+CLAWDLINUX_MCP_ENDPOINT=http://127.0.0.1:8765 \
+CLAWDLINUX_MCP_TOKEN=demo \
 python3 orchestrator.py
 ```
 

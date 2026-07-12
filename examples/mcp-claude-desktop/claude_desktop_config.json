@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "ninevigil": {
+    "clawdlinux": {
       "command": "agentctl",
       "args": [
         "mcp",

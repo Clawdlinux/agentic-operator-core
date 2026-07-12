@@ -129,7 +129,7 @@ Cursor, ChatGPT, custom Python) can provision its own Clawdlinux execution
 environments without a human running `kubectl`.
 
 ```bash
-export NINEVIGIL_MCP_TOKEN=$(uuidgen)
+export CLAWDLINUX_MCP_TOKEN=$(uuidgen)
 agentctl mcp serve --addr :8765 --default-namespace agentic-system
 ```
 

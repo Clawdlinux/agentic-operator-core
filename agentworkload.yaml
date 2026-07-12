@@ -4,7 +4,7 @@ metadata:
   name: demo-argo-gate
   namespace: agentic-system
   labels:
-    app.kubernetes.io/part-of: ninevigil
+    app.kubernetes.io/part-of: clawdlinux
     gate: demo
 spec:
   objective: "Run the Argo workload demo gate."

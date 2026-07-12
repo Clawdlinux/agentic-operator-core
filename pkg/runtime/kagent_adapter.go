@@ -42,7 +42,7 @@ var kagentGVK = schema.GroupVersionKind{Group: kagentGroup, Version: kagentVersi
 
 // KagentAdapter runs an AgentWorkload as a kagent Agent (kagent.dev/v1alpha2)
 // in BYO mode: kagent deploys our agent image and serves it over A2A. We stamp
-// the NineVigil governance labels onto kagent's pods through its deployment
+// the Clawdlinux governance labels onto kagent's pods through its deployment
 // label passthrough, so the gVisor injector and the egress NetworkPolicy seal
 // them identically to every other runtime. No Go dependency on kagent:
 // everything goes through the unstructured client.
@@ -68,7 +68,7 @@ func (a *KagentAdapter) Capabilities() RuntimeCapabilities {
 // agent image is configured rather than creating an unusable Agent.
 func (a *KagentAdapter) Execute(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) (*ExecutionStatus, error) {
 	if a.Image == "" {
-		return nil, fmt.Errorf("kagent adapter: agent image is required (set NINEVIGIL_AGENT_IMAGE)")
+		return nil, fmt.Errorf("kagent adapter: agent image is required (set CLAWDLINUX_AGENT_IMAGE)")
 	}
 	agent := a.buildAgent(workload)
 	if err := a.Client.Create(ctx, agent); err != nil && !apierrors.IsAlreadyExists(err) {

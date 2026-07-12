@@ -50,7 +50,7 @@ Clawdlinux's positioning is **air-gapped, zero-egress, regulated-industry agent 
 
 **SPIFFE** (Secure Production Identity Framework For Everyone) is a CNCF graduated specification (2022) defining:
 
-- **SPIFFE ID** — a URI of the form `spiffe://<trust_domain>/<path>`, e.g. `spiffe://ninevigil-us-east.example.com/agent/research-swarm/instance-42`.
+- **SPIFFE ID** — a URI of the form `spiffe://<trust_domain>/<path>`, e.g. `spiffe://clawdlinux-us-east.example.com/agent/research-swarm/instance-42`.
 - **SVID** (SPIFFE Verifiable Identity Document) — the cryptographic document presenting a SPIFFE ID. Two flavors: X.509-SVID (mTLS) and JWT-SVID (HTTP headers).
 - **Trust bundle** — the set of CA certificates / public keys a workload uses to verify SVIDs from a given trust domain.
 - **Workload API** — a local Unix socket (`/run/spire/sockets/agent.sock`) that workloads call to fetch their SVID without holding any long-lived secret.
@@ -149,13 +149,13 @@ spec:
     # Opt-in: if absent, agent uses ServiceAccount + operator JWT only.
     spiffe:
       enabled: true
-      trustDomain: "ninevigil-us-east.example.com"
+      trustDomain: "clawdlinux-us-east.example.com"
       # Optional: explicit SPIFFE ID path. Default: /agent/<namespace>/<name>
       idPath: "/agent/tenant-fintech/research-swarm"
       # Trust domains this agent is allowed to authenticate to.
       federatedTo:
-        - "ninevigil-eu-west.example.com"
-        - "ninevigil-restricted.example.com"
+        - "clawdlinux-eu-west.example.com"
+        - "clawdlinux-restricted.example.com"
       # Workload API socket mount mode: sidecar | init | hostpath
       injectionMode: "sidecar"
 ```
@@ -173,7 +173,7 @@ Proposed v2 (federation-capable):
 Agent A → Agent B: POST /a2a/handshake
   Authorization: Bearer <jwt-svid>
   X-A2A-Version: 2
-  X-A2A-TrustDomain: ninevigil-us-east.example.com
+  X-A2A-TrustDomain: clawdlinux-us-east.example.com
 ```
 
 Receiving agent (B):
@@ -279,7 +279,7 @@ Deprecation timeline: **no deprecation of v1 planned.** Operator-issued JWT rema
 4. **A2A skill-level authorization** — once we have SPIFFE IDs, do we add a policy like "only `spiffe://*/agent/tenant-fintech/*` can call the `analyze-portfolio` skill"? OPA-based, separate from this RFC?
 5. **Performance of JWT-SVID validation on every A2A call** — measure overhead, consider caching verified IDs for short windows.
 6. **Cross-cloud (AWS IAM ↔ GCP SA ↔ Azure AD)** — explicitly deferred to a future RFC. Confirm scope is acceptable.
-7. **SPIRE agent placement** — DaemonSet on every node, or only nodes labeled `ninevigil.io/agent-host=true`? Trade-off: simplicity vs blast radius.
+7. **SPIRE agent placement** — DaemonSet on every node, or only nodes labeled `clawdlinux.io/agent-host=true`? Trade-off: simplicity vs blast radius.
 
 ---
 

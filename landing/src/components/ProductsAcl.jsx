@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
-const ACL_GITHUB = 'https://github.com/Clawdlinux/ninevigil-acp';
+const ACL_GITHUB = 'https://github.com/Clawdlinux/clawdlinux-acp';
 const OPERATOR_GITHUB = 'https://github.com/Clawdlinux/agentic-operator-core';
 
 const PRODUCTS = [
@@ -132,7 +132,7 @@ export default function ProductsAcl() {
             lineHeight: 1.6,
           }}
         >
-          NineVigil ships the operational layer (Kubernetes operator) and the
+          Clawdlinux ships the operational layer (Kubernetes operator) and the
           data layer (compact agent-native representation format) for
           production AI agents in regulated environments.
         </p>

@@ -47,7 +47,7 @@ func newMCPCommand(opts *cliOptions) *cobra.Command {
 		Short: "MCP (Model Context Protocol) server — agent-callable AgentWorkload API",
 		Long: `Run an MCP server that exposes AgentWorkload CRD verbs as tools an
 external orchestrator agent (Claude Desktop, Cursor, ChatGPT, custom) can call
-to provision its own NineVigil execution environments.
+to provision its own Clawdlinux execution environments.
 
 Six tools are registered:
   create_workload      provision a new AgentWorkload
@@ -68,13 +68,13 @@ func newMCPServeCommand(opts *cliOptions) *cobra.Command {
 		Short: "Start the MCP server",
 		Long: `Start an HTTP MCP server that exposes the six AgentWorkload tools.
 
-Auth: when env NINEVIGIL_MCP_TOKEN is set (or --auth-token is passed) every
+Auth: when env CLAWDLINUX_MCP_TOKEN is set (or --auth-token is passed) every
 request must carry "Authorization: Bearer <token>". Empty token disables auth
 — intended for local stdio transport on a trusted host.
 
 Examples:
   # HTTP transport on :8765 with bearer auth
-  NINEVIGIL_MCP_TOKEN=$(uuidgen) agentctl mcp serve --addr :8765
+  CLAWDLINUX_MCP_TOKEN=$(uuidgen) agentctl mcp serve --addr :8765
 
   # Stdio transport for Claude Desktop / Cursor MCP client config
   agentctl mcp serve --transport stdio`,
@@ -86,7 +86,7 @@ Examples:
 	cmd.Flags().StringVar(&srvOpts.transport, "transport", "http", "Transport: http|stdio")
 	cmd.Flags().StringVar(&srvOpts.defaultNamespace, "default-namespace", "agentic-system", "Namespace to use when a tool call omits one")
 	cmd.Flags().StringVar(&srvOpts.litellmURL, "litellm-url", "", "Override LiteLLM cost endpoint (default: in-cluster service)")
-	cmd.Flags().StringVar(&srvOpts.authTokenFlag, "auth-token", "", "Bearer token (or set NINEVIGIL_MCP_TOKEN)")
+	cmd.Flags().StringVar(&srvOpts.authTokenFlag, "auth-token", "", "Bearer token (or set CLAWDLINUX_MCP_TOKEN)")
 	return cmd
 }
 
@@ -97,7 +97,7 @@ func runMCPServe(ctx context.Context, opts *cliOptions, srvOpts *mcpServeOptions
 
 	token := srvOpts.authTokenFlag
 	if token == "" {
-		token = os.Getenv("NINEVIGIL_MCP_TOKEN")
+		token = os.Getenv("CLAWDLINUX_MCP_TOKEN")
 	}
 
 	server, err := mcp.NewServer(mcp.ServerConfig{
@@ -121,7 +121,7 @@ func runMCPServe(ctx context.Context, opts *cliOptions, srvOpts *mcpServeOptions
 }
 
 func runHTTPTransport(ctx context.Context, server *mcp.Server, srvOpts *mcpServeOptions, authed bool, w io.Writer) error {
-	authStatus := "DISABLED (set NINEVIGIL_MCP_TOKEN to enable)"
+	authStatus := "DISABLED (set CLAWDLINUX_MCP_TOKEN to enable)"
 	if authed {
 		authStatus = "ENABLED (Bearer token required)"
 	}
