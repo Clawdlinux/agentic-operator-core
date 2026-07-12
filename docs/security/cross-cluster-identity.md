@@ -2,11 +2,11 @@
 
 > **Status:** Design stage. Implementation gated on validation in [RFC-0001](../rfcs/0001-cross-cluster-agent-identity.md).
 
-This document will hold the operational guide for configuring federated workload identity across NineVigil clusters using SPIFFE/SPIRE.
+This document will hold the operational guide for configuring federated workload identity across Clawdlinux clusters using SPIFFE/SPIRE.
 
 ## Current state
 
-NineVigil today issues per-cluster identity:
+Clawdlinux today issues per-cluster identity:
 
 - **Intra-cluster:** Kubernetes ServiceAccount tokens plus an operator-issued JWT for agent-to-agent (A2A) calls.
 - **Cross-cluster:** No native mechanism. Operators must share static secrets, run Istio with a shared CA, or accept that agents in Cluster A cannot verifiably authenticate to Cluster B.

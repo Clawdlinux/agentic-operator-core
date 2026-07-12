@@ -1,6 +1,6 @@
 # Security Documentation
 
-Security guides, threat models, and identity architecture for NineVigil.
+Security guides, threat models, and identity architecture for Clawdlinux.
 
 ## Index
 

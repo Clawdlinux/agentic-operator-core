@@ -1,6 +1,6 @@
 # Configuration Guide
 
-Configure the NineVigil for your environment.
+Configure Clawdlinux for your environment.
 
 ## Helm Values
 

@@ -1,6 +1,6 @@
 # RFCs (Request for Comments)
 
-This directory holds design proposals for significant architectural changes to NineVigil. RFCs are public design artifacts opened for community input *before* implementation begins.
+This directory holds design proposals for significant architectural changes to Clawdlinux. RFCs are public design artifacts opened for community input *before* implementation begins.
 
 ## Lifecycle
 
