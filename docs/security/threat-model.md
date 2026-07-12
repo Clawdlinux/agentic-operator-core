@@ -1,10 +1,10 @@
-# Threat Model — NineVigil
+# Threat Model — Clawdlinux
 
 > Last updated: 2026-04-21
 
 ## Scope
 
-This document describes the security boundaries, threat vectors, and mitigations for the NineVigil platform — a Kubernetes-native system for scheduling, isolating, and managing AI agent workloads.
+This document describes the security boundaries, threat vectors, and mitigations for the Clawdlinux platform — a Kubernetes-native system for scheduling, isolating, and managing AI agent workloads.
 
 ## Trust Boundaries
 

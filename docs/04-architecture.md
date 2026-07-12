@@ -4,7 +4,7 @@ System design and components.
 
 ## Overview
 
-NineVigil is a Kubernetes operator that runs autonomous AI agent workloads
+Clawdlinux is a Kubernetes operator that runs autonomous AI agent workloads
 under governance: sandboxed, egress-sealed, cost-attributed, and recorded in a
 tamper-evident audit chain that an auditor can verify offline.
 
@@ -17,8 +17,8 @@ flowchart LR
 
     API["Kubernetes<br/>API Server"]
 
-    subgraph plane["NineVigil governance plane"]
-        OP["NineVigil Operator<br/>(license, OPA, cost)"]
+    subgraph plane["Clawdlinux governance plane"]
+        OP["Clawdlinux Operator<br/>(license, OPA, cost)"]
         RT["Runtime Adapter<br/>(spec.orchestration.type)"]
         ARGO["Argo Workflows"]
         POD["BYO Pod"]
