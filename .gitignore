@@ -104,3 +104,4 @@ _artifacts/
 /audit-verify
 /manager
 /main
+.playwright-mcp/

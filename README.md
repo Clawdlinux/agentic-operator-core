@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/ninevigil-logo.svg" alt="NineVigil" width="90" height="90" />
+  <img src="assets/clawdlinux-logo-512.png" alt="Clawdlinux" width="90" height="90" />
 </p>
 
 <h1 align="center">Clawdlinux Operator</h1>
