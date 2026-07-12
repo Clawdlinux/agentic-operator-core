@@ -13,7 +13,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
 )
 
-func TestFinOpsMetricsEndpointContainsNineVigilCostMetric(t *testing.T) {
+func TestFinOpsMetricsEndpointContainsClawdlinuxCostMetric(t *testing.T) {
 	t.Parallel()
 
 	reporter := finops.NewMemoryCostReporter()
@@ -38,8 +38,8 @@ func TestFinOpsMetricsEndpointContainsNineVigilCostMetric(t *testing.T) {
 		t.Fatalf("read body: %v", err)
 	}
 	body := string(bodyBytes)
-	if !strings.Contains(body, "ninevigil_agent_cost_dollars") {
-		t.Fatalf("metrics body missing ninevigil_agent_cost_dollars:\n%s", body)
+	if !strings.Contains(body, "clawdlinux_agent_cost_dollars") {
+		t.Fatalf("metrics body missing clawdlinux_agent_cost_dollars:\n%s", body)
 	}
 	if !strings.Contains(body, `model="openai/gpt-4o-mini"`) {
 		t.Fatalf("metrics body missing model label:\n%s", body)

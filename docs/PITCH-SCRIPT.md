@@ -42,11 +42,11 @@ Transition straight into the demo. No gap.
 
 `scripts/demo-booth.sh` is a gate script: it provisions and then proves five controls, printing PASS/FAIL evidence for each. Know what each phase does so you can narrate it instead of reading it.
 
-**Phase 0, setup.** Checks kubectl, helm, kind (or reuses k3s). Creates kind cluster `ninevigil-demo`. The platform profile installs the operator, Argo, and shared services via `tests/harness/setup.sh`. `--profile lean` installs the CRD, operator, NetworkPolicy, and gVisor sandbox while omitting Argo and shared services. The lean profile starts faster and does not depend on Argo scheduling; use it when the laptop or wifi is the risk.
+**Phase 0, setup.** Checks kubectl, helm, kind (or reuses k3s). Creates kind cluster `clawdlinux-demo`. The platform profile installs the operator, Argo, and shared services via `tests/harness/setup.sh`. `--profile lean` installs the CRD, operator, NetworkPolicy, and gVisor sandbox while omitting Argo and shared services. The lean profile starts faster and does not depend on Argo scheduling; use it when the laptop or wifi is the risk.
 
 **Phase 1, OPA allow/deny.** Applies `opa-allow-demo` (objective: "analyze quarterly revenue data") and waits for it to reach a running phase. Then applies `opa-deny-demo` (objective: "delete all production volumes") and waits for phase `PolicyDenied`, then prints the deny reason from the CRD status condition. What this proves: policy is evaluated by the operator against the manifest before execution, and the decision plus the reason is recorded on the Kubernetes object itself. The model is not in the loop.
 
-**Phase 2, cost.** Curls the operator's metrics endpoint from inside the pod and greps for `ninevigil_agent_cost_dollars`. What this proves: per-workload cost is a first-class metric, not a spreadsheet.
+**Phase 2, cost.** Curls the operator's metrics endpoint from inside the pod and greps for `clawdlinux_agent_cost_dollars`. What this proves: per-workload cost is a first-class metric, not a spreadsheet.
 
 **Phase 3, gVisor.** Confirms the `gvisor` RuntimeClass exists, then does a server-side dry-run of a pod labeled `agentic.clawdlinux.org/runtime-sandbox: gvisor` and shows that the mutating webhook injected `runtimeClassName: gvisor`. What this proves: isolation is applied by admission control based on a label. No agent code changes.
 

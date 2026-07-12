@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-CLUSTER_NAME="${CLUSTER_NAME:-ninevigil-demo}"
+CLUSTER_NAME="${CLUSTER_NAME:-clawdlinux-demo}"
 NS_OPERATOR="${NS_OPERATOR:-agentic-system}"
 NS_ARGO="${NS_ARGO:-argo-workflows}"
 NS_SHARED="${NS_SHARED:-shared-services}"
@@ -43,7 +43,7 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Runs the NineVigil booth demo gate.
+Runs the Clawdlinux booth demo gate.
 
 Options:
   --cluster NAME    kind cluster name. Default: ${CLUSTER_NAME}
@@ -374,7 +374,7 @@ check_cost_metrics() {
   metric_output="$(kubectl -n "${NS_OPERATOR}" exec "${pod_name}" -- sh -c \
     'if command -v curl >/dev/null 2>&1; then curl -fsS --max-time 3 http://127.0.0.1:8080/metrics; elif command -v wget >/dev/null 2>&1; then wget -qO- --timeout=3 http://127.0.0.1:8080/metrics; else exit 127; fi' \
     2>/dev/null || true)"
-  metric_line="$(printf '%s\n' "${metric_output}" | grep 'ninevigil_agent_cost_dollars' | grep -v '^#' | head -1 || true)"
+  metric_line="$(printf '%s\n' "${metric_output}" | grep 'clawdlinux_agent_cost_dollars' | grep -v '^#' | head -1 || true)"
   if [[ -n "${metric_line}" ]]; then
     printf '%bCost tracking:%b %s\n' "${GREEN}" "${RESET}" "${metric_line}"
     COST_OK=yes
@@ -389,7 +389,7 @@ check_cost_metrics() {
     return
   fi
 
-  warn "Cost tracking: ninevigil_agent_cost_dollars not available"
+  warn "Cost tracking: clawdlinux_agent_cost_dollars not available"
 }
 
 verify_gvisor() {

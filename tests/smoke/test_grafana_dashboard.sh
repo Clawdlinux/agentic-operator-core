@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${REPO_ROOT}"
 
 DASHBOARD="config/grafana/dashboards/cost-by-workload.json"
-METRIC="ninevigil_agent_cost_dollars"
+METRIC="clawdlinux_agent_cost_dollars"
 PASS=0
 FAIL=0
 
@@ -51,7 +51,7 @@ for panel in dashboard.get("panels", []):
         errors.append(f"panel {panel.get('title')!r} uses datasource {datasource!r}")
     for target in targets:
         expr = target.get("expr", "")
-        if "ninevigil_agent_cost_dollars" not in expr:
+        if "clawdlinux_agent_cost_dollars" not in expr:
             continue
         match = re.search(r"by\s*\(([^)]*)\)", expr)
         if not match:
@@ -66,11 +66,11 @@ for panel in dashboard.get("panels", []):
             if f"{{{{{label}}}}}" not in legend:
                 errors.append(f"panel {panel.get('title')!r} missing {label} in legend {legend!r}")
 if not any(
-    "ninevigil_agent_cost_dollars" in target.get("expr", "")
+    "clawdlinux_agent_cost_dollars" in target.get("expr", "")
     for panel in dashboard.get("panels", [])
     for target in panel.get("targets", [])
 ):
-    errors.append("no Prometheus target references ninevigil_agent_cost_dollars")
+    errors.append("no Prometheus target references clawdlinux_agent_cost_dollars")
 if not grouped_cost_query_found:
   errors.append("no cost target groups by workload, namespace, and model")
 if errors:

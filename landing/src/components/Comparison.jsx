@@ -63,7 +63,7 @@ const Comparison = () => {
   ];
 
   const runtimes = [
-    { name: 'NineVigil AgentWorkload', supported: true },
+    { name: 'Clawdlinux AgentWorkload', supported: true },
     { name: 'CNCF agent runtimes (kagent, etc.)', supported: true },
     { name: 'Custom agent pods', supported: true },
     { name: 'Kubeflow pipelines', supported: true },
@@ -115,7 +115,7 @@ const Comparison = () => {
             </span>
           </h2>
           <p className="text-lg max-w-2xl mx-auto" style={{ color: currentTheme.text.tertiary }}>
-            NineVigil adds regulated controls around any Kubernetes agent runtime. The runtime handles lifecycle. We handle compliance.
+            Clawdlinux adds regulated controls around any Kubernetes agent runtime. The runtime handles lifecycle. We handle compliance.
           </p>
         </motion.div>
 
@@ -185,7 +185,7 @@ const Comparison = () => {
             ))}
           </div>
           <p className="text-xs mt-4" style={{ color: currentTheme.text.muted }}>
-            The runtime handles agent lifecycle and tools. NineVigil handles multi-tenancy, audit, spend, and air-gapped compliance. Use both.
+            The runtime handles agent lifecycle and tools. Clawdlinux handles multi-tenancy, audit, spend, and air-gapped compliance. Use both.
           </p>
         </motion.div>
 

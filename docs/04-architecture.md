@@ -76,7 +76,7 @@ in `pkg/runtime`.
 - `argo` (default): multi-step DAG workflows via Argo. Use it for parallel or
   long-running agent jobs.
 - `pod`: a bring-your-own single pod. Use it for simple, single-shot agents. The
-  pod image comes from the `NINEVIGIL_AGENT_IMAGE` env var.
+  pod image comes from the `CLAWDLINUX_AGENT_IMAGE` env var.
 - `kagent`: runs the workload as a kagent `Agent` (`kagent.dev/v1alpha2`) in BYO
   mode, created through the unstructured client with no Go dependency on kagent.
   Requires kagent installed in the cluster. Same image source, same seal.

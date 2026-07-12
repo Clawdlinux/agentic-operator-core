@@ -24,7 +24,7 @@ global:
   #
   # This feature injects the gVisor RuntimeClass into agent workload pods.
   # It applies to any pod carrying the opt-in label, regardless of which
-  # agent runtime created it (NineVigil AgentWorkload, external runtimes,
+  # agent runtime created it (Clawdlinux AgentWorkload, external runtimes,
   # or custom pods).
   #
   # Add this label to a pod spec to opt in:

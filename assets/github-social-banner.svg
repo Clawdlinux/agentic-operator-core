@@ -56,7 +56,7 @@
       <path d="M32,-30 L42,-25" stroke="#3B82F6" stroke-width="1.2" stroke-linecap="round"/>
     </g>
 
-    <!-- NineVigil product mark (smaller, right side) -->
+    <!-- Clawdlinux product mark (smaller, right side) -->
     <g transform="translate(1060, 320) scale(0.7)">
       <path d="M0,-65 L40,-40 L50,5 L35,45 L0,60 L-35,45 L-50,5 L-40,-40 Z" fill="none" stroke="#3B82F6" stroke-width="2" opacity="0.25"/>
       <line x1="-40" y1="-40" x2="40" y2="-40" stroke="#3B82F6" stroke-width="1" opacity="0.15"/>
@@ -73,7 +73,7 @@
     </g>
 
     <!-- Text -->
-    <text x="420" y="260" font-family="Arial Black, Arial" font-weight="900" font-size="72" fill="#FFFFFF" letter-spacing="-1">NineVigil</text>
+    <text x="420" y="260" font-family="Arial Black, Arial" font-weight="900" font-size="72" fill="#FFFFFF" letter-spacing="-1">Clawdlinux</text>
     <text x="420" y="330" font-family="Arial, Helvetica, sans-serif" font-size="28" fill="#60A5FA" letter-spacing="1">The Agentic Service Mesh</text>
     <text x="420" y="370" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#94A3B8">for Enterprise Kubernetes</text>
 

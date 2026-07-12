@@ -1,6 +1,6 @@
 # Booth rehearsal checklist
 
-Cold-run gate for the NineVigil attestation demo. Run this 5 times on the actual
+Cold-run gate for the Clawdlinux attestation demo. Run this 5 times on the actual
 booth laptop, offline, before the summit. Assume venue wifi is dead. Tick every
 gate. If any gate fails twice, the demo is not booth-ready.
 
@@ -11,14 +11,14 @@ phases and adds explicit pass/fail gates the script does not assert for you.
 
 - [ ] Laptop has `kubectl`, `helm`, and `kind` (or `k3s`) installed and on PATH.
 - [ ] Seed the kind node-image cache with the same command the demo script uses:
-      `kind create cluster --name ninevigil-demo --wait 120s`
+      `kind create cluster --name clawdlinux-demo --wait 120s`
       This pulls the exact `kindest/node` tag for your installed `kind` binary.
       Without this, wifi-off `kind create cluster` fails immediately.
 - [ ] Pre-pull every image the demo needs, then point kind at the local cache so
       no phase pulls from the network:
-      - [ ] Keep `ninevigil-demo` running while you load images.
+      - [ ] Keep `clawdlinux-demo` running while you load images.
       - [ ] For each image the chart and samples use: `docker pull <img>` then
-            `kind load docker-image <img> --name ninevigil-demo`.
+            `kind load docker-image <img> --name clawdlinux-demo`.
       - [ ] Re-run the demo with wifi OFF. If any phase blocks on ImagePull, the
             cache is incomplete. Fix before the summit.
 - [ ] `audit-verify` built and on PATH: `go build -o ~/bin/audit-verify ./cmd/audit-verify`.
@@ -34,7 +34,7 @@ phases and adds explicit pass/fail gates the script does not assert for you.
 
 ## 2. Cluster prep (script: "Preparing Kubernetes cluster")
 
-- [ ] PASS gate: "Created kind cluster ninevigil-demo" (or "Reusing ...") within
+- [ ] PASS gate: "Created kind cluster clawdlinux-demo" (or "Reusing ...") within
       120s.
 - [ ] FAIL signal: kind create hangs past 120s. Usually a stale Docker state.
       Run `scripts/demo-booth.sh --cleanup` and retry.
@@ -97,7 +97,7 @@ phases and adds explicit pass/fail gates the script does not assert for you.
 ## 11. Teardown
 
 - [ ] `scripts/demo-booth.sh --cleanup` deletes the kind cluster.
-- [ ] Confirm `kind get clusters` no longer lists `ninevigil-demo`.
+- [ ] Confirm `kind get clusters` no longer lists `clawdlinux-demo`.
 
 ## Rehearsal log (fill this in — 5 cold runs, wifi off)
 

@@ -13,7 +13,7 @@ A regulated fintech platform team wants to run an analysis agent. Security will 
 ./scripts/demo-booth.sh --cleanup  # to reset
 ```
 
-Run it once the night before. It provisions the kind cluster (`ninevigil-demo`), installs the operator, Argo, and shared services, and leaves evidence under `tests/harness/evidence/`. Use `--profile lean` if time or laptop capacity is constrained. Keep a recorded run (`--record`) as backup in case live wifi or Docker misbehaves.
+Run it once the night before. It provisions the kind cluster (`clawdlinux-demo`), installs the operator, Argo, and shared services, and leaves evidence under `tests/harness/evidence/`. Use `--profile lean` if time or laptop capacity is constrained. Keep a recorded run (`--record`) as backup in case live wifi or Docker misbehaves.
 
 ## Run of show
 

@@ -10,10 +10,10 @@ const LEGAL = {
     content: `Last updated: March 2026
 
 1. Acceptance of Terms
-By accessing clawdlinux.org or the NineVigil project materials (formerly Agentic Operator), you agree to these terms. If you do not agree, do not use the site or distributed materials.
+By accessing clawdlinux.org or the Clawdlinux project materials (formerly Agentic Operator), you agree to these terms. If you do not agree, do not use the site or distributed materials.
 
 2. Open Source License
-NineVigil core source code is licensed under the Apache License 2.0. Your use of the repository source code is governed by that license and the notices included in the project.
+Clawdlinux core source code is licensed under the Apache License 2.0. Your use of the repository source code is governed by that license and the notices included in the project.
 
 3. Website Content
 Documentation, manifests, examples, and release notes are provided for informational purposes. Separate commercial offerings and managed support may be subject to separate agreements.
@@ -223,7 +223,7 @@ export default function Footer() {
                   className="text-lg font-bold"
                   style={{ fontFamily: "'Syne', sans-serif", color: currentTheme.text.primary }}
                 >
-                  NineVigil
+                  Clawdlinux
                 </span>
               </div>
               <p
@@ -242,7 +242,7 @@ export default function Footer() {
                 className="text-xs mt-1"
                 style={{ color: currentTheme.text.muted, fontFamily: "'DM Sans', sans-serif" }}
               >
-                NineVigil · Apache 2.0 · Clawdlinux
+                Clawdlinux · Apache 2.0 · Clawdlinux
               </p>
 
               {/* GitHub only */}
