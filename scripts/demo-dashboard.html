@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clawdlinux Control Room</title>
+<link rel="stylesheet" href="/theme/clawdlinux-theme.css">
+<style>
+  :root {
+    --console-danger: #fb7185;
+    --console-warning: #fbbf24;
+    --console-grid: rgb(96 165 250 / 7%);
+  }
+
+  * { box-sizing: border-box; }
+
+  html,
+  body {
+    min-height: 100%;
+    margin: 0;
+    background: #02040a;
+    color: var(--clawd-text-primary);
+  }
+
+  body {
+    display: grid;
+    place-items: center;
+    overflow: auto;
+    font-family: var(--clawd-font-display);
+  }
+
+  .control-room {
+    position: relative;
+    display: grid;
+    grid-template-rows: 68px 17% minmax(255px, 1fr) 82px 150px;
+    width: min(100vw, calc(100vh * 16 / 9));
+    max-height: 100vh;
+    padding: 0 24px 18px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    background:
+      linear-gradient(90deg, var(--console-grid) 1px, transparent 1px) 0 0 / 64px 64px,
+      linear-gradient(var(--console-grid) 1px, transparent 1px) 0 0 / 64px 64px,
+      radial-gradient(circle at 50% 0%, #101827 0%, var(--clawd-surface-base) 48%);
+    border: 1px solid var(--clawd-border-strong);
+  }
+
+  .control-room::before {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    content: "";
+    background: linear-gradient(105deg, transparent 0 67%, rgb(96 165 250 / 3%) 67% 100%);
+  }
+
+  .control-room > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .topbar {
+    display: grid;
+    grid-template-columns: 220px 1fr 220px;
+    align-items: center;
+    border-bottom: 1px solid var(--clawd-border-strong);
+  }
+
+  .wordmark {
+    display: block;
+    width: 190px;
+    height: 51px;
+  }
+
+  .run-mode {
+    justify-self: center;
+    padding: 8px 12px;
+    color: var(--clawd-text-muted);
+    font-family: var(--clawd-font-evidence);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    border: 1px solid var(--clawd-border-strong);
+    border-radius: 4px;
+  }
+
+  .run-mode.live {
+    color: var(--clawd-evidence-live);
+    border-color: rgb(0 212 170 / 50%);
+  }
+
+  .run-mode.replay {
+    color: var(--console-warning);
+    border-color: rgb(251 191 36 / 55%);
+    background: rgb(251 191 36 / 7%);
+  }
+
+  .connection {
+    display: flex;
+    justify-self: end;
+    align-items: center;
+    gap: 9px;
+    color: var(--clawd-text-muted);
+    font-family: var(--clawd-font-evidence);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  .connection-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--clawd-text-muted);
+    border: 1px solid var(--clawd-border-strong);
+    border-radius: 4px;
+    transition: background-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .connection-dot.connected {
+    background: var(--clawd-evidence-live);
+    box-shadow: 0 0 12px rgb(0 212 170 / 55%);
+  }
+
+  .provider {
+    display: grid;
+    align-content: center;
+    border-bottom: 1px solid var(--clawd-border-strong);
+  }
+
+  .section-label,
+  .scope-label {
+    font-family: var(--clawd-font-evidence);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+  }
+
+  .section-label { color: var(--clawd-text-muted); }
+
+  .scope-label {
+    display: inline-block;
+    padding: 3px 5px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+  }
+
+  .scope-live { color: var(--clawd-evidence-live); }
+  .scope-config { color: var(--clawd-evidence-config); }
+  .scope-prior { color: var(--clawd-evidence-prior); }
+
+  .provider-path {
+    display: flex;
+    align-items: baseline;
+    gap: 15px;
+    margin: 13px 0 8px;
+    font-size: 31px;
+    font-weight: 650;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  .path-separator {
+    color: var(--clawd-color-signal);
+    font-family: var(--clawd-font-evidence);
+    font-size: 23px;
+    font-weight: 400;
+  }
+
+  .provider-model {
+    color: var(--clawd-text-muted);
+    transition: color 200ms ease;
+  }
+
+  .provider-model.resolved { color: var(--clawd-evidence-live); }
+
+  .stage-line {
+    min-height: 20px;
+    margin: 0;
+    color: var(--clawd-text-secondary);
+    font-family: var(--clawd-font-evidence);
+    font-size: 13px;
+  }
+
+  .instrument-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.82fr 1.13fr;
+    min-height: 0;
+  }
+
+  .instrument {
+    min-width: 0;
+    padding: 20px 20px 16px;
+    border-right: 1px solid var(--clawd-border-strong);
+  }
+
+  .instrument:first-child { padding-left: 0; }
+
+  .instrument:last-child {
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .instrument-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .instrument h2,
+  .event-tail h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: 0;
+  }
+
+  .metric-list,
+  .control-list,
+  .receipt-list { margin: 0; }
+
+  .metric,
+  .control,
+  .receipt-field {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.2fr);
+    align-items: baseline;
+    gap: 15px;
+    padding: 12px 0;
+    border-top: 1px solid var(--clawd-border-subtle);
+  }
+
+  .metric dt,
+  .control dt,
+  .receipt-field dt {
+    color: var(--clawd-text-muted);
+    font-family: var(--clawd-font-evidence);
+    font-size: 12px;
+  }
+
+  .metric dd,
+  .control dd,
+  .receipt-field dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--clawd-text-primary);
+    font-family: var(--clawd-font-evidence);
+    font-size: 15px;
+    text-align: right;
+  }
+
+  .metric dd.verified,
+  .audit-verdict.pass { color: var(--clawd-evidence-live); }
+
+  .control dd.configured { color: var(--clawd-evidence-config); }
+
+  .audit-verdict {
+    min-height: 44px;
+    padding: 8px 0 12px;
+    color: var(--clawd-text-muted);
+    font-family: var(--clawd-font-evidence);
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--clawd-border-subtle);
+  }
+
+  .audit-verdict.reject { color: var(--console-danger); }
+
+  .truth-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--clawd-border-strong);
+    border-bottom: 1px solid var(--clawd-border-strong);
+  }
+
+  .truth-item {
+    display: grid;
+    align-content: center;
+    gap: 5px;
+    padding: 0 14px;
+    border-right: 1px solid var(--clawd-border-subtle);
+  }
+
+  .truth-item:first-child { padding-left: 0; }
+
+  .truth-item:last-child {
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .truth-item strong {
+    color: var(--console-warning);
+    font-family: var(--clawd-font-evidence);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  .truth-item span {
+    color: var(--clawd-text-secondary);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .event-tail {
+    min-height: 0;
+    padding-top: 14px;
+  }
+
+  .event-tail-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 9px;
+  }
+
+  .tail-note {
+    color: var(--clawd-text-muted);
+    font-family: var(--clawd-font-evidence);
+    font-size: 11px;
+  }
+
+  .event-list {
+    display: grid;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .event-line {
+    display: grid;
+    grid-template-columns: 94px minmax(0, 1fr);
+    gap: 12px;
+    min-height: 19px;
+    color: var(--clawd-text-secondary);
+    font-family: var(--clawd-font-evidence);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .event-line .event-scope {
+    color: var(--clawd-text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+  }
+
+  .event-line.fail .event-text { color: var(--console-danger); }
+  .event-line.warn .event-text { color: var(--console-warning); }
+  .event-line.ok .event-text { color: var(--clawd-evidence-live); }
+
+  .event-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 1320px) {
+    .control-room {
+      padding-right: 18px;
+      padding-left: 18px;
+    }
+
+    .provider-path {
+      gap: 11px;
+      font-size: 27px;
+    }
+
+    .instrument {
+      padding-right: 14px;
+      padding-left: 14px;
+    }
+
+    .metric,
+    .control,
+    .receipt-field {
+      grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr);
+      gap: 10px;
+      padding: 10px 0;
+    }
+  }
+
+  @media (max-width: 900px) {
+    body { display: block; }
+
+    .control-room {
+      display: block;
+      width: 100%;
+      min-height: 100vh;
+      max-height: none;
+      padding: 0 16px 24px;
+      overflow: visible;
+      aspect-ratio: auto;
+    }
+
+    .topbar {
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      min-height: 72px;
+    }
+
+    .wordmark { width: 155px; }
+
+    .run-mode { justify-self: end; }
+
+    .connection { display: none; }
+
+    .provider { min-height: 180px; }
+
+    .provider-path {
+      flex-wrap: wrap;
+      white-space: normal;
+    }
+
+    .instrument-grid,
+    .truth-strip { grid-template-columns: 1fr; }
+
+    .instrument {
+      padding: 22px 0;
+      border-right: 0;
+      border-bottom: 1px solid var(--clawd-border-strong);
+    }
+
+    .truth-item,
+    .truth-item:first-child,
+    .truth-item:last-child {
+      min-height: 72px;
+      padding: 12px 0;
+      border-right: 0;
+      border-bottom: 1px solid var(--clawd-border-subtle);
+    }
+
+    .event-tail { min-height: 170px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+</style>
+</head>
+<body>
+<main class="control-room" aria-label="Clawdlinux live demo control room">
+  <header class="topbar">
+    <img class="wordmark" src="/theme/clawdlinux-wordmark.svg" alt="Clawdlinux">
+    <div class="run-mode" id="runMode">AWAITING RUN</div>
+    <div class="connection" aria-live="polite">
+      <span class="connection-dot" id="connectionDot"></span>
+      <span id="connectionText">connecting to event stream</span>
+    </div>
+  </header>
+
+  <section class="provider" aria-labelledby="providerHeading">
+    <div class="section-label" id="providerHeading">Dominant provider path / routing event derived</div>
+    <div class="provider-path" aria-live="polite">
+      <span>AgentWorkload</span>
+      <span class="path-separator">/</span>
+      <span>in-cluster LiteLLM</span>
+      <span class="path-separator">/</span>
+      <span class="provider-model" id="providerModel">provider pending</span>
+    </div>
+    <p class="stage-line" id="stageLine">Waiting for recorded or live run evidence.</p>
+  </section>
+
+  <div class="instrument-grid">
+    <section class="instrument" aria-labelledby="evidenceHeading">
+      <div class="instrument-heading">
+        <h2 id="evidenceHeading">Model evidence</h2>
+        <span class="scope-label scope-live">LIVE</span>
+      </div>
+      <dl class="metric-list">
+        <div class="metric"><dt>Completion</dt><dd id="completionValue">pending</dd></div>
+        <div class="metric"><dt>Input tokens</dt><dd id="inputTokens">pending</dd></div>
+        <div class="metric"><dt>Output tokens</dt><dd id="outputTokens">pending</dd></div>
+        <div class="metric"><dt>Estimated cost</dt><dd id="costValue">pending</dd></div>
+      </dl>
+    </section>
+
+    <section class="instrument" aria-labelledby="controlsHeading">
+      <div class="instrument-heading">
+        <h2 id="controlsHeading">Controls evidence</h2>
+        <span class="scope-label scope-config">CONFIG ONLY</span>
+      </div>
+      <dl class="control-list">
+        <div class="control"><dt>gVisor dry-run</dt><dd id="gvisorValue">pending</dd></div>
+        <div class="control"><dt>NetworkPolicy</dt><dd id="networkPolicyValue">pending</dd></div>
+      </dl>
+    </section>
+
+    <section class="instrument" aria-labelledby="auditHeading">
+      <div class="instrument-heading">
+        <h2 id="auditHeading">Audit receipt</h2>
+        <span class="scope-label scope-prior">PRIOR RUN</span>
+      </div>
+      <div class="audit-verdict" id="auditVerdict">awaiting fixture</div>
+      <dl class="receipt-list">
+        <div class="receipt-field"><dt>Entries</dt><dd id="auditEntries">pending</dd></div>
+        <div class="receipt-field"><dt>Signer</dt><dd id="auditSigner">pending</dd></div>
+        <div class="receipt-field"><dt>Head hash</dt><dd id="auditHash">pending</dd></div>
+      </dl>
+    </section>
+  </div>
+
+  <aside class="truth-strip" aria-label="Evidence limits">
+    <div class="truth-item"><strong>NO OPA EVIDENCE</strong><span>No OPA decision is shown in this run.</span></div>
+    <div class="truth-item"><strong>NO SCHEDULED gVISOR POD</strong><span>Server-side dry-run configuration proof only.</span></div>
+    <div class="truth-item"><strong>NO PACKET TEST</strong><span>NetworkPolicy object presence only.</span></div>
+    <div class="truth-item"><strong>AUDIT FIXTURE IS PRIOR RUN</strong><span>It was not generated by the current workload.</span></div>
+  </aside>
+
+  <section class="event-tail" aria-labelledby="eventHeading">
+    <div class="event-tail-header">
+      <h2 id="eventHeading">Evidence event tail</h2>
+      <span class="tail-note">latest 5 meaningful lines</span>
+    </div>
+    <ol class="event-list" id="eventList" aria-live="polite"></ol>
+  </section>
+</main>
+
+<script>
+const byId = (id) => document.getElementById(id);
+const elements = {
+  runMode: byId('runMode'),
+  connectionDot: byId('connectionDot'),
+  connectionText: byId('connectionText'),
+  providerModel: byId('providerModel'),
+  stageLine: byId('stageLine'),
+  completion: byId('completionValue'),
+  inputTokens: byId('inputTokens'),
+  outputTokens: byId('outputTokens'),
+  cost: byId('costValue'),
+  gvisor: byId('gvisorValue'),
+  networkPolicy: byId('networkPolicyValue'),
+  auditVerdict: byId('auditVerdict'),
+  auditEntries: byId('auditEntries'),
+  auditSigner: byId('auditSigner'),
+  auditHash: byId('auditHash'),
+  eventList: byId('eventList'),
+};
+
+const seenSequences = new Set();
+let meaningfulEvents = [];
+let runMode = null;
+
+function setRunMode(mode) {
+  runMode = mode;
+  elements.runMode.classList.remove('live', 'replay');
+  if (mode === 'replay') {
+    elements.runMode.textContent = 'RECORDED REHEARSAL';
+    elements.runMode.classList.add('replay');
+    return;
+  }
+  if (mode === 'live') {
+    elements.runMode.textContent = 'LIVE CLUSTER';
+    elements.runMode.classList.add('live');
+    return;
+  }
+  elements.runMode.textContent = 'AWAITING RUN';
+}
+
+function resetRun(mode) {
+  setRunMode(mode);
+  elements.providerModel.textContent = 'provider pending';
+  elements.providerModel.classList.remove('resolved');
+  elements.stageLine.textContent = mode === 'replay'
+    ? 'Playing captured evidence. This is not a live cluster connection.'
+    : 'Waiting for live cluster evidence.';
+  elements.completion.textContent = 'pending';
+  elements.completion.classList.remove('verified');
+  elements.inputTokens.textContent = 'pending';
+  elements.outputTokens.textContent = 'pending';
+  elements.cost.textContent = 'pending';
+  elements.cost.classList.remove('verified');
+  elements.gvisor.textContent = 'pending';
+  elements.gvisor.classList.remove('configured');
+  elements.networkPolicy.textContent = 'pending';
+  elements.networkPolicy.classList.remove('configured');
+  elements.auditVerdict.textContent = 'awaiting fixture';
+  elements.auditVerdict.classList.remove('pass', 'reject');
+  elements.auditEntries.textContent = 'pending';
+  elements.auditSigner.textContent = 'pending';
+  elements.auditHash.textContent = 'pending';
+  meaningfulEvents = [];
+  elements.eventList.replaceChildren();
+}
+
+function providerFromRouting(text) {
+  const match = text.match(/\brouted to\s+([A-Za-z0-9._:/-]+)/i);
+  if (!match) return null;
+  const route = match[1].replace(/[),.;]+$/, '');
+  const segments = route.split('/');
+  return segments[segments.length - 1] || null;
+}
+
+function renderEventTail() {
+  const fragment = document.createDocumentFragment();
+  for (const item of meaningfulEvents) {
+    const line = document.createElement('li');
+    line.className = `event-line ${item.tone}`;
+    const scope = document.createElement('span');
+    scope.className = 'event-scope';
+    scope.textContent = item.scope || 'EVENT';
+    const text = document.createElement('span');
+    text.className = 'event-text';
+    text.textContent = item.text;
+    line.append(scope, text);
+    fragment.appendChild(line);
+  }
+  elements.eventList.replaceChildren(fragment);
+}
+
+function addMeaningfulEvent(event, tone = '') {
+  const text = event.raw || event.text;
+  if (!text) return;
+  meaningfulEvents.push({ scope: event.evidence_scope, text, tone });
+  meaningfulEvents = meaningfulEvents.slice(-5);
+  renderEventTail();
+}
+
+function handleStage(event) {
+  elements.stageLine.textContent = event.text;
+  addMeaningfulEvent(event);
+}
+
+function handleOk(event) {
+  if (/AgentWorkload reached Completed/i.test(event.text)) {
+    elements.completion.textContent = 'Completed';
+    elements.completion.classList.add('verified');
+  }
+  addMeaningfulEvent(event, 'ok');
+}
+
+function handleDetail(event) {
+  if (event.kind === 'routing') {
+    const provider = providerFromRouting(event.raw);
+    if (provider) {
+      elements.providerModel.textContent = provider;
+      elements.providerModel.classList.add('resolved');
+    }
+    if (event.input_tokens != null) {
+      elements.inputTokens.textContent = String(event.input_tokens);
+      elements.outputTokens.textContent = String(event.output_tokens);
+    }
+  } else if (event.kind === 'cost') {
+    elements.cost.textContent = `$${event.cost_usd} estimated`;
+    elements.cost.classList.add('verified');
+  } else if (event.kind === 'gvisor') {
+    elements.gvisor.textContent = 'runtimeClassName=gvisor injected';
+    elements.gvisor.classList.add('configured');
+  } else if (event.kind === 'networkpolicy') {
+    elements.networkPolicy.textContent = 'OBJECT PRESENCE ONLY';
+    elements.networkPolicy.classList.add('configured');
+  }
+
+  const meaningfulKinds = new Set([
+    'routing', 'cost', 'anthropic', 'gvisor', 'networkpolicy', 'audit-start',
+  ]);
+  if (meaningfulKinds.has(event.kind)) addMeaningfulEvent(event);
+}
+
+function handleReceipt(event) {
+  const rejectedTamper = event.verdict === 'FAIL' && event.attempt > 1;
+  elements.auditVerdict.classList.remove('pass', 'reject');
+  if (event.verdict === 'PASS') {
+    elements.auditVerdict.textContent = 'PASS';
+    elements.auditVerdict.classList.add('pass');
+  } else if (rejectedTamper) {
+    elements.auditVerdict.textContent = 'TAMPERED COPY REJECTED';
+    elements.auditVerdict.classList.add('reject');
+  } else {
+    elements.auditVerdict.textContent = 'VERIFICATION FAILED';
+    elements.auditVerdict.classList.add('reject');
+  }
+  elements.auditEntries.textContent = event.total_entries == null
+    ? 'pending'
+    : `${event.ok_entries || 0} / ${event.total_entries}`;
+  elements.auditSigner.textContent = event.signer_kid || 'pending';
+  elements.auditHash.textContent = event.head_hash
+    ? `${event.head_hash.slice(0, 18)}...`
+    : 'pending';
+  addMeaningfulEvent(event, event.verdict === 'PASS' ? 'ok' : 'fail');
+}
+
+function handleRunEnd(event) {
+  elements.stageLine.textContent = event.exit_code === 0
+    ? (runMode === 'replay' ? 'Recorded rehearsal complete.' : 'Live run complete.')
+    : `Run ended with exit code ${event.exit_code}.`;
+}
+
+function dispatch(event) {
+  if (event.seq != null) {
+    if (seenSequences.has(event.seq)) return;
+    seenSequences.add(event.seq);
+  }
+
+  if (event.type === 'run-start') resetRun(event.mode);
+  else if (event.type === 'run-end') handleRunEnd(event);
+  else if (event.type === 'stage') handleStage(event);
+  else if (event.type === 'ok') handleOk(event);
+  else if (event.type === 'warn') addMeaningfulEvent(event, 'warn');
+  else if (event.type === 'fail') addMeaningfulEvent(event, 'fail');
+  else if (event.type === 'detail') handleDetail(event);
+  else if (event.type === 'receipt') handleReceipt(event);
+  else if (event.type === 'log') addMeaningfulEvent(event);
+}
+
+function connect() {
+  const stream = new EventSource('/events');
+  stream.onopen = () => {
+    elements.connectionDot.classList.add('connected');
+    elements.connectionText.textContent = 'event stream connected';
+  };
+  stream.onerror = () => {
+    elements.connectionDot.classList.remove('connected');
+    elements.connectionText.textContent = 'event stream reconnecting';
+  };
+  stream.onmessage = (message) => {
+    try {
+      dispatch(JSON.parse(message.data));
+    } catch (error) {
+      elements.connectionText.textContent = 'invalid event ignored';
+    }
+  };
+}
+
+connect();
+</script>
+</body>
+</html>
