@@ -25,7 +25,7 @@ Walk the six target steps quickly. Say: "This slide describes the target product
 "Target customer: a fund's platform team wants agents analyzing filings and market data. Infosec banned agent SaaS, so the project is stuck. In the target deployment, they install one bundle inside their perimeter. They point LiteLLM at an approved model and label existing agent pods. Platform ships the workload. Security reviews the controls. Compliance receives the product attestation package."
 
 **Slide 7, What exists (60s).**
-"Everything on this slide is in a public repo you can read tonight. 180 commits since February. The ACP numbers are measured, checked-in benchmarks, not projections: 64 to 97 percent context reduction against raw MCP, one round trip instead of up to 21."
+"Everything on this slide is in a public repo you can read tonight. 180 commits since February. The execution runtime numbers are measured, checked-in benchmarks, not projections: 64 to 97 percent context reduction against raw MCP, one round trip instead of up to 21."
 
 **Slide 8, Where we are (60s). Do not rush this one.**
 "Honest state: built but not validated. Pre-revenue, zero customers, and I have a kill criterion: ten real conversations with named platform and security engineers by July 15, or I stop building features until I have them. I am telling you this because if you join, your first job is making sure we never ship into a vacuum again."
