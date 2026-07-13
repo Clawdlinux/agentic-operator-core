@@ -9,8 +9,17 @@ import (
 //go:embed assets/*
 var embeddedFS embed.FS
 
+var assetsFS = mustSub(embeddedFS, "assets")
+
 // FS returns the embedded assets directory as the filesystem root.
 func FS() fs.FS {
-	sub, _ := fs.Sub(embeddedFS, "assets")
+	return assetsFS
+}
+
+func mustSub(fsys fs.FS, dir string) fs.FS {
+	sub, err := fs.Sub(fsys, dir)
+	if err != nil {
+		panic("webtheme: invalid embedded asset layout: " + err.Error())
+	}
 	return sub
 }

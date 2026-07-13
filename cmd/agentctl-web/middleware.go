@@ -57,9 +57,10 @@ func AuditMiddleware(next http.Handler) http.Handler {
 func AuthMiddleware(authn *TokenAuthenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip auth for login, healthz, and static
+			// Skip auth for login, healthz, and public assets
 			if r.URL.Path == "/auth/login" || r.URL.Path == "/demo" || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" ||
-				r.URL.Path == "/static/" || hasPrefix(r.URL.Path, "/static/") {
+				r.URL.Path == "/static/" || hasPrefix(r.URL.Path, "/static/") ||
+				r.URL.Path == "/theme/" || hasPrefix(r.URL.Path, "/theme/") {
 				next.ServeHTTP(w, r)
 				return
 			}

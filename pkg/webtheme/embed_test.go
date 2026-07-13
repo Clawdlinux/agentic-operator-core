@@ -60,10 +60,16 @@ func TestCanonicalWordmarkSVG(t *testing.T) {
 	assertCanonicalBoundaryGeometry(t, string(content))
 
 	svg := string(content)
-	for _, value := range []string{"Space Grotesk", "#e2e8f0", ">clawd<", ">linux<"} {
+	for _, value := range []string{"#e2e8f0", "#60a5fa"} {
 		if !strings.Contains(svg, value) {
 			t.Errorf("wordmark SVG missing %q", value)
 		}
+	}
+	if strings.Contains(strings.ToLower(svg), "<text") {
+		t.Error("wordmark SVG must use outlined paths instead of live text")
+	}
+	if strings.Contains(strings.ToLower(svg), "href=") || strings.Contains(strings.ToLower(svg), "url(") {
+		t.Error("wordmark SVG must not depend on external resources")
 	}
 }
 
