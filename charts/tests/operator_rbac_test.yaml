@@ -1,0 +1,49 @@
+suite: operator controller RBAC
+templates:
+  - templates/rbac.yaml
+tests:
+  - it: grants the running controllers access to AgentWorkload and AgentCard resources
+    set:
+      license.key: dev-license
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - agentic.clawdlinux.org
+            resources:
+              - agentworkloads
+              - agentcards
+            verbs:
+              - get
+              - list
+              - watch
+              - create
+              - update
+              - patch
+              - delete
+        documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - agentic.clawdlinux.org
+            resources:
+              - agentworkloads/status
+              - agentcards/status
+            verbs:
+              - get
+              - update
+              - patch
+        documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - agentic.clawdlinux.org
+            resources:
+              - agentworkloads/finalizers
+              - agentcards/finalizers
+            verbs:
+              - update
+        documentIndex: 1
