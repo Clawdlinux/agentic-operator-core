@@ -17,7 +17,7 @@ Third-party sources behind the problem statement. Use these in decks and posts i
 ## Community signal
 
 - X: @JacobSobolev (May 19, 2026) on cross-cluster agent identity pain; triggered RFC-0001. https://x.com/JacobSobolev/status/2056631848009085244
-- MCP cost and friction evidence (Perplexity moving off MCP, Apideck 143K-token benchmark, Scalekit 4-32x CLI comparison): tracked with caveats in agent-contract-protocol/docs/references.md. Verify canonical links before quoting publicly.
+- MCP cost and friction evidence (Perplexity moving off MCP, Apideck 143K-token benchmark, Scalekit 4-32x CLI comparison): tracked with caveats in agent-native-format/docs/references.md. Verify canonical links before quoting publicly.
 
 ## Usage rules
 

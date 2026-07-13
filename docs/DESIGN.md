@@ -47,9 +47,9 @@ What they get out of it, in their words: "we can finally say yes to the agent pr
 
 What we deliberately do not do: build another agent framework, host their data (there is no SaaS in the loop), or ask them to rewrite agents. Governance wraps what they have.
 
-## ACP in one paragraph
+## Agent Native Format in one paragraph
 
-Agent Contract Protocol is the same philosophy applied to tool calls. MCP answers what tools exist; ACP answers what execution is allowed for this agent right now. The server consumes MCP `tools/list` and returns a signed execution contract: scoped capabilities, identity binding, credential injection at the proxy (secrets never enter model context), declared ordering, egress and approval policy. Measured side effect: 64.7% to 97.4% fewer setup tokens and one round trip instead of up to 21, across five benchmark scenarios (see agent-contract-protocol/results). Separate repo, separate spec (v0.2 draft), feeds the same audit chain.
+Agent Native Format (ANF) is the sibling repo. Its headline is a token-minimal view format. It translates system state into far fewer tokens for agents (see FORMAT.md). It also ships an execution runtime that applies the same governance philosophy to tool calls. MCP answers what tools exist. The runtime answers what execution is allowed for this agent right now. The server consumes MCP `tools/list` and returns a signed execution contract: scoped capabilities, identity binding, credential injection at the proxy (secrets never enter model context), declared ordering, egress and approval policy. Measured side effect: 64.7% to 97.4% fewer setup tokens and one round trip instead of up to 21, across five benchmark scenarios (see agent-native-format/results). Separate repo, separate spec, feeds the same audit chain.
 
 ## Repo map
 
@@ -57,13 +57,13 @@ Two product repos plus a website, all under github.com/Clawdlinux.
 
 `agentic-operator-core` is the platform. `api/` and `internal/controller/` hold the CRD and reconcilers. `internal/admission/` is the gVisor RuntimeClass injector. `pkg/` has the subsystems: `audit` (hash chain), `runtime` (adapters), `finops`, `opa`, `llm`, `argo`, `multitenancy`, `mcp`. `cmd/` builds the operator, `agentctl`, `audit-verify`, and the license generator. `charts/` is the Helm umbrella with subcharts for Argo, LiteLLM, MinIO, Postgres, Browserless, and observability. `agents/` is the Python LangGraph runtime with A2A. `examples/` has the multi-agent swarm and SRE scenarios. `scripts/demo-booth.sh` is the reproducible demo. `docs/` is numbered 01 through 12 plus RFCs.
 
-`agent-contract-protocol` is the ACP spec (SPEC.md), Go reference server, Python client, adapters, and the benchmark harness with checked-in results.
+`agent-native-format` is the ANF format spec (FORMAT.md) plus an execution runtime: protocol spec (SPEC.md), Go reference server, Python client, adapters, and the benchmark harness with checked-in results.
 
 `clawdlinux-website` is the public site (clawdlinux.org).
 
 ## Honest state of the build
 
-Working today: CRD and reconciliation lifecycle, Argo DAG orchestration, Cilium egress policy generation, audit chain and offline verifier, gVisor injector, runtime adapters (AgentWorkload, BYO pods, Argo), LiteLLM routing, per-workload cost tracking, multi-tenancy with quotas, offline JWT licensing, Helm umbrella chart, agentctl with an MCP server mode, Grafana dashboards, the kind-based demo gate, ACP reference server with measured benchmarks.
+Working today: CRD and reconciliation lifecycle, Argo DAG orchestration, Cilium egress policy generation, audit chain and offline verifier, gVisor injector, runtime adapters (AgentWorkload, BYO pods, Argo), LiteLLM routing, per-workload cost tracking, multi-tenancy with quotas, offline JWT licensing, Helm umbrella chart, agentctl with an MCP server mode, Grafana dashboards, the kind-based demo gate, ANF execution runtime reference server with measured benchmarks.
 
 Not done, do not claim it: webhook admission validation for the CRD, Homebrew tap, air-gapped install smoke test as CI, per-runtime sandbox label guide, multi-cluster identity federation (SPIFFE/SPIRE, RFC-0001, gated on 6 external use cases or 1 paying customer), SOC 2, managed SaaS. Enterprise billing and licensing internals live in a private repo; the OSS tree has boundary READMEs only.
 
