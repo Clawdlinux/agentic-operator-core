@@ -91,6 +91,8 @@ fi
 env_file="${TEST_TMP_DIR}/credentials.env"
 fake_bin="${TEST_TMP_DIR}/fake-bin"
 command_log="${TEST_TMP_DIR}/commands.log"
+captured_master_key_file="${TEST_TMP_DIR}/master-key.txt"
+network_policy_file="${TEST_TMP_DIR}/provider-egress.yaml"
 mkdir -p "${fake_bin}"
 file_openai='demo-file-openai-not-secret'
 environment_openai='demo-environment-openai-not-secret'
@@ -126,6 +128,17 @@ printf '\n' >>"${FAKE_COMMAND_LOG}"
 printf 'generated-test-master-key\n'
 EOF
 
+cat >"${fake_bin}/base64" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "--decode" ]]; then
+  exit 64
+fi
+if [[ "${1:-}" == "-D" ]]; then
+  exec /usr/bin/base64 --decode
+fi
+exec /usr/bin/base64 "$@"
+EOF
+
 cat >"${fake_bin}/kubectl" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -143,6 +156,11 @@ case "${args}" in
   *" get endpoints "*)
     printf '127.0.0.1\n'
     ;;
+  *" get secret "*"LITELLM_MASTER_KEY"*)
+    if [[ -n "${MOCK_EXISTING_MASTER_KEY:-}" ]]; then
+      printf '%s' "${MOCK_EXISTING_MASTER_KEY}" | base64
+    fi
+    ;;
   *" create namespace "*)
     printf 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: test\n'
     ;;
@@ -150,14 +168,23 @@ case "${args}" in
     secret_input="$(cat)"
     grep -Fqx "OPENAI_API_KEY=${EXPECTED_OPENAI_API_KEY}" <<<"${secret_input}"
     grep -Fqx "ANTHROPIC_API_KEY=${EXPECTED_ANTHROPIC_API_KEY}" <<<"${secret_input}"
+    master_key="$(sed -n 's/^LITELLM_MASTER_KEY=//p' <<<"${secret_input}")"
+    api_key="$(sed -n 's/^api-key=//p' <<<"${secret_input}")"
+    [[ "${master_key}" == sk-* && ${#master_key} -ge 19 && "${master_key}" == "${api_key}" ]]
+    if [[ -n "${CAPTURED_MASTER_KEY_FILE:-}" ]]; then
+      printf '%s' "${master_key}" >"${CAPTURED_MASTER_KEY_FILE}"
+    fi
     printf 'apiVersion: v1\nkind: Secret\nmetadata:\n  name: test\n'
     ;;
   *" apply -f - "*)
-    cat >/dev/null
+    apply_input="$(cat)"
+    if grep -Fqx 'kind: NetworkPolicy' <<<"${apply_input}" && [[ -n "${NETWORK_POLICY_FILE:-}" ]]; then
+      printf '%s\n' "${apply_input}" >"${NETWORK_POLICY_FILE}"
+    fi
     ;;
 esac
 EOF
-chmod +x "${fake_bin}/kind" "${fake_bin}/helm" "${fake_bin}/openssl" "${fake_bin}/kubectl"
+chmod +x "${fake_bin}/kind" "${fake_bin}/helm" "${fake_bin}/openssl" "${fake_bin}/base64" "${fake_bin}/kubectl"
 
 set +e
 loaded_prepare_output="$(env \
@@ -166,6 +193,8 @@ loaded_prepare_output="$(env \
   OPENAI_API_KEY="${environment_openai}" \
   DEMO_ENV_FILE="${env_file}" \
   FAKE_COMMAND_LOG="${command_log}" \
+  CAPTURED_MASTER_KEY_FILE="${captured_master_key_file}" \
+  NETWORK_POLICY_FILE="${network_policy_file}" \
   EXPECTED_OPENAI_API_KEY="${environment_openai}" \
   EXPECTED_ANTHROPIC_API_KEY="${file_anthropic}" \
   PATH="${fake_bin}:/usr/bin:/bin" \
@@ -179,6 +208,83 @@ fi
 for status_line in 'OPENAI_API_KEY=available' 'ANTHROPIC_API_KEY=available'; do
   if ! grep -Fxq "${status_line}" <<<"${loaded_prepare_output}"; then
     printf 'prepare did not report credential availability: %s\n' "${status_line}" >&2
+    exit 1
+  fi
+done
+generated_master_key="$(<"${captured_master_key_file}")"
+if [[ "${generated_master_key}" != 'sk-generated-test-master-key' ]]; then
+  printf 'prepare did not generate the expected sk-prefixed master key\n' >&2
+  exit 1
+fi
+if grep -Fq "${generated_master_key}" <<<"${loaded_prepare_output}" || grep -Fq "${generated_master_key}" "${command_log}"; then
+  printf 'generated master key leaked into prepare output or command log\n' >&2
+  exit 1
+fi
+for helm_arg in \
+  '--set-string litellm.resources.requests.memory=1Gi' \
+  '--set-string litellm.resources.limits.memory=2Gi'; do
+  if ! grep -Fq -- "${helm_arg}" "${command_log}"; then
+    printf 'prepare did not pass LiteLLM memory argument: %s\n' "${helm_arg}" >&2
+    exit 1
+  fi
+done
+network_policy_contracts=(
+  'kind: NetworkPolicy'
+  '  name: clawdlinux-demo-litellm-provider-egress'
+  '      app.kubernetes.io/name: litellm'
+  '            cidr: 0.0.0.0/0'
+  '        - port: 443'
+  '          protocol: TCP'
+)
+for contract in "${network_policy_contracts[@]}"; do
+  if ! grep -Fxq -- "${contract}" "${network_policy_file}"; then
+    printf 'provider egress policy is missing contract: %s\n' "${contract}" >&2
+    exit 1
+  fi
+done
+
+reused_master_key='sk-existing-master-key-123456'
+: >"${command_log}"
+reuse_output="$(env \
+  -u LITELLM_MASTER_KEY \
+  OPENAI_API_KEY="${environment_openai}" \
+  ANTHROPIC_API_KEY="${file_anthropic}" \
+  DEMO_ENV_FILE="${TEST_TMP_DIR}/missing.env" \
+  MOCK_EXISTING_MASTER_KEY="${reused_master_key}" \
+  CAPTURED_MASTER_KEY_FILE="${captured_master_key_file}" \
+  NETWORK_POLICY_FILE="${network_policy_file}" \
+  FAKE_COMMAND_LOG="${command_log}" \
+  EXPECTED_OPENAI_API_KEY="${environment_openai}" \
+  EXPECTED_ANTHROPIC_API_KEY="${file_anthropic}" \
+  PATH="${fake_bin}:/usr/bin:/bin" \
+  "${DEMO_SCRIPT}" --prepare 2>&1)"
+if [[ "$(<"${captured_master_key_file}")" != "${reused_master_key}" ]]; then
+  printf 'prepare did not preserve a valid existing master key\n' >&2
+  exit 1
+fi
+if grep -Fq "${reused_master_key}" <<<"${reuse_output}" || grep -Fq "${reused_master_key}" "${command_log}"; then
+  printf 'reused master key leaked into prepare output or command log\n' >&2
+  exit 1
+fi
+
+malformed_master_keys=($'sk-existing-master-key\r' $'sk-existing-master-key\n')
+for malformed_master_key in "${malformed_master_keys[@]}"; do
+  : >"${command_log}"
+  env \
+    -u LITELLM_MASTER_KEY \
+    OPENAI_API_KEY="${environment_openai}" \
+    ANTHROPIC_API_KEY="${file_anthropic}" \
+    DEMO_ENV_FILE="${TEST_TMP_DIR}/missing.env" \
+    MOCK_EXISTING_MASTER_KEY="${malformed_master_key}" \
+    CAPTURED_MASTER_KEY_FILE="${captured_master_key_file}" \
+    NETWORK_POLICY_FILE="${network_policy_file}" \
+    FAKE_COMMAND_LOG="${command_log}" \
+    EXPECTED_OPENAI_API_KEY="${environment_openai}" \
+    EXPECTED_ANTHROPIC_API_KEY="${file_anthropic}" \
+    PATH="${fake_bin}:/usr/bin:/bin" \
+    "${DEMO_SCRIPT}" --prepare >/dev/null 2>&1
+  if [[ "$(<"${captured_master_key_file}")" != 'sk-generated-test-master-key' ]]; then
+    printf 'prepare must replace malformed existing master keys\n' >&2
     exit 1
   fi
 done
@@ -264,6 +370,28 @@ for unsafe_master_value in "${unsafe_master_values[@]}"; do
     exit 1
   fi
 done
+
+short_master_key='sk-too-short'
+: >"${command_log}"
+set +e
+short_master_output="$(env \
+  OPENAI_API_KEY=openai-placeholder \
+  ANTHROPIC_API_KEY=anthropic-placeholder \
+  LITELLM_MASTER_KEY="${short_master_key}" \
+  DEMO_ENV_FILE="${TEST_TMP_DIR}/missing.env" \
+  FAKE_COMMAND_LOG="${command_log}" \
+  PATH="${fake_bin}:/usr/bin:/bin" \
+  "${DEMO_SCRIPT}" --prepare 2>&1)"
+short_master_status=$?
+set -e
+if [[ ${short_master_status} -eq 0 ]] || ! grep -Fq 'contain at least 16 key characters' <<<"${short_master_output}"; then
+  printf 'prepare must reject short LITELLM master keys\n' >&2
+  exit 1
+fi
+if grep -Fq 'create secret generic' "${command_log}"; then
+  printf 'prepare must reject short master keys before Secret creation\n' >&2
+  exit 1
+fi
 
 fallback_root="${TEST_TMP_DIR}/fallback-root"
 fallback_bin="${TEST_TMP_DIR}/fallback-bin"

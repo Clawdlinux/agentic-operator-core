@@ -59,9 +59,18 @@ rules:
   - apiGroups: ["agentic.clawdlinux.org"]
     resources:
       - agentworkloads
-      - agentworkloads/status
-      - agentworkloads/finalizers
+      - agentcards
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["agentic.clawdlinux.org"]
+    resources:
+      - agentworkloads/status
+      - agentcards/status
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["agentic.clawdlinux.org"]
+    resources:
+      - agentworkloads/finalizers
+      - agentcards/finalizers
+    verbs: ["update"]
   # RBAC (for sub-agent service accounts — namespace-scoped only)
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources:

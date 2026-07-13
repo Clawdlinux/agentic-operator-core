@@ -275,6 +275,21 @@ reject_credential_newlines() {
   fi
 }
 
+valid_litellm_master_key() {
+  local value="$1"
+  [[ "${value}" == sk-* && ${#value} -ge 19 && "${value}" != *$'\n'* && "${value}" != *$'\r'* ]]
+}
+
+decode_base64() {
+  if printf '' | base64 --decode >/dev/null 2>&1; then
+    base64 --decode
+  elif printf '' | base64 -D >/dev/null 2>&1; then
+    base64 -D
+  else
+    return 1
+  fi
+}
+
 load_demo_credentials() {
   local openai_from_environment=false
   local anthropic_from_environment=false
@@ -402,13 +417,27 @@ install_cert_manager() {
 
 create_runtime_provider_secret() {
   step "Creating runtime provider Secret"
+  local existing_master_key=""
+  local existing_master_key_with_sentinel=""
   local master_key
   if [[ -n "${LITELLM_MASTER_KEY:-}" ]]; then
     reject_credential_newlines "LITELLM_MASTER_KEY" "${LITELLM_MASTER_KEY}" "environment"
+    valid_litellm_master_key "${LITELLM_MASTER_KEY}" ||
+      die "LITELLM_MASTER_KEY must start with sk- and contain at least 16 key characters"
     master_key="${LITELLM_MASTER_KEY}"
   else
-    require_command openssl
-    master_key="$(openssl rand -hex 24)"
+    existing_master_key_with_sentinel="$({
+      kubectl -n "${NS_OPERATOR}" get secret "${DEMO_SECRET}" \
+        -o jsonpath='{.data.LITELLM_MASTER_KEY}' 2>/dev/null | decode_base64 2>/dev/null || true
+      printf '.'
+    })"
+    existing_master_key="${existing_master_key_with_sentinel%.}"
+    if valid_litellm_master_key "${existing_master_key}"; then
+      master_key="${existing_master_key}"
+    else
+      require_command openssl
+      master_key="sk-$(openssl rand -hex 24)"
+    fi
   fi
 
   {
@@ -420,7 +449,7 @@ create_runtime_provider_secret() {
     --from-env-file=/dev/stdin \
     --dry-run=client \
     -o yaml | kubectl apply -f - >/dev/null
-  unset master_key
+  unset existing_master_key existing_master_key_with_sentinel master_key
   ok "Runtime Secret ${DEMO_SECRET} created without printing key values"
 }
 
@@ -500,9 +529,37 @@ prepare_real_demo() {
     --set agentic-operator.image.pullPolicy=IfNotPresent \
     --set litellm.enabled=true \
     --set litellm.replicaCount=1 \
+    --set-string litellm.resources.requests.memory=1Gi \
+    --set-string litellm.resources.limits.memory=2Gi \
     --set-string litellm.existingSecret="${DEMO_SECRET}" \
     --timeout "${HELM_TIMEOUT}" \
     --wait >/dev/null
+
+  kubectl apply -f - >/dev/null <<YAML
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${DEMO_RELEASE}-litellm-provider-egress
+  namespace: ${NS_OPERATOR}
+  labels:
+    app.kubernetes.io/component: networkpolicy
+    app.kubernetes.io/part-of: clawdlinux-booth-demo
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: litellm
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 443
+          protocol: TCP
+YAML
+
+  kubectl -n "${NS_OPERATOR}" rollout restart deployment/"${DEMO_RELEASE}"-litellm >/dev/null
 
   wait_for_demo_components
   ok "Preparation complete. Run: $(basename "$0") --present"
