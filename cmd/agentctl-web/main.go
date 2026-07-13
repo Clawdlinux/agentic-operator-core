@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/webtheme"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -62,6 +63,7 @@ func main() {
 
 		mux := http.NewServeMux()
 		mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(StaticFS()))))
+		mux.Handle("GET /theme/", http.StripPrefix("/theme/", http.FileServer(http.FS(webtheme.FS()))))
 		mux.HandleFunc("GET /healthz", handleHealthz)
 		mux.HandleFunc("GET /readyz", handleHealthz)
 		mux.HandleFunc("GET /", srv.handleDemo)
@@ -114,6 +116,7 @@ func main() {
 
 	// Static files
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(StaticFS()))))
+	mux.Handle("GET /theme/", http.StripPrefix("/theme/", http.FileServer(http.FS(webtheme.FS()))))
 
 	// Health endpoints
 	mux.HandleFunc("GET /healthz", handleHealthz)

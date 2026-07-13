@@ -1,0 +1,13 @@
+<svg role="img" aria-labelledby="clawdlinux-wordmark-title" viewBox="0 0 360 96" xmlns="http://www.w3.org/2000/svg">
+  <title id="clawdlinux-wordmark-title">Clawdlinux</title>
+  <g fill="none" stroke="#60a5fa" stroke-linecap="round">
+    <path d="M72 18H41C22 18 10 31 10 48S22 78 41 78H72" stroke-width="8"/>
+    <path d="M65 31H43C33 31 26 38 26 48S33 65 43 65H65" stroke-width="6" opacity="0.72"/>
+    <path d="M58 43H46C42 43 40 45 40 48S42 53 46 53H58" stroke-width="4" opacity="0.46"/>
+  </g>
+  <path d="M69 13L79 18L69 23Z" fill="#60a5fa"/>
+  <g font-family="Space Grotesk, sans-serif" font-size="54" font-weight="700" letter-spacing="-2.4">
+    <text x="88" y="68" fill="#e2e8f0">clawd</text>
+    <text x="226" y="68" fill="#60a5fa">linux</text>
+  </g>
+</svg>
