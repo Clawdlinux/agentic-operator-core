@@ -49,29 +49,29 @@ tests:
           selectorLabelKey: agentic.clawdlinux.org/runtime-sandbox
           selectorLabelValue: gvisor
     asserts:
-      - documentIndex: 2
+      - documentIndex: 1
         equal:
           path: kind
           value: MutatingWebhookConfiguration
         template: webhook.yaml
-      - documentIndex: 2
+      - documentIndex: 1
         equal:
           path: apiVersion
           value: admissionregistration.k8s.io/v1
         template: webhook.yaml
-      - documentIndex: 2
+      - documentIndex: 1
         equal:
-          path: webhooks[1].name
+          path: webhooks[0].name
           value: runtimeclass-pods.agentic.clawdlinux.org
         template: webhook.yaml
-      - documentIndex: 2
+      - documentIndex: 1
         equal:
-          path: webhooks[1].clientConfig.service.path
+          path: webhooks[0].clientConfig.service.path
           value: /mutate-v1-pod-runtimeclass
         template: webhook.yaml
-      - documentIndex: 2
+      - documentIndex: 1
         equal:
-          path: webhooks[1].objectSelector.matchLabels["agentic.clawdlinux.org/runtime-sandbox"]
+          path: webhooks[0].objectSelector.matchLabels["agentic.clawdlinux.org/runtime-sandbox"]
           value: gvisor
         template: webhook.yaml
 
@@ -121,9 +121,9 @@ tests:
           selectorLabelKey: regulated.agentic.dev/sandbox
           selectorLabelValue: strict
     asserts:
-      - documentIndex: 2
+      - documentIndex: 1
         equal:
-          path: webhooks[1].objectSelector.matchLabels["regulated.agentic.dev/sandbox"]
+          path: webhooks[0].objectSelector.matchLabels["regulated.agentic.dev/sandbox"]
           value: strict
         template: webhook.yaml
       - contains:

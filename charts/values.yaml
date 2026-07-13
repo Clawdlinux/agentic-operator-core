@@ -88,6 +88,9 @@ agenticOperator:
   # Webhook admission control (requires cert-manager)
   webhook:
     enabled: true
+    # The current controller binary serves only the runtime-sandbox pod webhook.
+    # Enable this only after AgentWorkload defaulting/validation routes are registered.
+    agentWorkloadEnabled: false
     createSelfSignedIssuer: true
     issuerRef:
       name: ""   # defaults to <release>-selfsigned-issuer
