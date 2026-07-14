@@ -8,8 +8,9 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode"
 
-	"github.com/Clawdlinux/agentic-operator-core/internal/anfsnapshot"
+	"github.com/Clawdlinux/agentic-operator-core/tools/anf-snapshot/snapshot"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -19,7 +20,6 @@ type cliOptions struct {
 	Kubeconfig string
 	Context    string
 	Namespace  string
-	Cluster    string
 	Output     string
 	Timeout    time.Duration
 }
@@ -27,7 +27,7 @@ type cliOptions struct {
 type runDependencies struct {
 	loadConfig func(cliOptions) (*rest.Config, string, error)
 	newClient  func(*rest.Config) (kubernetes.Interface, error)
-	now        func() time.Time
+	clock      func() time.Time
 }
 
 func main() {
@@ -36,10 +36,10 @@ func main() {
 		newClient: func(config *rest.Config) (kubernetes.Interface, error) {
 			return kubernetes.NewForConfig(config)
 		},
-		now: time.Now,
+		clock: time.Now,
 	}
 	if err := run(os.Args[1:], os.Stdout, os.Stderr, dependencies); err != nil {
-		fmt.Fprintf(os.Stderr, "anf-snapshot: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "anf-snapshot: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -60,21 +60,25 @@ func run(args []string, stdout, stderr io.Writer, dependencies runDependencies) 
 
 	ctx, cancel := context.WithTimeout(context.Background(), options.Timeout)
 	defer cancel()
-	result, err := anfsnapshot.Capture(ctx, anfsnapshot.NewKubernetesLister(client), anfsnapshot.Options{
+	result, err := snapshot.Capture(ctx, snapshot.NewKubernetesLister(client), snapshot.Options{
 		Cluster:   cluster,
 		Namespace: options.Namespace,
-		Now:       dependencies.now(),
+		Clock:     dependencies.clock,
 	})
 	if err != nil {
 		return fmt.Errorf("capture namespace: %w", err)
 	}
-	if err := anfsnapshot.WriteArtifact(options.Output, result.ANF); err != nil {
+	if err := snapshot.WriteArtifact(options.Output, result.ANF); err != nil {
 		return fmt.Errorf("write ANF artifact: %w", err)
 	}
 
-	fmt.Fprintln(stdout, result.Summary())
+	if _, err := fmt.Fprintln(stdout, result.Summary()); err != nil {
+		return fmt.Errorf("write summary: %w", err)
+	}
 	for _, line := range result.PreviewLines(3) {
-		fmt.Fprintf(stdout, "ANF preview: %s\n", line)
+		if _, err := fmt.Fprintf(stdout, "ANF preview: %s\n", line); err != nil {
+			return fmt.Errorf("write preview: %w", err)
+		}
 	}
 	return nil
 }
@@ -86,7 +90,6 @@ func parseOptions(args []string, stderr io.Writer) (cliOptions, error) {
 	flags.StringVar(&options.Kubeconfig, "kubeconfig", "", "path to kubeconfig")
 	flags.StringVar(&options.Context, "context", "", "kubeconfig context override")
 	flags.StringVar(&options.Namespace, "namespace", "agentic-system", "namespace to snapshot")
-	flags.StringVar(&options.Cluster, "cluster", "", "cluster name for the ANF source")
 	flags.StringVar(&options.Output, "output", "", "ANF output path")
 	flags.DurationVar(&options.Timeout, "timeout", 15*time.Second, "snapshot timeout")
 	if err := flags.Parse(args); err != nil {
@@ -98,8 +101,8 @@ func parseOptions(args []string, stderr io.Writer) (cliOptions, error) {
 	if strings.TrimSpace(options.Output) == "" {
 		return cliOptions{}, fmt.Errorf("--output is required")
 	}
-	if strings.TrimSpace(options.Namespace) == "" {
-		return cliOptions{}, fmt.Errorf("--namespace must not be empty")
+	if err := validateOutputValue("namespace", options.Namespace); err != nil {
+		return cliOptions{}, err
 	}
 	if options.Timeout <= 0 {
 		return cliOptions{}, fmt.Errorf("--timeout must be greater than zero")
@@ -125,15 +128,29 @@ func loadClientConfig(options cliOptions) (*rest.Config, string, error) {
 		return nil, "", fmt.Errorf("build REST config: %w", err)
 	}
 
-	cluster := options.Cluster
-	if cluster == "" {
-		cluster = rawConfig.CurrentContext
-		if options.Context != "" {
-			cluster = options.Context
-		}
+	effectiveContext := rawConfig.CurrentContext
+	if options.Context != "" {
+		effectiveContext = options.Context
 	}
-	if strings.TrimSpace(cluster) == "" {
-		return nil, "", fmt.Errorf("cluster name is empty; set --cluster or select a current context")
+	contextConfig, ok := rawConfig.Contexts[effectiveContext]
+	if !ok || contextConfig == nil {
+		return nil, "", fmt.Errorf("effective context %q is not defined", effectiveContext)
+	}
+	cluster := contextConfig.Cluster
+	if err := validateOutputValue("effective cluster key", cluster); err != nil {
+		return nil, "", err
 	}
 	return restConfig, cluster, nil
+}
+
+func validateOutputValue(name, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("%s must not be empty", name)
+	}
+	for _, character := range value {
+		if unicode.IsControl(character) {
+			return fmt.Errorf("%s contains a control character", name)
+		}
+	}
+	return nil
 }

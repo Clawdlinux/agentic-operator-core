@@ -155,7 +155,7 @@ build-agentctl-web:
 build-anf-snapshot:
 	@echo "Building anf-snapshot binary..."
 	@mkdir -p bin
-	@$(GO) build -o bin/anf-snapshot ./cmd/anf-snapshot/...
+	@cd tools/anf-snapshot && $(GO) build -o ../../bin/anf-snapshot .
 
 install-agentctl: build-agentctl
 	@if [[ ! -f bin/agentctl ]]; then \
