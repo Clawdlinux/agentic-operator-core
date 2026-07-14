@@ -65,7 +65,7 @@
             <p class="empty-live-state">AgentWorkload source unavailable. Model and workload cost are unknown.</p>
             {{end}}
         </article>
-        <article class="live-source-card status-source-card" data-evidence-source="workload-aggregate">
+        <article class="live-source-card aggregate-source-card" data-evidence-source="workload-aggregate">
             {{if .WorkloadAggregateLive}}<span class="evidence-label">LIVE</span>{{else}}<span class="evidence-label evidence-unavailable-label">UNAVAILABLE</span>{{end}}
             <h3>Workload snapshot aggregate</h3>
             {{if .WorkloadAggregateLive}}
@@ -73,16 +73,6 @@
             <p class="source-detail">Workload count: {{.TotalWorkloads}}. Derived from the live AgentWorkload snapshot.</p>
             {{else}}
             <p class="empty-live-state">Aggregate workload count and cost unavailable.</p>
-            {{end}}
-        </article>
-        <article class="live-source-card status-source-card" data-evidence-source="cluster-status">
-            {{if .ClusterStatusLive}}<span class="evidence-label">LIVE</span>{{else}}<span class="evidence-label evidence-unavailable-label">UNAVAILABLE</span>{{end}}
-            <h3>Cluster status</h3>
-            {{if .ClusterStatusLive}}
-            <div class="cost-ticker">{{safeText .ClusterVersion "unknown"}}</div>
-            <p class="source-detail">Kubernetes API discovery succeeded.</p>
-            {{else}}
-            <p class="empty-live-state">Cluster status unavailable.</p>
             {{end}}
         </article>
     </div>

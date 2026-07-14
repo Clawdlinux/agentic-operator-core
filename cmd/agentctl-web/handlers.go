@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -15,9 +16,12 @@ import (
 
 // Server holds the web server dependencies.
 type Server struct {
-	client *agentctl.Client
-	authz  *Authorizer
-	tmpl   *template.Template
+	client             *agentctl.Client
+	authz              *Authorizer
+	tmpl               *template.Template
+	demoPollTimeout    time.Duration
+	demoPodSource      func(context.Context) ([]agentctl.RuntimePodRow, error)
+	demoWorkloadSource func(context.Context) ([]agentctl.WorkloadRow, error)
 }
 
 type demoPageData struct {
@@ -27,13 +31,11 @@ type demoPageData struct {
 	RuntimePodsLive       bool
 	WorkloadsLive         bool
 	WorkloadAggregateLive bool
-	ClusterStatusLive     bool
 	ObservedGVisorPod     bool
 	RuntimePods           []agentctl.RuntimePodRow
 	Workloads             []agentctl.WorkloadRow
 	TotalWorkloads        int
 	TotalCostToday        float64
-	ClusterVersion        string
 	User                  *UserInfo
 }
 
@@ -55,7 +57,26 @@ func NewServer(client *agentctl.Client, authz *Authorizer, tmplFS fs.FS) (*Serve
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
 
-	return &Server{client: client, authz: authz, tmpl: tmpl}, nil
+	server := &Server{
+		client:          client,
+		authz:           authz,
+		tmpl:            tmpl,
+		demoPollTimeout: 2 * time.Second,
+	}
+	if client != nil {
+		if client.Kube != nil {
+			server.demoPodSource = func(ctx context.Context) ([]agentctl.RuntimePodRow, error) {
+				return client.ListRuntimePods(ctx, "")
+			}
+		}
+		if client.Dynamic != nil {
+			server.demoWorkloadSource = func(ctx context.Context) ([]agentctl.WorkloadRow, error) {
+				return client.ListWorkloads(ctx, "")
+			}
+		}
+	}
+
+	return server, nil
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
@@ -102,40 +123,79 @@ func (s *Server) handleDemo(w http.ResponseWriter, r *http.Request) {
 			Username: "booth-demo",
 		},
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), s.demoPollTimeout)
 	defer cancel()
 
-	if s.client != nil {
-		if s.client.Kube != nil {
-			if rows, err := s.client.ListRuntimePods(ctx, ""); err == nil {
-				data.RuntimePods = rows
-				data.RuntimePodsLive = true
-				data.ObservedGVisorPod = hasGVisorRuntimePod(rows)
-			}
-		}
+	type demoSourceResult struct {
+		source    string
+		pods      []agentctl.RuntimePodRow
+		workloads []agentctl.WorkloadRow
+		err       error
+	}
 
-		if s.client.Dynamic != nil {
-			if rows, err := s.client.ListWorkloads(ctx, ""); err == nil {
-				data.Workloads = rows
-				data.WorkloadsLive = true
-				data.WorkloadAggregateLive = true
-				data.TotalWorkloads, data.TotalCostToday = aggregateWorkloads(rows)
-			}
-		}
+	results := make(chan demoSourceResult, 2)
+	remaining := 0
+	if s.demoPodSource != nil {
+		remaining++
+		go func() {
+			rows, err := s.demoPodSource(ctx)
+			results <- demoSourceResult{source: "runtime-pods", pods: rows, err: err}
+		}()
+	}
+	if s.demoWorkloadSource != nil {
+		remaining++
+		go func() {
+			rows, err := s.demoWorkloadSource(ctx)
+			results <- demoSourceResult{source: "workloads", workloads: rows, err: err}
+		}()
+	}
 
-		if s.client.Discovery != nil {
-			if serverVersion, err := s.client.Discovery.ServerVersion(); err == nil {
-				data.ClusterVersion = serverVersion.GitVersion
-				data.ClusterStatusLive = true
+	for remaining > 0 {
+		select {
+		case result := <-results:
+			remaining--
+			applyDemoSourceResult(&data, result.source, result.pods, result.workloads, result.err)
+		case <-ctx.Done():
+			for remaining > 0 {
+				result := <-results
+				remaining--
+				applyDemoSourceResult(&data, result.source, result.pods, result.workloads, result.err)
 			}
 		}
 	}
-	data.Live = data.RuntimePodsLive || data.WorkloadsLive || data.ClusterStatusLive
+	data.Live = data.RuntimePodsLive || data.WorkloadsLive
 
 	if err := s.tmpl.ExecuteTemplate(w, "demo.html", data); err != nil {
 		slog.Error("render demo", "error", err)
 		http.Error(w, "Failed to render demo", http.StatusInternalServerError)
 	}
+}
+
+func applyDemoSourceResult(data *demoPageData, source string, pods []agentctl.RuntimePodRow, workloads []agentctl.WorkloadRow, err error) {
+	if err != nil {
+		logDemoSourceError(source, err)
+		return
+	}
+
+	switch source {
+	case "runtime-pods":
+		data.RuntimePods = pods
+		data.RuntimePodsLive = true
+		data.ObservedGVisorPod = hasGVisorRuntimePod(pods)
+	case "workloads":
+		data.Workloads = workloads
+		data.WorkloadsLive = true
+		data.WorkloadAggregateLive = true
+		data.TotalWorkloads, data.TotalCostToday = aggregateWorkloads(workloads)
+	}
+}
+
+func logDemoSourceError(source string, err error) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		slog.Debug("demo source unavailable", "source", source, "error", err)
+		return
+	}
+	slog.Warn("demo source unavailable", "source", source, "error", err)
 }
 
 func aggregateWorkloads(rows []agentctl.WorkloadRow) (int, float64) {

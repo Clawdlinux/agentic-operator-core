@@ -513,7 +513,7 @@ textarea:focus-visible {
     padding: 0.85rem;
 }
 .live-source-card > .evidence-label { margin-bottom: 0.7rem; }
-.status-source-card { grid-column: 1 / -1; }
+.aggregate-source-card { grid-column: 1 / -1; }
 .source-detail { color: var(--text-muted); margin-top: 0.65rem; font-size: 0.8rem; }
 .evidence-unavailable-label { color: var(--text-muted) !important; }
 .runtime-row-list,
@@ -647,7 +647,7 @@ textarea:focus-visible {
     .truth-strip { grid-template-columns: 1fr; }
     .truth-strip ul { grid-template-columns: 1fr; }
     .live-source-grid { grid-template-columns: 1fr; }
-    .status-source-card { grid-column: auto; }
+    .aggregate-source-card { grid-column: auto; }
     .runtime-row { align-items: flex-start; flex-direction: column; }
     .runtime-row-meta { justify-content: flex-start; max-width: none; flex-wrap: wrap; }
     .workload-card { align-items: flex-start; flex-direction: column; }

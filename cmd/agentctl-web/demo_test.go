@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/fs"
 	"net/http"
@@ -306,6 +307,7 @@ func TestApprovalPartialsRenderTextControlsWithHTMXContracts(t *testing.T) {
 			wants: []string{
 				`action="/workloads/regulated-team/review-required/approve"`,
 				`hx-post="/workloads/regulated-team/review-required/approve"`,
+				`onclick="toggleRejectForm(this, 'regulated-team', 'review-required')"`,
 				`action="/workloads/' + ns + '/' + name + '/reject"`,
 				`hx-post="/workloads/' + ns + '/' + name + '/reject"`,
 				`hx-target="#workload-table"`,
@@ -406,8 +408,7 @@ func TestHandleDemoRendersLiveWorkloadEvidence(t *testing.T) {
 			},
 			workload,
 		),
-		Kube:      kube,
-		Discovery: kube.Discovery(),
+		Kube: kube,
 	}
 
 	server, err := NewServer(client, nil, TemplatesFS())
@@ -447,8 +448,11 @@ func TestHandleDemoRendersLiveWorkloadEvidence(t *testing.T) {
 		t.Fatalf("live evidence should appear before console overview in cluster-connected demo")
 	}
 
-	for _, source := range []string{"runtime-pods", "workloads", "workload-aggregate", "cluster-status"} {
+	for _, source := range []string{"runtime-pods", "workloads", "workload-aggregate"} {
 		assertEvidenceSourceState(t, body, source, "LIVE")
+	}
+	if strings.Contains(body, `data-evidence-source="cluster-status"`) {
+		t.Fatal("demo body must not render the context-unaware cluster status source")
 	}
 }
 
@@ -464,9 +468,8 @@ func TestHandleDemoDerivesAggregateFromSingleWorkloadSnapshot(t *testing.T) {
 	})
 	kube := fake.NewClientset()
 	client := &agentctl.Client{
-		Dynamic:   dynamicClient,
-		Kube:      kube,
-		Discovery: kube.Discovery(),
+		Dynamic: dynamicClient,
+		Kube:    kube,
 	}
 
 	body := renderDemo(t, client)
@@ -477,7 +480,6 @@ func TestHandleDemoDerivesAggregateFromSingleWorkloadSnapshot(t *testing.T) {
 	assertEvidenceSourceState(t, body, "workload-aggregate", "LIVE")
 	assertEvidenceSourceContains(t, body, "workload-aggregate", "$0.4321")
 	assertEvidenceSourceContains(t, body, "workload-aggregate", "Workload count: 1")
-	assertEvidenceSourceState(t, body, "cluster-status", "LIVE")
 }
 
 func TestHandleDemoKeepsAggregateUnavailableWhenWorkloadSnapshotFails(t *testing.T) {
@@ -487,9 +489,8 @@ func TestHandleDemoKeepsAggregateUnavailableWhenWorkloadSnapshotFails(t *testing
 	})
 	kube := fake.NewClientset()
 	client := &agentctl.Client{
-		Dynamic:   dynamicClient,
-		Kube:      kube,
-		Discovery: kube.Discovery(),
+		Dynamic: dynamicClient,
+		Kube:    kube,
 	}
 
 	body := renderDemo(t, client)
@@ -497,7 +498,84 @@ func TestHandleDemoKeepsAggregateUnavailableWhenWorkloadSnapshotFails(t *testing
 	assertEvidenceSourceState(t, body, "workloads", "UNAVAILABLE")
 	assertEvidenceSourceState(t, body, "workload-aggregate", "UNAVAILABLE")
 	assertEvidenceSourceContains(t, body, "workload-aggregate", "Aggregate workload count and cost unavailable")
-	assertEvidenceSourceState(t, body, "cluster-status", "LIVE")
+}
+
+func TestHandleDemoPollsContextAwareSourcesConcurrently(t *testing.T) {
+	tests := []struct {
+		name             string
+		configureSources func(*Server, chan struct{}, chan struct{})
+		liveSource       string
+		liveEvidence     string
+		blockedSource    string
+	}{
+		{
+			name: "blocked pods preserve live workloads",
+			configureSources: func(server *Server, blockedStarted, successful chan struct{}) {
+				server.demoPodSource = func(ctx context.Context) ([]agentctl.RuntimePodRow, error) {
+					close(blockedStarted)
+					<-ctx.Done()
+					return nil, ctx.Err()
+				}
+				server.demoWorkloadSource = func(context.Context) ([]agentctl.WorkloadRow, error) {
+					close(successful)
+					return []agentctl.WorkloadRow{{Name: "evidence-workload"}}, nil
+				}
+			},
+			liveSource:    "workloads",
+			liveEvidence:  "evidence-workload",
+			blockedSource: "runtime-pods",
+		},
+		{
+			name: "blocked workloads preserve live pods",
+			configureSources: func(server *Server, blockedStarted, successful chan struct{}) {
+				server.demoPodSource = func(context.Context) ([]agentctl.RuntimePodRow, error) {
+					close(successful)
+					return []agentctl.RuntimePodRow{{Name: "evidence-workload-runner"}}, nil
+				}
+				server.demoWorkloadSource = func(ctx context.Context) ([]agentctl.WorkloadRow, error) {
+					close(blockedStarted)
+					<-ctx.Done()
+					return nil, ctx.Err()
+				}
+			},
+			liveSource:    "runtime-pods",
+			liveEvidence:  "evidence-workload-runner",
+			blockedSource: "workloads",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server, err := NewServer(nil, nil, TemplatesFS())
+			if err != nil {
+				t.Fatalf("NewServer() error = %v", err)
+			}
+			blockedStarted := make(chan struct{})
+			successful := make(chan struct{})
+			server.demoPollTimeout = time.Hour
+			test.configureSources(server, blockedStarted, successful)
+
+			requestContext, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			req := httptest.NewRequest(http.MethodGet, "/demo", nil).WithContext(requestContext)
+			res := httptest.NewRecorder()
+			done := make(chan struct{})
+			go func() {
+				server.handleDemo(res, req)
+				close(done)
+			}()
+
+			waitForDemoSignal(t, blockedStarted, done, "blocked source did not start")
+			waitForDemoSignal(t, successful, done, "successful source did not run while the other source was blocked")
+			cancel()
+			waitForDemoCompletion(t, done)
+
+			body := res.Body.String()
+			assertEvidenceSourceState(t, body, test.liveSource, "LIVE")
+			assertEvidenceSourceContains(t, body, test.liveSource, test.liveEvidence)
+			assertEvidenceSourceState(t, body, test.blockedSource, "UNAVAILABLE")
+		})
+	}
 }
 
 func TestHandleDemoReportsNoObservedGVisorPod(t *testing.T) {
@@ -536,7 +614,6 @@ func TestHandleDemoTracksPartialSourceProvenance(t *testing.T) {
 				assertEvidenceSourceState(t, body, "workloads", "UNAVAILABLE")
 				assertEvidenceSourceContains(t, body, "workloads", "AgentWorkload source unavailable")
 				assertEvidenceSourceState(t, body, "workload-aggregate", "UNAVAILABLE")
-				assertEvidenceSourceState(t, body, "cluster-status", "UNAVAILABLE")
 			},
 		},
 		{
@@ -559,30 +636,6 @@ func TestHandleDemoTracksPartialSourceProvenance(t *testing.T) {
 				assertEvidenceSourceContains(t, body, "workloads", "$0.4321")
 				assertEvidenceSourceState(t, body, "workload-aggregate", "LIVE")
 				assertEvidenceSourceContains(t, body, "workload-aggregate", "$0.4321")
-				assertEvidenceSourceState(t, body, "cluster-status", "UNAVAILABLE")
-			},
-		},
-		{
-			name: "discovery fails while workloads succeed",
-			client: func() *agentctl.Client {
-				kube := fake.NewClientset()
-				kube.Fake.PrependReactor("get", "version", func(k8stesting.Action) (bool, runtime.Object, error) {
-					return true, nil, errors.New("status source unavailable")
-				})
-				return &agentctl.Client{
-					Kube:      kube,
-					Dynamic:   newDemoDynamicClient(newDemoWorkload()),
-					Discovery: kube.Discovery(),
-				}
-			}(),
-			assert: func(t *testing.T, body string) {
-				assertEvidenceSourceState(t, body, "workloads", "LIVE")
-				assertEvidenceSourceContains(t, body, "workloads", "anthropic/claude-sonnet-4")
-				assertEvidenceSourceContains(t, body, "workloads", "$0.4321")
-				assertEvidenceSourceState(t, body, "workload-aggregate", "LIVE")
-				assertEvidenceSourceContains(t, body, "workload-aggregate", "$0.4321")
-				assertEvidenceSourceState(t, body, "cluster-status", "UNAVAILABLE")
-				assertEvidenceSourceContains(t, body, "cluster-status", "Cluster status unavailable")
 			},
 		},
 	}
@@ -612,6 +665,26 @@ func renderDemo(t *testing.T, client *agentctl.Client) string {
 		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
 	}
 	return res.Body.String()
+}
+
+func waitForDemoSignal(t *testing.T, signal, done <-chan struct{}, failure string) {
+	t.Helper()
+	select {
+	case <-signal:
+	case <-done:
+		t.Fatal(failure)
+	case <-time.After(3 * time.Second):
+		t.Fatal(failure + " before safety timeout")
+	}
+}
+
+func waitForDemoCompletion(t *testing.T, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("handleDemo did not honor request cancellation before safety timeout")
+	}
 }
 
 func assertEvidenceSourceState(t *testing.T, body, source, state string) {
