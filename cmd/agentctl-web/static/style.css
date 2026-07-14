@@ -341,6 +341,7 @@ textarea:focus-visible {
     text-align: center;
     margin-bottom: 1.5rem;
 }
+.login-header .brand-wordmark { margin: 0 auto; }
 .login-header h1 { font-size: 1.5rem; margin-top: 0.5rem; }
 .login-header p { color: var(--text-muted); font-size: 0.9rem; }
 .login-hint {

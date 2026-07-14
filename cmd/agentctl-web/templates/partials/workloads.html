@@ -35,11 +35,11 @@
                       hx-target="#workload-table" hx-swap="innerHTML"
                       style="display:inline">
                     <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                    <button type="submit" class="btn btn-sm btn-approve" title="Approve">✓ Approve</button>
+                    <button type="submit" class="btn btn-sm btn-approve" title="Approve">Approve</button>
                 </form>
                 <button class="btn btn-sm btn-reject" title="Reject"
                         onclick="toggleRejectForm(this, '{{.Namespace}}', '{{.Name}}')">
-                    ✗ Reject
+                    Reject
                 </button>
                 {{else}}
                 <span class="text-muted">—</span>
@@ -69,7 +69,7 @@ function toggleRejectForm(btn, ns, name) {
         '<input type="hidden" name="csrf_token" value="' + token + '">' +
         '<input type="text" name="rule" placeholder="OPA rule (optional)" class="input-sm">' +
         '<input type="text" name="reason" placeholder="Reason (optional)" class="input-sm">' +
-        '<button type="submit" class="btn btn-sm btn-reject">Submit Rejection</button>' +
+        '<button type="submit" class="btn btn-sm btn-reject" title="Submit rejection">Submit rejection</button>' +
         '<button type="button" class="btn btn-sm btn-secondary" onclick="this.closest(\'tr\').remove()">Cancel</button>' +
         '</form></td>';
     row.parentNode.insertBefore(newRow, row.nextSibling);
