@@ -18,7 +18,7 @@ SETUP_ENVTEST := $(LOCALBIN)/setup-envtest
 STATICCHECK := $(LOCALBIN)/staticcheck
 CONTROLLER_GEN := $(LOCALBIN)/controller-gen
 
-.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build build-agentctl build-agentctl-web install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
+.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build build-agentctl build-agentctl-web build-anf-snapshot install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
 
 .DEFAULT_GOAL := help
 
@@ -36,6 +36,7 @@ help:
 	@echo "  make manifests      - Generate CRD manifests"
 	@echo "  make generate       - Generate code (deepcopy + go generate)"
 	@echo "  make build          - Build go binaries"
+	@echo "  make build-anf-snapshot - Build the live ANF namespace snapshot CLI"
 	@echo "  make helm-lint      - Lint the Helm chart"
 	@echo "  make scan-secrets   - Run repository secret scan"
 	@echo ""
@@ -150,6 +151,11 @@ build-agentctl-web:
 	@echo "Building agentctl-web binary..."
 	@mkdir -p bin
 	@$(GO) build -o bin/agentctl-web ./cmd/agentctl-web/...
+
+build-anf-snapshot:
+	@echo "Building anf-snapshot binary..."
+	@mkdir -p bin
+	@$(GO) build -o bin/anf-snapshot ./cmd/anf-snapshot/...
 
 install-agentctl: build-agentctl
 	@if [[ ! -f bin/agentctl ]]; then \
