@@ -548,6 +548,11 @@ const elements = {
 };
 
 const seenSequences = new Set();
+const EVIDENCE_SCOPES = new Set([
+  'LIVE',
+  'CONFIG ONLY',
+  'PRIOR RUN',
+]);
 let meaningfulEvents = [];
 let runMode = null;
 
@@ -608,7 +613,7 @@ function renderEventTail() {
     line.className = `event-line ${item.tone}`;
     const scope = document.createElement('span');
     scope.className = 'event-scope';
-    scope.textContent = item.scope || 'EVENT';
+    scope.textContent = item.scope;
     const text = document.createElement('span');
     text.className = 'event-text';
     text.textContent = item.text;
@@ -619,6 +624,7 @@ function renderEventTail() {
 }
 
 function addMeaningfulEvent(event, tone = '') {
+  if (!EVIDENCE_SCOPES.has(event.evidence_scope)) return;
   const text = event.raw || event.text;
   if (!text) return;
   meaningfulEvents.push({ scope: event.evidence_scope, text, tone });

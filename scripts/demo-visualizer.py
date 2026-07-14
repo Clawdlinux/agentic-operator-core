@@ -57,17 +57,17 @@ def broadcast(event):
         history.append(event)
         if len(history) > 2000:
             del history[: len(history) - 2000]
-    data = "data: " + json.dumps(event) + "\n\n"
-    with clients_lock:
-        dead = []
-        for q in clients:
-            try:
-                q.put_nowait(data)
-            except Exception:
-                dead.append(q)
-        for q in dead:
-            if q in clients:
-                clients.remove(q)
+        data = "data: " + json.dumps(event) + "\n\n"
+        with clients_lock:
+            dead = []
+            for q in clients:
+                try:
+                    q.put_nowait(data)
+                except Exception:
+                    dead.append(q)
+            for q in dead:
+                if q in clients:
+                    clients.remove(q)
 
 
 LINE_PATTERNS = [
@@ -279,8 +279,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             q = queue.Queue()
             with history_lock:
                 backlog = list(history)
-            with clients_lock:
-                clients.append(q)
+                with clients_lock:
+                    clients.append(q)
             try:
                 for evt in backlog:
                     self.wfile.write(("data: " + json.dumps(evt) + "\n\n").encode("utf-8"))
