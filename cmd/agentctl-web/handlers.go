@@ -20,6 +20,20 @@ type Server struct {
 	tmpl   *template.Template
 }
 
+type demoPageData struct {
+	CSRFToken         string
+	Demo              bool
+	Live              bool
+	RuntimePodsLive   bool
+	WorkloadsLive     bool
+	StatusLive        bool
+	ObservedGVisorPod bool
+	RuntimePods       []agentctl.RuntimePodRow
+	Workloads         []agentctl.WorkloadRow
+	Status            *agentctl.StatusSummary
+	User              *UserInfo
+}
+
 // NewServer creates a Server with parsed templates.
 func NewServer(client *agentctl.Client, authz *Authorizer, tmplFS fs.FS) (*Server, error) {
 	funcMap := template.FuncMap{
@@ -77,52 +91,56 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDemo(w http.ResponseWriter, r *http.Request) {
-	runtimePods := []agentctl.RuntimePodRow{}
-	workloads := []agentctl.WorkloadRow{}
-	var status *agentctl.StatusSummary
-	live := false
+	data := demoPageData{
+		CSRFToken:   "demo",
+		Demo:        true,
+		RuntimePods: []agentctl.RuntimePodRow{},
+		Workloads:   []agentctl.WorkloadRow{},
+		User: &UserInfo{
+			Username: "booth-demo",
+		},
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
 	if s.client != nil {
 		if s.client.Kube != nil {
 			if rows, err := s.client.ListRuntimePods(ctx, ""); err == nil {
-				runtimePods = rows
-				live = true
+				data.RuntimePods = rows
+				data.RuntimePodsLive = true
+				data.ObservedGVisorPod = hasGVisorRuntimePod(rows)
 			}
 		}
 
 		if s.client.Dynamic != nil {
 			if rows, err := s.client.ListWorkloads(ctx, ""); err == nil {
-				workloads = rows
-				live = true
+				data.Workloads = rows
+				data.WorkloadsLive = true
 			}
 		}
 
-		if s.client.Kube != nil && s.client.Dynamic != nil && s.client.Discovery != nil {
+		if data.WorkloadsLive && s.client.Kube != nil && s.client.Discovery != nil {
 			if summary, err := s.client.ClusterStatus(ctx, ""); err == nil {
-				status = summary
-				live = true
+				data.Status = summary
+				data.StatusLive = true
 			}
 		}
 	}
-
-	data := map[string]interface{}{
-		"CSRFToken":   "demo",
-		"Demo":        true,
-		"Live":        live,
-		"RuntimePods": runtimePods,
-		"Workloads":   workloads,
-		"Status":      status,
-		"User": &UserInfo{
-			Username: "booth-demo",
-		},
-	}
+	data.Live = data.RuntimePodsLive || data.WorkloadsLive || data.StatusLive
 
 	if err := s.tmpl.ExecuteTemplate(w, "demo.html", data); err != nil {
 		slog.Error("render demo", "error", err)
 		http.Error(w, "Failed to render demo", http.StatusInternalServerError)
 	}
+}
+
+func hasGVisorRuntimePod(rows []agentctl.RuntimePodRow) bool {
+	for _, row := range rows {
+		if strings.EqualFold(strings.TrimSpace(row.RuntimeClass), "gvisor") {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) handleWorkloads(w http.ResponseWriter, r *http.Request) {
