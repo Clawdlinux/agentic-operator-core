@@ -383,6 +383,148 @@
     }
   }
 
+  @media (min-width: 901px) and (max-height: 720px) {
+    .control-room {
+      grid-template-rows: 56px 88px minmax(230px, 1fr) 68px 116px;
+      padding-bottom: 8px;
+    }
+
+    .wordmark {
+      width: 166px;
+      height: 45px;
+    }
+
+    .provider-path {
+      gap: 10px;
+      margin: 7px 0 4px;
+      font-size: 24px;
+    }
+
+    .path-separator { font-size: 20px; }
+
+    .stage-line {
+      min-height: 17px;
+      font-size: 12px;
+    }
+
+    .instrument { padding-top: 12px; padding-bottom: 8px; }
+
+    .instrument-heading { margin-bottom: 8px; }
+
+    .instrument h2,
+    .event-tail h2 {
+      font-size: 15px;
+      line-height: 1.1;
+    }
+
+    .metric,
+    .control,
+    .receipt-field { padding-top: 7px; padding-bottom: 7px; }
+
+    .metric dd,
+    .control dd,
+    .receipt-field dd { font-size: 13px; }
+
+    .audit-verdict {
+      min-height: 36px;
+      padding: 5px 0 8px;
+      font-size: 21px;
+    }
+
+    .truth-item { gap: 3px; }
+
+    .truth-item span {
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .event-tail {
+      min-height: 0;
+      padding-top: 7px;
+    }
+
+    .event-tail-header { margin-bottom: 4px; }
+
+    .event-list { gap: 2px; }
+
+    .event-line {
+      min-height: 16px;
+      font-size: 11px;
+      line-height: 1.2;
+    }
+  }
+
+  @media (min-width: 901px) and (max-height: 660px) {
+    .control-room {
+      grid-template-rows: 50px 80px minmax(220px, 1fr) 62px 110px;
+      padding-bottom: 6px;
+    }
+
+    .wordmark {
+      width: 150px;
+      height: 41px;
+    }
+
+    .provider-path {
+      gap: 8px;
+      margin: 5px 0 3px;
+      font-size: 20px;
+    }
+
+    .path-separator { font-size: 18px; }
+
+    .stage-line {
+      min-height: 15px;
+      font-size: 11px;
+    }
+
+    .instrument { padding-top: 9px; padding-bottom: 6px; }
+
+    .instrument-heading { margin-bottom: 6px; }
+
+    .instrument h2,
+    .event-tail h2 {
+      font-size: 14px;
+      line-height: 1.1;
+    }
+
+    .metric,
+    .control,
+    .receipt-field { padding-top: 5px; padding-bottom: 5px; }
+
+    .metric dd,
+    .control dd,
+    .receipt-field dd { font-size: 12px; }
+
+    .audit-verdict {
+      min-height: 32px;
+      padding: 4px 0 6px;
+      font-size: 18px;
+    }
+
+    .truth-item { gap: 2px; }
+
+    .truth-item span {
+      font-size: 10px;
+      line-height: 1.15;
+    }
+
+    .event-tail {
+      min-height: 0;
+      padding-top: 6px;
+    }
+
+    .event-tail-header { margin-bottom: 3px; }
+
+    .event-list { gap: 1px; }
+
+    .event-line {
+      min-height: 15px;
+      font-size: 10px;
+      line-height: 1.15;
+    }
+  }
+
   @media (max-width: 900px) {
     body { display: block; }
 

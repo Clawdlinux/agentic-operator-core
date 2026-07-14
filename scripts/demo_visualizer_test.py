@@ -3,6 +3,7 @@ import importlib.util
 import io
 import json
 import queue
+import re
 import socket
 import sys
 import tempfile
@@ -17,6 +18,61 @@ DASHBOARD_PATH = Path(__file__).with_name("demo-dashboard.html")
 SPEC = importlib.util.spec_from_file_location("demo_visualizer", SCRIPT_PATH)
 demo_visualizer = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(demo_visualizer)
+
+
+def extract_css_block(source, marker):
+    marker_start = source.index(marker)
+    block_start = source.index("{", marker_start)
+    depth = 1
+    cursor = block_start + 1
+    while depth:
+        if source[cursor] == "{":
+            depth += 1
+        elif source[cursor] == "}":
+            depth -= 1
+        cursor += 1
+    return source[block_start + 1 : cursor - 1]
+
+
+def parse_css_rules(block):
+    rules = {}
+    cursor = 0
+    while cursor < len(block):
+        block_start = block.find("{", cursor)
+        if block_start == -1:
+            break
+        selector = " ".join(block[cursor:block_start].split())
+        depth = 1
+        block_end = block_start + 1
+        while depth:
+            if block[block_end] == "{":
+                depth += 1
+            elif block[block_end] == "}":
+                depth -= 1
+            block_end += 1
+        declarations = {}
+        for declaration in block[block_start + 1 : block_end - 1].split(";"):
+            if ":" not in declaration:
+                continue
+            name, value = declaration.split(":", 1)
+            declarations[name.strip()] = value.strip()
+        rules[selector] = declarations
+        cursor = block_end
+    return rules
+
+
+def pixel_value(value):
+    match = re.fullmatch(r"(\d+)px", value)
+    if match is None:
+        raise AssertionError(f"expected fixed pixel value, got {value!r}")
+    return int(match.group(1))
+
+
+def unitless_value(value):
+    match = re.fullmatch(r"\d+(?:\.\d+)?", value)
+    if match is None:
+        raise AssertionError(f"expected unitless value, got {value!r}")
+    return float(value)
 
 
 class ThemeAssetTest(unittest.TestCase):
@@ -318,6 +374,91 @@ class DashboardContractTest(unittest.TestCase):
             dispatch.index("if (event.stream_id !== currentStreamId)"),
             dispatch.index("seenSequences.has(event.seq)"),
         )
+
+    def test_landscape_height_rules_fit_projector_stage_row_budgets(self):
+        cases = (
+            ("@media (min-width: 901px) and (max-height: 720px)", 1152, 720),
+            ("@media (min-width: 901px) and (max-height: 660px)", 1024, 640),
+        )
+
+        for marker, viewport_width, viewport_height in cases:
+            with self.subTest(marker=marker):
+                rules = parse_css_rules(extract_css_block(self.dashboard, marker))
+                control_room = rules[".control-room"]
+                row_floor = sum(
+                    int(value)
+                    for value in re.findall(
+                        r"(\d+)px", control_room["grid-template-rows"]
+                    )
+                )
+                padding_bottom = pixel_value(control_room["padding-bottom"])
+                stage_height = min(viewport_height, viewport_width * 9 // 16)
+
+                self.assertLessEqual(row_floor + padding_bottom + 2, stage_height)
+
+    def test_short_landscape_rules_preserve_projector_readability(self):
+        cases = (
+            ("@media (min-width: 901px) and (max-height: 720px)", 20, 14, 12, 10, 10),
+            ("@media (min-width: 901px) and (max-height: 660px)", 20, 14, 12, 10, 10),
+        )
+
+        for marker, provider_min, heading_min, metric_min, event_min, truth_min in cases:
+            with self.subTest(marker=marker):
+                rules = parse_css_rules(extract_css_block(self.dashboard, marker))
+
+                self.assertGreaterEqual(
+                    pixel_value(rules[".provider-path"]["font-size"]), provider_min
+                )
+                self.assertGreaterEqual(
+                    pixel_value(
+                        rules[".instrument h2, .event-tail h2"]["font-size"]
+                    ),
+                    heading_min,
+                )
+                self.assertGreaterEqual(
+                    pixel_value(
+                        rules[".metric dd, .control dd, .receipt-field dd"][
+                            "font-size"
+                        ]
+                    ),
+                    metric_min,
+                )
+                self.assertGreaterEqual(
+                    pixel_value(rules[".event-line"]["font-size"]), event_min
+                )
+                self.assertGreaterEqual(
+                    pixel_value(rules[".truth-item span"]["font-size"]), truth_min
+                )
+                self.assertNotIn("overflow", rules[".event-tail"])
+
+        self.assertIn("meaningfulEvents = meaningfulEvents.slice(-5);", self.dashboard)
+
+    def test_short_landscape_event_tail_fits_five_lines_without_scrolling(self):
+        for marker in (
+            "@media (min-width: 901px) and (max-height: 720px)",
+            "@media (min-width: 901px) and (max-height: 660px)",
+        ):
+            with self.subTest(marker=marker):
+                rules = parse_css_rules(extract_css_block(self.dashboard, marker))
+                row_values = re.findall(
+                    r"(\d+)px", rules[".control-room"]["grid-template-rows"]
+                )
+                event_row = int(row_values[-1])
+                heading = rules[".instrument h2, .event-tail h2"]
+                event_tail = rules[".event-tail"]
+                event_header = rules[".event-tail-header"]
+                event_list = rules[".event-list"]
+                event_line = rules[".event-line"]
+                content_height = (
+                    pixel_value(event_tail["padding-top"])
+                    + pixel_value(heading["font-size"])
+                    * unitless_value(heading["line-height"])
+                    + pixel_value(event_header["margin-bottom"])
+                    + 5 * pixel_value(event_line["min-height"])
+                    + 4 * pixel_value(event_list["gap"])
+                )
+
+                self.assertLessEqual(content_height, event_row)
 
 
 class SSERegistrationTest(unittest.TestCase):
