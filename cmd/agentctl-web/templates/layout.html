@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{block "title" .}}agentctl{{end}} — Agentic Operator</title>
+    <title>{{block "title" .}}agentctl{{end}} | Clawdlinux</title>
+    <link rel="stylesheet" href="/theme/clawdlinux-theme.css">
     <link rel="stylesheet" href="/static/style.css">
     <script src="/static/htmx.min.js"></script>
     <meta name="csrf-token" content="{{.CSRFToken}}">
@@ -11,22 +12,21 @@
 <body>
     {{if .Demo}}
     <nav class="navbar demo-navbar">
-        <div class="nav-brand">
-            <span class="logo">NV</span>
-            <span class="brand-text">Clawdlinux</span>
-        </div>
+        <a class="nav-brand" href="/demo" aria-label="Clawdlinux evidence console">
+            <img class="brand-wordmark" src="/theme/clawdlinux-wordmark.svg" alt="Clawdlinux">
+        </a>
         <div class="demo-nav-proof">
-            <span class="demo-pill">Kubernetes runtime</span>
-            <span class="demo-pill">Policy gated</span>
-            <span class="demo-pill">Audit ready</span>
+            <span class="demo-pill">Evidence boundaries</span>
+            <span class="demo-pill">Cluster readback</span>
+            <span class="demo-pill">Offline verification</span>
         </div>
     </nav>
     {{else}}
     <nav class="navbar">
-        <div class="nav-brand">
-            <span class="logo">⚙</span>
-            <span class="brand-text">agentctl</span>
-        </div>
+        <a class="nav-brand" href="/" aria-label="Clawdlinux agentctl dashboard">
+            <img class="brand-wordmark" src="/theme/clawdlinux-wordmark.svg" alt="Clawdlinux">
+            <span class="product-name">agentctl</span>
+        </a>
         <div class="nav-links">
             <a href="/" class="nav-link" hx-get="/" hx-target="body" hx-push-url="true">Dashboard</a>
             <a href="/workloads" class="nav-link">Workloads</a>
@@ -48,7 +48,7 @@
         {{block "content" .}}{{end}}
     </main>
     <footer class="footer">
-        <span>Agentic Operator — ClawdLinux</span>
+        <span>Clawdlinux</span>
     </footer>
 </body>
 </html>

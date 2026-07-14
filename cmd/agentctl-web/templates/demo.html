@@ -2,11 +2,11 @@
 {{define "title"}}Demo{{end}}
 {{define "content"}}
 {{if .Live}}
-<section class="proof-panel live-panel" aria-label="Live control plane state">
+<section class="proof-panel live-panel evidence-live" aria-labelledby="live-evidence-title">
     <div class="stage-header">
         <div>
-            <span class="demo-label">Cluster interaction</span>
-            <h2>Live control plane</h2>
+            <span class="evidence-label">LIVE</span>
+            <h2 id="live-evidence-title">Workload state and estimated cost read from the cluster</h2>
         </div>
         {{if .Status}}<div class="cost-ticker">{{fmtCost .Status.TotalCostToday}}</div>{{end}}
     </div>
@@ -62,109 +62,58 @@
 
 <section class="demo-shell" aria-labelledby="demo-title">
     <div class="demo-hero">
-        <div class="demo-kicker">{{if .Live}}Live cluster{{else}}Investor demo path{{end}}</div>
-        <h1 id="demo-title">Run governed AI agents inside your cluster.</h1>
-        <p class="demo-copy">Clawdlinux is an open-source agent runtime for Kubernetes. It runs agent workloads where the data already lives, with policy, cost, and audit proof built in.</p>
+        <div class="demo-kicker">Governance and evidence plane</div>
+        <h1 id="demo-title">Governance evidence console</h1>
+        <p class="demo-copy">Inspect what the cluster reports, what configuration proves, and what belongs to an earlier fixture. Clawdlinux governs runtime workloads through adapters. It is not the agent runtime.</p>
         <div class="demo-actions">
-            <a class="btn btn-primary btn-demo" href="#run-sequence">Run demo</a>
-            <a class="btn btn-secondary btn-demo" href="#audit-proof">View Audit Proof</a>
+            <a class="btn btn-primary btn-demo" href="#evidence-boundaries">Review evidence boundaries</a>
+            <a class="btn btn-secondary btn-demo" href="#truth-strip">Read current limits</a>
         </div>
     </div>
 
-    <aside class="demo-control-card" aria-label="Demo workload summary">
-        <span class="demo-label">{{if .Live}}Control plane{{else}}Default workload{{end}}</span>
+    <aside class="demo-control-card" aria-label="Evidence source summary">
+        <span class="demo-label">Current source</span>
         {{if .Live}}
-        <h2>{{len .RuntimePods}} runtime pods</h2>
-        <p>{{len .Workloads}} AgentWorkloads observed. Runtime, policy, and cost are read from the cluster.</p>
-        <div class="demo-status-line"><span class="pulse-dot"></span> Watching Kubernetes</div>
+        <h2>Cluster connection available</h2>
+        <p>{{len .RuntimePods}} runtime pods and {{len .Workloads}} AgentWorkloads observed.</p>
+        <div class="demo-status-line">Polling Kubernetes every 5 seconds</div>
         {{else}}
-        <h2>Secure Research Swarm</h2>
-        <p>Fintech research task. 3 agents. Strict policy. No external data egress.</p>
-        <div class="demo-status-line"><span class="pulse-dot"></span> AgentWorkload running</div>
+        <h2>No live cluster source</h2>
+        <p>No runtime execution is shown. Connect a cluster to populate live workload evidence.</p>
+        <div class="demo-status-line is-muted">Static evidence boundaries only</div>
         {{end}}
     </aside>
 </section>
 
-<section id="run-sequence" class="demo-grid" aria-label="Guided demo sequence">
-    <article class="demo-step-card is-active">
-        <span class="step-index">01</span>
-        <h3>Choose workload</h3>
-        <p>Secure Research Swarm asks which regulated AI workflows need on-prem agent execution.</p>
+<section id="evidence-boundaries" class="demo-grid evidence-grid" aria-label="Evidence boundaries">
+    <article class="demo-step-card evidence-live">
+        <span class="evidence-label">LIVE</span>
+        <h2>Cluster readback</h2>
+        {{if .Live}}
+        <p>Workload phase, runtime pods, selected model, and estimated cost come from the connected cluster.</p>
+        {{else}}
+        <p>No cluster data is connected. Live workload, model, and cost evidence is unavailable.</p>
+        {{end}}
     </article>
-    <article class="demo-step-card">
-        <span class="step-index">02</span>
-        <h3>Policy Gate</h3>
-        <p>OPA checks tool scope, target domains, confidence, and data boundary before agents run.</p>
+    <article class="demo-step-card evidence-config">
+        <span class="evidence-label">CONFIG ONLY</span>
+        <h2>Sandbox and network objects</h2>
+        <p>gVisor admission dry-run and NetworkPolicy object presence are configuration evidence only. There is no pod or packet test.</p>
     </article>
-    <article class="demo-step-card">
-        <span class="step-index">03</span>
-        <h3>Cost Attribution</h3>
-        <p>LiteLLM routing tracks prompt tokens, output tokens, model, and per-run estimated cost.</p>
-    </article>
-    <article class="demo-step-card">
-        <span class="step-index">04</span>
-        <h3>Audit Proof</h3>
-        <p>Each action is tied to workload UID, policy result, timestamp, model call, and final report.</p>
+    <article class="demo-step-card evidence-prior">
+        <span class="evidence-label">PRIOR RUN</span>
+        <h2>Offline audit fixture</h2>
+        <p>An HMAC audit fixture can be checked by the offline verifier. It was not generated by the current workload.</p>
     </article>
 </section>
 
-<section class="agent-stage" aria-label="Live agent graph">
-    <div class="stage-header">
-        <div>
-            <span class="demo-label">Live run</span>
-            <h2>Agent graph</h2>
-        </div>
-        <div class="cost-ticker">$0.0142</div>
-    </div>
-    <div class="agent-graph">
-        <div class="agent-node node-source">Researcher<br><span>running</span></div>
-        <div class="agent-link"></div>
-        <div class="agent-node node-policy">Policy Gate<br><span>allowed</span></div>
-        <div class="agent-link"></div>
-        <div class="agent-node node-cost">FinOps<br><span>$0.0142</span></div>
-        <div class="agent-link"></div>
-        <div class="agent-node node-report">Report<br><span>ready</span></div>
-    </div>
-</section>
-
-<section id="audit-proof" class="proof-panel" aria-label="Audit proof table">
-    <div>
-        <span class="demo-label">Compliance path</span>
-        <h2>Audit trail</h2>
-    </div>
-    <table class="data-table demo-table">
-        <thead>
-            <tr>
-                <th>Time</th>
-                <th>Event</th>
-                <th>Policy</th>
-                <th>Model</th>
-                <th>Cost</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>00:02</td>
-                <td>AgentWorkload accepted</td>
-                <td><span class="badge badge-running">strict</span></td>
-                <td>gpt-4o-mini</td>
-                <td>$0.0000</td>
-            </tr>
-            <tr>
-                <td>00:08</td>
-                <td>Tool scope evaluated</td>
-                <td><span class="badge badge-completed">allowed</span></td>
-                <td>local policy</td>
-                <td>$0.0000</td>
-            </tr>
-            <tr>
-                <td>00:31</td>
-                <td>Research synthesis complete</td>
-                <td><span class="badge badge-completed">passed</span></td>
-                <td>gpt-4o-mini</td>
-                <td>$0.0142</td>
-            </tr>
-        </tbody>
-    </table>
+<section id="truth-strip" class="truth-strip" aria-labelledby="truth-strip-title">
+    <h2 id="truth-strip-title">Current limits</h2>
+    <ul>
+        <li>No OPA evidence</li>
+        <li>No scheduled gVisor pod</li>
+        <li>No packet enforcement test</li>
+        <li>Current workload generated no audit fixture</li>
+    </ul>
 </section>
 {{end}}
