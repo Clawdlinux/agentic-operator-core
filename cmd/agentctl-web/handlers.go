@@ -21,17 +21,20 @@ type Server struct {
 }
 
 type demoPageData struct {
-	CSRFToken         string
-	Demo              bool
-	Live              bool
-	RuntimePodsLive   bool
-	WorkloadsLive     bool
-	StatusLive        bool
-	ObservedGVisorPod bool
-	RuntimePods       []agentctl.RuntimePodRow
-	Workloads         []agentctl.WorkloadRow
-	Status            *agentctl.StatusSummary
-	User              *UserInfo
+	CSRFToken             string
+	Demo                  bool
+	Live                  bool
+	RuntimePodsLive       bool
+	WorkloadsLive         bool
+	WorkloadAggregateLive bool
+	ClusterStatusLive     bool
+	ObservedGVisorPod     bool
+	RuntimePods           []agentctl.RuntimePodRow
+	Workloads             []agentctl.WorkloadRow
+	TotalWorkloads        int
+	TotalCostToday        float64
+	ClusterVersion        string
+	User                  *UserInfo
 }
 
 // NewServer creates a Server with parsed templates.
@@ -116,22 +119,32 @@ func (s *Server) handleDemo(w http.ResponseWriter, r *http.Request) {
 			if rows, err := s.client.ListWorkloads(ctx, ""); err == nil {
 				data.Workloads = rows
 				data.WorkloadsLive = true
+				data.WorkloadAggregateLive = true
+				data.TotalWorkloads, data.TotalCostToday = aggregateWorkloads(rows)
 			}
 		}
 
-		if data.WorkloadsLive && s.client.Kube != nil && s.client.Discovery != nil {
-			if summary, err := s.client.ClusterStatus(ctx, ""); err == nil {
-				data.Status = summary
-				data.StatusLive = true
+		if s.client.Discovery != nil {
+			if serverVersion, err := s.client.Discovery.ServerVersion(); err == nil {
+				data.ClusterVersion = serverVersion.GitVersion
+				data.ClusterStatusLive = true
 			}
 		}
 	}
-	data.Live = data.RuntimePodsLive || data.WorkloadsLive || data.StatusLive
+	data.Live = data.RuntimePodsLive || data.WorkloadsLive || data.ClusterStatusLive
 
 	if err := s.tmpl.ExecuteTemplate(w, "demo.html", data); err != nil {
 		slog.Error("render demo", "error", err)
 		http.Error(w, "Failed to render demo", http.StatusInternalServerError)
 	}
+}
+
+func aggregateWorkloads(rows []agentctl.WorkloadRow) (int, float64) {
+	var totalCostToday float64
+	for _, row := range rows {
+		totalCostToday += row.CostToday
+	}
+	return len(rows), totalCostToday
 }
 
 func hasGVisorRuntimePod(rows []agentctl.RuntimePodRow) bool {

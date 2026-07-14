@@ -279,9 +279,57 @@ func TestHandleDemoRendersLiveWorkloadEvidence(t *testing.T) {
 		t.Fatalf("live evidence should appear before console overview in cluster-connected demo")
 	}
 
-	for _, source := range []string{"runtime-pods", "workloads", "status-cost"} {
+	for _, source := range []string{"runtime-pods", "workloads", "workload-aggregate", "cluster-status"} {
 		assertEvidenceSourceState(t, body, source, "LIVE")
 	}
+}
+
+func TestHandleDemoDerivesAggregateFromSingleWorkloadSnapshot(t *testing.T) {
+	dynamicClient := newDemoDynamicClient(newDemoWorkload())
+	workloadListCalls := 0
+	dynamicClient.PrependReactor("list", "agentworkloads", func(k8stesting.Action) (bool, runtime.Object, error) {
+		workloadListCalls++
+		if workloadListCalls > 1 {
+			return true, nil, errors.New("transient second list failure")
+		}
+		return false, nil, nil
+	})
+	kube := fake.NewClientset()
+	client := &agentctl.Client{
+		Dynamic:   dynamicClient,
+		Kube:      kube,
+		Discovery: kube.Discovery(),
+	}
+
+	body := renderDemo(t, client)
+
+	if workloadListCalls != 1 {
+		t.Fatalf("AgentWorkload list calls = %d, want 1", workloadListCalls)
+	}
+	assertEvidenceSourceState(t, body, "workload-aggregate", "LIVE")
+	assertEvidenceSourceContains(t, body, "workload-aggregate", "$0.4321")
+	assertEvidenceSourceContains(t, body, "workload-aggregate", "Workload count: 1")
+	assertEvidenceSourceState(t, body, "cluster-status", "LIVE")
+}
+
+func TestHandleDemoKeepsAggregateUnavailableWhenWorkloadSnapshotFails(t *testing.T) {
+	dynamicClient := newDemoDynamicClient()
+	dynamicClient.PrependReactor("list", "agentworkloads", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("workload source unavailable")
+	})
+	kube := fake.NewClientset()
+	client := &agentctl.Client{
+		Dynamic:   dynamicClient,
+		Kube:      kube,
+		Discovery: kube.Discovery(),
+	}
+
+	body := renderDemo(t, client)
+
+	assertEvidenceSourceState(t, body, "workloads", "UNAVAILABLE")
+	assertEvidenceSourceState(t, body, "workload-aggregate", "UNAVAILABLE")
+	assertEvidenceSourceContains(t, body, "workload-aggregate", "Aggregate workload count and cost unavailable")
+	assertEvidenceSourceState(t, body, "cluster-status", "LIVE")
 }
 
 func TestHandleDemoReportsNoObservedGVisorPod(t *testing.T) {
@@ -319,7 +367,8 @@ func TestHandleDemoTracksPartialSourceProvenance(t *testing.T) {
 				assertEvidenceSourceContains(t, body, "runtime-pods", "evidence-workload-runner")
 				assertEvidenceSourceState(t, body, "workloads", "UNAVAILABLE")
 				assertEvidenceSourceContains(t, body, "workloads", "AgentWorkload source unavailable")
-				assertEvidenceSourceState(t, body, "status-cost", "UNAVAILABLE")
+				assertEvidenceSourceState(t, body, "workload-aggregate", "UNAVAILABLE")
+				assertEvidenceSourceState(t, body, "cluster-status", "UNAVAILABLE")
 			},
 		},
 		{
@@ -340,11 +389,13 @@ func TestHandleDemoTracksPartialSourceProvenance(t *testing.T) {
 				assertEvidenceSourceState(t, body, "workloads", "LIVE")
 				assertEvidenceSourceContains(t, body, "workloads", "anthropic/claude-sonnet-4")
 				assertEvidenceSourceContains(t, body, "workloads", "$0.4321")
-				assertEvidenceSourceState(t, body, "status-cost", "UNAVAILABLE")
+				assertEvidenceSourceState(t, body, "workload-aggregate", "LIVE")
+				assertEvidenceSourceContains(t, body, "workload-aggregate", "$0.4321")
+				assertEvidenceSourceState(t, body, "cluster-status", "UNAVAILABLE")
 			},
 		},
 		{
-			name: "status fails while workloads succeed",
+			name: "discovery fails while workloads succeed",
 			client: func() *agentctl.Client {
 				kube := fake.NewClientset()
 				kube.Fake.PrependReactor("get", "version", func(k8stesting.Action) (bool, runtime.Object, error) {
@@ -360,8 +411,10 @@ func TestHandleDemoTracksPartialSourceProvenance(t *testing.T) {
 				assertEvidenceSourceState(t, body, "workloads", "LIVE")
 				assertEvidenceSourceContains(t, body, "workloads", "anthropic/claude-sonnet-4")
 				assertEvidenceSourceContains(t, body, "workloads", "$0.4321")
-				assertEvidenceSourceState(t, body, "status-cost", "UNAVAILABLE")
-				assertEvidenceSourceContains(t, body, "status-cost", "Cluster status and aggregate cost unavailable")
+				assertEvidenceSourceState(t, body, "workload-aggregate", "LIVE")
+				assertEvidenceSourceContains(t, body, "workload-aggregate", "$0.4321")
+				assertEvidenceSourceState(t, body, "cluster-status", "UNAVAILABLE")
+				assertEvidenceSourceContains(t, body, "cluster-status", "Cluster status unavailable")
 			},
 		},
 	}
