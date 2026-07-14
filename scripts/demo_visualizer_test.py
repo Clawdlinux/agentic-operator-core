@@ -359,6 +359,42 @@ class DashboardContractTest(unittest.TestCase):
         render_tail = render_tail.split("function addMeaningfulEvent", 1)[0]
         self.assertNotIn("item.scope || 'EVENT'", render_tail)
 
+    def test_stage_uses_only_panel_scoped_evidence_boundaries(self):
+        for removed_copy in (
+            "truth-strip",
+            "truth-item",
+            "NO OPA EVIDENCE",
+            "NO SCHEDULED gVISOR POD",
+            "NO PACKET TEST",
+            "AUDIT FIXTURE IS PRIOR RUN",
+        ):
+            with self.subTest(removed_copy=removed_copy):
+                self.assertNotIn(removed_copy, self.dashboard)
+
+        panel_badges = re.findall(
+            r'<span class="scope-label [^"]+">([^<]+)</span>',
+            self.dashboard,
+        )
+        self.assertEqual(panel_badges, ["LIVE", "CONFIG ONLY", "PRIOR RUN"])
+        self.assertIn('<h2 id="auditHeading">Prior-run audit receipt</h2>', self.dashboard)
+        self.assertIn(
+            '<div class="audit-verdict" id="auditVerdict">awaiting prior-run fixture</div>',
+            self.dashboard,
+        )
+
+    def test_config_handlers_state_unperformed_runtime_checks(self):
+        handle_detail = self.dashboard.split("function handleDetail(event) {", 1)[1]
+        handle_detail = handle_detail.split("function handleReceipt", 1)[0]
+
+        self.assertIn(
+            "elements.gvisor.textContent = 'dry-run injected; no pod scheduled';",
+            handle_detail,
+        )
+        self.assertIn(
+            "elements.networkPolicy.textContent = 'object present; no packet test';",
+            handle_detail,
+        )
+
     def test_stream_change_resets_run_before_sequence_deduplication(self):
         self.assertIn("let currentStreamId = null;", self.dashboard)
         dispatch = self.dashboard.split("function dispatch(event) {", 1)[1]
@@ -385,6 +421,11 @@ class DashboardContractTest(unittest.TestCase):
             with self.subTest(marker=marker):
                 rules = parse_css_rules(extract_css_block(self.dashboard, marker))
                 control_room = rules[".control-room"]
+                row_values = re.findall(
+                    r"(?:\d+px|\d+%|minmax\([^)]*\))",
+                    control_room["grid-template-rows"],
+                )
+                self.assertEqual(len(row_values), 4)
                 row_floor = sum(
                     int(value)
                     for value in re.findall(
@@ -398,11 +439,11 @@ class DashboardContractTest(unittest.TestCase):
 
     def test_short_landscape_rules_preserve_projector_readability(self):
         cases = (
-            ("@media (min-width: 901px) and (max-height: 720px)", 20, 14, 12, 10, 10),
-            ("@media (min-width: 901px) and (max-height: 660px)", 20, 14, 12, 10, 10),
+            ("@media (min-width: 901px) and (max-height: 720px)", 20, 14, 12, 10),
+            ("@media (min-width: 901px) and (max-height: 660px)", 20, 14, 12, 10),
         )
 
-        for marker, provider_min, heading_min, metric_min, event_min, truth_min in cases:
+        for marker, provider_min, heading_min, metric_min, event_min in cases:
             with self.subTest(marker=marker):
                 rules = parse_css_rules(extract_css_block(self.dashboard, marker))
 
@@ -426,9 +467,6 @@ class DashboardContractTest(unittest.TestCase):
                 self.assertGreaterEqual(
                     pixel_value(rules[".event-line"]["font-size"]), event_min
                 )
-                self.assertGreaterEqual(
-                    pixel_value(rules[".truth-item span"]["font-size"]), truth_min
-                )
                 self.assertNotIn("overflow", rules[".event-tail"])
 
         self.assertIn("meaningfulEvents = meaningfulEvents.slice(-5);", self.dashboard)
@@ -441,9 +479,11 @@ class DashboardContractTest(unittest.TestCase):
             with self.subTest(marker=marker):
                 rules = parse_css_rules(extract_css_block(self.dashboard, marker))
                 row_values = re.findall(
-                    r"(\d+)px", rules[".control-room"]["grid-template-rows"]
+                    r"(?:\d+px|\d+%|minmax\([^)]*\))",
+                    rules[".control-room"]["grid-template-rows"],
                 )
-                event_row = int(row_values[-1])
+                self.assertEqual(len(row_values), 4)
+                event_row = pixel_value(row_values[-1])
                 heading = rules[".instrument h2, .event-tail h2"]
                 event_tail = rules[".event-tail"]
                 event_header = rules[".event-tail-header"]
@@ -489,7 +529,7 @@ class DashboardContractTest(unittest.TestCase):
         self.assertEqual(rules[".control-room"]["overflow"], "visible")
         self.assertEqual(rules[".control-room"]["aspect-ratio"], "auto")
         self.assertEqual(
-            rules[".instrument-grid, .truth-strip"]["grid-template-columns"],
+            rules[".instrument-grid"]["grid-template-columns"],
             "1fr",
         )
         self.assertNotIn("display", rules[".event-tail"])
