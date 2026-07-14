@@ -44,6 +44,7 @@ PORT = int(os.environ.get("DEMO_VIZ_PORT", "8765"))
 STREAM_ID = uuid.uuid4().hex
 CLIENT_QUEUE_SIZE = 256
 HEARTBEAT_INTERVAL = 10.0
+STREAM_WRITE_TIMEOUT = 5.0
 CLIENT_CLOSED = object()
 
 clients = []
@@ -315,6 +316,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._serve_file(os.path.join(THEME_ASSET_DIR, filename), content_type)
             return
         if self.path == "/events":
+            self.connection.settimeout(STREAM_WRITE_TIMEOUT)
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
@@ -331,6 +333,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 with clients_lock:
                     if client_queue in clients:
                         clients.remove(client_queue)
+                close_client_queue(client_queue)
             return
         self.send_response(404)
         self.end_headers()
@@ -344,6 +347,12 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 def parse_cli_args(args):
     if args and args[0] == "--replay" and len(args) < 2:
         raise ValueError("usage: demo-visualizer.py --replay PATH")
+    if args and args[0] == "--replay":
+        try:
+            with open(args[1], encoding="utf-8"):
+                pass
+        except OSError as error:
+            raise ValueError(f"replay file is not readable: {args[1]}") from error
     return list(args)
 
 
@@ -355,30 +364,34 @@ def main(argv=None, server_factory=ThreadingHTTPServer):
         return 2
 
     server = server_factory(("127.0.0.1", PORT), Handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-
-    print(f"\nDashboard:  http://127.0.0.1:{PORT}")
-    print("Open that URL now (full-screen it on the showcase display).\n")
-
-    if not (args and args[0] == "--replay"):
-        for i in range(5, 0, -1):
-            print(f"  starting in {i}...", end="\r")
-            time.sleep(1)
-        print(" " * 30, end="\r")
-
-    if args and args[0] == "--replay":
-        run_replay(args[1])
-    else:
-        run_process(args if args else ["--present"])
-
-    print("\nRun finished. Dashboard server stays up -- Ctrl+C to stop.")
+    server_started = False
     try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        server_started = True
+
+        print(f"\nDashboard:  http://127.0.0.1:{PORT}")
+        print("Open that URL now (full-screen it on the showcase display).\n")
+
+        if not (args and args[0] == "--replay"):
+            for i in range(5, 0, -1):
+                print(f"  starting in {i}...", end="\r")
+                time.sleep(1)
+            print(" " * 30, end="\r")
+
+        if args and args[0] == "--replay":
+            run_replay(args[1])
+        else:
+            run_process(args if args else ["--present"])
+
+        print("\nRun finished. Dashboard server stays up -- Ctrl+C to stop.")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
     finally:
-        server.shutdown()
+        if server_started:
+            server.shutdown()
         server.server_close()
     return 0
 

@@ -3,6 +3,7 @@ import importlib.util
 import io
 import json
 import queue
+import socket
 import sys
 import tempfile
 import threading
@@ -195,6 +196,76 @@ class SSEHeartbeatTest(unittest.TestCase):
         self.assertEqual(writer.writes, [b": heartbeat\n\n"])
 
 
+class SSEWriteTimeoutTest(unittest.TestCase):
+    def setUp(self):
+        self.original_state = (
+            demo_visualizer.history,
+            demo_visualizer.history_lock,
+            demo_visualizer.clients,
+            demo_visualizer.clients_lock,
+        )
+        demo_visualizer.history = [{"type": "backlog"}]
+        demo_visualizer.history_lock = threading.Lock()
+        demo_visualizer.clients_lock = threading.Lock()
+
+    def tearDown(self):
+        (
+            demo_visualizer.history,
+            demo_visualizer.history_lock,
+            demo_visualizer.clients,
+            demo_visualizer.clients_lock,
+        ) = self.original_state
+
+    def test_stream_sets_finite_socket_timeout_and_cleans_up_timed_out_client(self):
+        class RecordingConnection:
+            def __init__(self):
+                self.timeouts = []
+
+            def settimeout(self, timeout):
+                self.timeouts.append(timeout)
+
+        class TimingOutWriter:
+            def __init__(self):
+                self.writes = []
+
+            def write(self, data):
+                self.writes.append(data)
+                raise socket.timeout("blocked write timed out")
+
+            def flush(self):
+                raise AssertionError("flush must not follow a timed-out write")
+
+        class TrackingClientList(list):
+            registered_queue = None
+
+            def append(self, client_queue):
+                self.registered_queue = client_queue
+                super().append(client_queue)
+
+        tracked_clients = TrackingClientList()
+        demo_visualizer.clients = tracked_clients
+        handler = object.__new__(demo_visualizer.Handler)
+        handler.path = "/events"
+        handler.connection = RecordingConnection()
+        handler.wfile = TimingOutWriter()
+        handler.send_response = mock.Mock()
+        handler.send_header = mock.Mock()
+        handler.end_headers = mock.Mock()
+
+        handler.do_GET()
+
+        self.assertEqual(len(handler.connection.timeouts), 1)
+        self.assertGreater(handler.connection.timeouts[0], 0)
+        self.assertLess(handler.connection.timeouts[0], 60)
+        self.assertEqual(len(handler.wfile.writes), 1)
+        self.assertEqual(tracked_clients, [])
+        self.assertIsNotNone(tracked_clients.registered_queue)
+        self.assertIs(
+            tracked_clients.registered_queue.get_nowait(),
+            demo_visualizer.CLIENT_CLOSED,
+        )
+
+
 class DashboardContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -322,14 +393,15 @@ class SSERegistrationTest(unittest.TestCase):
 
         client_thread = threading.Thread(target=connect, daemon=True)
         client_thread.start()
-        broadcast_thread = threading.Thread(
-            target=broadcast_during_registration,
-            daemon=True,
-        )
+        broadcast_thread = None
         try:
             self.assertTrue(
                 registration_started.wait(2),
                 "handler did not pause before client registration",
+            )
+            broadcast_thread = threading.Thread(
+                target=broadcast_during_registration,
+                daemon=True,
             )
             broadcast_thread.start()
             self.assertTrue(
@@ -352,7 +424,8 @@ class SSERegistrationTest(unittest.TestCase):
             if client_registered.wait(2):
                 demo_visualizer.broadcast({"type": "cleanup"})
             client_thread.join(2)
-            broadcast_thread.join(2)
+            if broadcast_thread is not None and broadcast_thread.ident is not None:
+                broadcast_thread.join(2)
             server.shutdown()
             server.server_close()
             server_thread.join(2)
@@ -379,6 +452,84 @@ class CLIValidationTest(unittest.TestCase):
         self.assertNotEqual(exit_code, 0)
         self.assertEqual(stderr.getvalue(), "usage: demo-visualizer.py --replay PATH\n")
         server_factory.assert_not_called()
+
+    def test_missing_replay_file_fails_before_server_bind(self):
+        server_factory = mock.Mock()
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            replay_path = str(Path(temp_dir) / "missing.log")
+
+            with (
+                mock.patch.object(sys, "stderr", stderr),
+                mock.patch.object(sys, "stdout", stdout),
+            ):
+                exit_code = demo_visualizer.main(
+                    ["--replay", replay_path],
+                    server_factory=server_factory,
+                )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(
+            stderr.getvalue(),
+            f"replay file is not readable: {replay_path}\n",
+        )
+        server_factory.assert_not_called()
+
+    def test_unreadable_replay_file_fails_before_server_bind(self):
+        server_factory = mock.Mock()
+        stderr = io.StringIO()
+        replay_path = "/tmp/unreadable-demo-replay.log"
+
+        with (
+            mock.patch.object(sys, "stderr", stderr),
+            mock.patch("builtins.open", side_effect=PermissionError("denied")),
+        ):
+            exit_code = demo_visualizer.main(
+                ["--replay", replay_path],
+                server_factory=server_factory,
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(
+            stderr.getvalue(),
+            f"replay file is not readable: {replay_path}\n",
+        )
+        server_factory.assert_not_called()
+
+    def test_post_bind_failure_shuts_down_and_closes_server(self):
+        class RecordingServer:
+            def __init__(self):
+                self.shutdown_called = False
+                self.close_called = False
+
+            def serve_forever(self):
+                pass
+
+            def shutdown(self):
+                self.shutdown_called = True
+
+            def server_close(self):
+                self.close_called = True
+
+        server = RecordingServer()
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as replay:
+            with (
+                mock.patch.object(
+                    demo_visualizer,
+                    "run_replay",
+                    side_effect=RuntimeError("replay failed"),
+                ),
+                mock.patch.object(sys, "stdout", io.StringIO()),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "replay failed"):
+                    demo_visualizer.main(
+                        ["--replay", replay.name],
+                        server_factory=lambda *args: server,
+                    )
+
+        self.assertTrue(server.shutdown_called)
+        self.assertTrue(server.close_called)
 
 
 class ParserEvidenceScopeTest(unittest.TestCase):
