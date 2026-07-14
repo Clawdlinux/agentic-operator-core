@@ -237,6 +237,7 @@ textarea:focus-visible {
 }
 .status-ok { background: var(--success); }
 .status-err { background: var(--danger); }
+.component-availability { min-width: 72px; color: var(--text-muted); font-size: 0.78rem; }
 .component-name { font-weight: 500; min-width: 120px; }
 .component-endpoint { color: var(--text-muted); }
 

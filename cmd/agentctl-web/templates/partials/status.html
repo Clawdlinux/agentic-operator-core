@@ -30,8 +30,10 @@
     <div class="component-row">
         {{if .Available}}
         <span class="status-dot status-ok"></span>
+        <span class="component-availability">Available</span>
         {{else}}
         <span class="status-dot status-err"></span>
+        <span class="component-availability">Unavailable</span>
         {{end}}
         <span class="component-name">{{.Name}}</span>
         <span class="component-endpoint">{{safeText .Endpoint "not found"}}</span>

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
@@ -101,6 +102,105 @@ func TestHandleDemoRendersEvidenceConsole(t *testing.T) {
 		if count := strings.Count(body, label); count != want {
 			t.Errorf("demo body contains %d %s labels, want %d", count, label, want)
 		}
+	}
+}
+
+func TestDemoHandlerAllowsUnauthenticatedDemoRoute(t *testing.T) {
+	server, err := NewServer(nil, nil, TemplatesFS())
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/demo", nil)
+	res := httptest.NewRecorder()
+	demoHandler(server).ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
+	}
+	if location := res.Header().Get("Location"); location != "" {
+		t.Fatalf("Location = %q, want no authentication redirect", location)
+	}
+	if body := res.Body.String(); !strings.Contains(body, "Governance evidence console") {
+		t.Fatal("demo route did not render the evidence console")
+	}
+}
+
+func TestHandleDemoReturnsAtDeadlineWhenSourceIgnoresCancellation(t *testing.T) {
+	server, err := NewServer(nil, nil, TemplatesFS())
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+
+	const pollTimeout = 30 * time.Millisecond
+	server.demoPollTimeout = pollTimeout
+	blockedStarted := make(chan struct{})
+	releaseBlocked := make(chan struct{})
+	server.demoPodSource = func(context.Context) ([]agentctl.RuntimePodRow, error) {
+		close(blockedStarted)
+		<-releaseBlocked
+		return []agentctl.RuntimePodRow{{Name: "late-runtime-pod"}}, nil
+	}
+	server.demoWorkloadSource = func(context.Context) ([]agentctl.WorkloadRow, error) {
+		return []agentctl.WorkloadRow{{Name: "deadline-evidence-workload"}}, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/demo", nil)
+	res := httptest.NewRecorder()
+	done := make(chan struct{})
+	started := time.Now()
+	go func() {
+		server.handleDemo(res, req)
+		close(done)
+	}()
+
+	waitForDemoSignal(t, blockedStarted, done, "blocked source did not start")
+	select {
+	case <-done:
+	case <-time.After(250 * time.Millisecond):
+		close(releaseBlocked)
+		<-done
+		t.Fatal("handleDemo waited for a source that ignored cancellation")
+	}
+	close(releaseBlocked)
+
+	elapsed := time.Since(started)
+	if elapsed < pollTimeout {
+		t.Fatalf("handleDemo returned in %v, before poll timeout %v", elapsed, pollTimeout)
+	}
+	if elapsed >= 200*time.Millisecond {
+		t.Fatalf("handleDemo returned in %v, want deadline-bounded response", elapsed)
+	}
+
+	body := res.Body.String()
+	assertEvidenceSourceState(t, body, "workloads", "LIVE")
+	assertEvidenceSourceContains(t, body, "workloads", "deadline-evidence-workload")
+	assertEvidenceSourceState(t, body, "runtime-pods", "UNAVAILABLE")
+}
+
+func TestHandleDemoTemplateFailureDoesNotCommitPartialBody(t *testing.T) {
+	templateFS := fstest.MapFS{
+		"demo.html": {
+			Data: []byte(`{{define "demo.html"}}partial demo body{{.Missing}}{{end}}`),
+		},
+		"partials/status.html": {
+			Data: []byte(`{{define "status.html"}}{{end}}`),
+		},
+	}
+	server, err := NewServer(nil, nil, templateFS)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/demo", nil)
+	res := httptest.NewRecorder()
+	server.handleDemo(res, req)
+
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusInternalServerError)
+	}
+	if body := res.Body.String(); strings.Contains(body, "partial demo body") {
+		t.Fatalf("error response contains partial demo body: %q", body)
 	}
 }
 
@@ -222,6 +322,25 @@ func TestPhaseViewsRenderTextStatusWithoutLegacyGlyphs(t *testing.T) {
 			assertTextPhaseLabels(t, body, phase)
 		})
 	}
+}
+
+func TestStatusComponentsRenderAvailabilityText(t *testing.T) {
+	server, err := NewServer(nil, nil, TemplatesFS())
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+
+	body := renderWebTemplate(t, server, "status.html", map[string]interface{}{
+		"Status": agentctl.StatusSummary{
+			Components: []agentctl.ComponentStatus{
+				{Name: "Ready Component", Available: true, Endpoint: "ready.test"},
+				{Name: "Missing Component", Available: false},
+			},
+		},
+	})
+
+	assertComponentAvailability(t, body, "Ready Component", "Available")
+	assertComponentAvailability(t, body, "Missing Component", "Unavailable")
 }
 
 func TestRenderedPagesLoadSharedThemeExactlyOnceBeforeLocalStyles(t *testing.T) {
@@ -552,12 +671,10 @@ func TestHandleDemoPollsContextAwareSourcesConcurrently(t *testing.T) {
 			}
 			blockedStarted := make(chan struct{})
 			successful := make(chan struct{})
-			server.demoPollTimeout = time.Hour
+			server.demoPollTimeout = 50 * time.Millisecond
 			test.configureSources(server, blockedStarted, successful)
 
-			requestContext, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			req := httptest.NewRequest(http.MethodGet, "/demo", nil).WithContext(requestContext)
+			req := httptest.NewRequest(http.MethodGet, "/demo", nil)
 			res := httptest.NewRecorder()
 			done := make(chan struct{})
 			go func() {
@@ -567,7 +684,6 @@ func TestHandleDemoPollsContextAwareSourcesConcurrently(t *testing.T) {
 
 			waitForDemoSignal(t, blockedStarted, done, "blocked source did not start")
 			waitForDemoSignal(t, successful, done, "successful source did not run while the other source was blocked")
-			cancel()
 			waitForDemoCompletion(t, done)
 
 			body := res.Body.String()
@@ -703,6 +819,26 @@ func assertEvidenceSourceContains(t *testing.T, body, source, want string) {
 	section := evidenceSourceHTML(t, body, source)
 	if !strings.Contains(section, want) {
 		t.Fatalf("source %q missing %q: %s", source, want, section)
+	}
+}
+
+func assertComponentAvailability(t *testing.T, body, component, availability string) {
+	t.Helper()
+	componentIndex := strings.Index(body, component)
+	if componentIndex == -1 {
+		t.Fatalf("status body missing component %q", component)
+	}
+	rowStart := strings.LastIndex(body[:componentIndex], `<div class="component-row">`)
+	if rowStart == -1 {
+		t.Fatalf("component %q has no row boundary", component)
+	}
+	rowEndOffset := strings.Index(body[componentIndex:], "</div>")
+	if rowEndOffset == -1 {
+		t.Fatalf("component %q has no closing row boundary", component)
+	}
+	row := body[rowStart : componentIndex+rowEndOffset]
+	if !strings.Contains(row, ">"+availability+"</span>") {
+		t.Fatalf("component %q row missing %q: %s", component, availability, row)
 	}
 }
 

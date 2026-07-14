@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -150,24 +151,26 @@ func (s *Server) handleDemo(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
+pollResults:
 	for remaining > 0 {
 		select {
 		case result := <-results:
 			remaining--
 			applyDemoSourceResult(&data, result.source, result.pods, result.workloads, result.err)
 		case <-ctx.Done():
-			for remaining > 0 {
-				result := <-results
-				remaining--
-				applyDemoSourceResult(&data, result.source, result.pods, result.workloads, result.err)
-			}
+			break pollResults
 		}
 	}
 	data.Live = data.RuntimePodsLive || data.WorkloadsLive
 
-	if err := s.tmpl.ExecuteTemplate(w, "demo.html", data); err != nil {
+	var rendered bytes.Buffer
+	if err := s.tmpl.ExecuteTemplate(&rendered, "demo.html", data); err != nil {
 		slog.Error("render demo", "error", err)
 		http.Error(w, "Failed to render demo", http.StatusInternalServerError)
+		return
+	}
+	if _, err := rendered.WriteTo(w); err != nil {
+		slog.Error("write demo", "error", err)
 	}
 }
 
