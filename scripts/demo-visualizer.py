@@ -30,6 +30,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DASHBOARD_HTML = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo-dashboard.html")
@@ -40,6 +41,10 @@ THEME_ASSETS = {
     "/theme/clawdlinux-wordmark.svg": ("clawdlinux-wordmark.svg", "image/svg+xml"),
 }
 PORT = int(os.environ.get("DEMO_VIZ_PORT", "8765"))
+STREAM_ID = uuid.uuid4().hex
+CLIENT_QUEUE_SIZE = 256
+HEARTBEAT_INTERVAL = 10.0
+CLIENT_CLOSED = object()
 
 clients = []
 clients_lock = threading.Lock()
@@ -50,24 +55,41 @@ seq_counter = [0]
 ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
 
 
+def new_client_queue():
+    return queue.Queue(maxsize=CLIENT_QUEUE_SIZE)
+
+
+def close_client_queue(client_queue):
+    while True:
+        try:
+            client_queue.get_nowait()
+        except queue.Empty:
+            break
+    try:
+        client_queue.put_nowait(CLIENT_CLOSED)
+    except queue.Full:
+        pass
+
+
 def broadcast(event):
     with history_lock:
         seq_counter[0] += 1
-        event = {"seq": seq_counter[0], **event}
+        event = {**event, "stream_id": STREAM_ID, "seq": seq_counter[0]}
         history.append(event)
         if len(history) > 2000:
             del history[: len(history) - 2000]
         data = "data: " + json.dumps(event) + "\n\n"
         with clients_lock:
             dead = []
-            for q in clients:
+            for client_queue in clients:
                 try:
-                    q.put_nowait(data)
-                except Exception:
-                    dead.append(q)
-            for q in dead:
-                if q in clients:
-                    clients.remove(q)
+                    client_queue.put_nowait(data)
+                except queue.Full:
+                    dead.append(client_queue)
+            for client_queue in dead:
+                if client_queue in clients:
+                    clients.remove(client_queue)
+                close_client_queue(client_queue)
 
 
 LINE_PATTERNS = [
@@ -261,6 +283,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
+    def _write_stream_chunk(self, data):
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        self.wfile.write(data)
+        self.wfile.flush()
+
+    def _stream_events(self, client_queue, backlog):
+        try:
+            for event in backlog:
+                data = "data: " + json.dumps(event) + "\n\n"
+                self._write_stream_chunk(data)
+            while True:
+                try:
+                    data = client_queue.get(timeout=HEARTBEAT_INTERVAL)
+                except queue.Empty:
+                    data = b": heartbeat\n\n"
+                if data is CLIENT_CLOSED:
+                    return
+                self._write_stream_chunk(data)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            return
+
     def do_GET(self):
         if self.path in ("/", "/index.html"):
             self._serve_file(DASHBOARD_HTML, "text/html; charset=utf-8")
@@ -276,25 +320,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Connection", "keep-alive")
             self.end_headers()
-            q = queue.Queue()
+            client_queue = new_client_queue()
             with history_lock:
                 backlog = list(history)
                 with clients_lock:
-                    clients.append(q)
+                    clients.append(client_queue)
             try:
-                for evt in backlog:
-                    self.wfile.write(("data: " + json.dumps(evt) + "\n\n").encode("utf-8"))
-                self.wfile.flush()
-                while True:
-                    data = q.get()
-                    self.wfile.write(data.encode("utf-8"))
-                    self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
-                pass
+                self._stream_events(client_queue, backlog)
             finally:
                 with clients_lock:
-                    if q in clients:
-                        clients.remove(q)
+                    if client_queue in clients:
+                        clients.remove(client_queue)
             return
         self.send_response(404)
         self.end_headers()
@@ -305,9 +341,20 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
-def main():
-    args = sys.argv[1:]
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+def parse_cli_args(args):
+    if args and args[0] == "--replay" and len(args) < 2:
+        raise ValueError("usage: demo-visualizer.py --replay PATH")
+    return list(args)
+
+
+def main(argv=None, server_factory=ThreadingHTTPServer):
+    try:
+        args = parse_cli_args(sys.argv[1:] if argv is None else argv)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 2
+
+    server = server_factory(("127.0.0.1", PORT), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
     print(f"\nDashboard:  http://127.0.0.1:{PORT}")
@@ -330,7 +377,11 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         pass
+    finally:
+        server.shutdown()
+        server.server_close()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

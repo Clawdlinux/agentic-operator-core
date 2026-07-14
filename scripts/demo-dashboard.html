@@ -555,6 +555,7 @@ const EVIDENCE_SCOPES = new Set([
 ]);
 let meaningfulEvents = [];
 let runMode = null;
+let currentStreamId = null;
 
 function setRunMode(mode) {
   runMode = mode;
@@ -703,6 +704,12 @@ function handleRunEnd(event) {
 }
 
 function dispatch(event) {
+  if (event.stream_id !== currentStreamId) {
+    currentStreamId = event.stream_id;
+    seenSequences.clear();
+    resetRun(null);
+  }
+
   if (event.seq != null) {
     if (seenSequences.has(event.seq)) return;
     seenSequences.add(event.seq);
