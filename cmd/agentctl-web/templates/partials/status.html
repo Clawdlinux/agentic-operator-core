@@ -20,7 +20,7 @@
 
 <div class="phase-summary">
     {{range $phase, $count := .Status.PhaseCounts}}
-    <span class="badge badge-{{lower $phase}}">{{phaseIcon $phase}} {{$phase}}: {{$count}}</span>
+    <span class="badge badge-{{lower $phase}}">{{$phase}}: {{$count}}</span>
     {{end}}
 </div>
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -146,6 +147,133 @@ func TestHandleLoginRendersClawdlinuxEvidenceConsoleBranding(t *testing.T) {
 	}
 }
 
+func TestPhaseViewsRenderTextStatusWithoutLegacyGlyphs(t *testing.T) {
+	server, err := NewServer(nil, nil, TemplatesFS())
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+
+	phases := []string{"Completed", "Running", "Failed", "PendingApproval", "Suspended", "Queued"}
+	workloads := make([]agentctl.WorkloadRow, 0, len(phases))
+	phaseCounts := make(map[string]int, len(phases))
+	for _, phase := range phases {
+		workloads = append(workloads, agentctl.WorkloadRow{
+			Name:      strings.ToLower(phase),
+			Namespace: "test",
+			Status:    phase,
+		})
+		phaseCounts[phase] = 1
+	}
+	status := agentctl.StatusSummary{PhaseCounts: phaseCounts}
+
+	views := []struct {
+		name     string
+		template string
+		data     interface{}
+		phases   []string
+	}{
+		{
+			name:     "workloads",
+			template: "workloads.html",
+			data: map[string]interface{}{
+				"Workloads": workloads,
+				"CSRFToken": "test-csrf",
+			},
+			phases: phases,
+		},
+		{
+			name:     "status",
+			template: "status.html",
+			data:     map[string]interface{}{"Status": status},
+			phases:   phases,
+		},
+		{
+			name:     "demo",
+			template: "demo.html",
+			data: demoPageData{
+				Demo:          true,
+				Live:          true,
+				WorkloadsLive: true,
+				Workloads:     workloads,
+				User:          &UserInfo{Username: "booth-demo"},
+			},
+			phases: phases,
+		},
+	}
+
+	for _, view := range views {
+		t.Run(view.name, func(t *testing.T) {
+			body := renderWebTemplate(t, server, view.template, view.data)
+			assertTextPhaseLabels(t, body, view.phases...)
+		})
+	}
+
+	for _, phase := range phases {
+		t.Run("describe "+phase, func(t *testing.T) {
+			body := renderWebTemplate(t, server, "describe.html", map[string]interface{}{
+				"Detail": agentctl.WorkloadDetail{
+					Name:      "test-workload",
+					Namespace: "test",
+					Phase:     phase,
+				},
+				"CSRFToken": "test-csrf",
+			})
+			assertTextPhaseLabels(t, body, phase)
+		})
+	}
+}
+
+func TestRenderedPagesLoadSharedThemeExactlyOnceBeforeLocalStyles(t *testing.T) {
+	server, err := NewServer(nil, nil, TemplatesFS())
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+
+	pages := []struct {
+		name     string
+		template string
+		data     interface{}
+	}{
+		{
+			name:     "dashboard",
+			template: "dashboard.html",
+			data: map[string]interface{}{
+				"User":      &UserInfo{Username: "test-user"},
+				"CSRFToken": "test-csrf",
+				"Status":    agentctl.StatusSummary{},
+			},
+		},
+		{
+			name:     "demo",
+			template: "demo.html",
+			data: demoPageData{
+				Demo: true,
+				User: &UserInfo{Username: "booth-demo"},
+			},
+		},
+		{
+			name:     "login",
+			template: "login.html",
+			data:     map[string]interface{}{},
+		},
+	}
+
+	for _, page := range pages {
+		t.Run(page.name, func(t *testing.T) {
+			body := renderWebTemplate(t, server, page.template, page.data)
+			assertSingleOrderedStylesheets(t, body)
+		})
+	}
+
+	style, err := fs.ReadFile(StaticFS(), "style.css")
+	if err != nil {
+		t.Fatalf("read style.css: %v", err)
+	}
+	if strings.Contains(string(style), "/theme/clawdlinux-theme.css") {
+		t.Fatal("local style.css must not load the shared theme")
+	}
+}
+
 func TestApprovalPartialsRenderTextControlsWithHTMXContracts(t *testing.T) {
 	server, err := NewServer(nil, nil, TemplatesFS())
 	if err != nil {
@@ -224,6 +352,46 @@ func TestApprovalPartialsRenderTextControlsWithHTMXContracts(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func renderWebTemplate(t *testing.T, server *Server, name string, data interface{}) string {
+	t.Helper()
+	var rendered bytes.Buffer
+	if err := server.tmpl.ExecuteTemplate(&rendered, name, data); err != nil {
+		t.Fatalf("ExecuteTemplate(%q) error = %v", name, err)
+	}
+	return rendered.String()
+}
+
+func assertTextPhaseLabels(t *testing.T, body string, phases ...string) {
+	t.Helper()
+	for _, glyph := range []string{"✓", "▶", "✗", "⏸", "●"} {
+		if strings.Contains(body, glyph) {
+			t.Errorf("rendered view contains forbidden phase glyph %q", glyph)
+		}
+	}
+	for _, phase := range phases {
+		if !strings.Contains(body, phase) {
+			t.Errorf("rendered view missing phase label %q", phase)
+		}
+	}
+}
+
+func assertSingleOrderedStylesheets(t *testing.T, body string) {
+	t.Helper()
+	sharedTheme := `<link rel="stylesheet" href="/theme/clawdlinux-theme.css">`
+	localStyle := `<link rel="stylesheet" href="/static/style.css">`
+	if count := strings.Count(body, sharedTheme); count != 1 {
+		t.Errorf("rendered page contains %d shared theme links, want 1", count)
+	}
+	if count := strings.Count(body, localStyle); count != 1 {
+		t.Errorf("rendered page contains %d local style links, want 1", count)
+	}
+	sharedThemeIndex := strings.Index(body, sharedTheme)
+	localStyleIndex := strings.Index(body, localStyle)
+	if sharedThemeIndex == -1 || localStyleIndex == -1 || sharedThemeIndex > localStyleIndex {
+		t.Error("shared theme must load before local styles")
 	}
 }
 

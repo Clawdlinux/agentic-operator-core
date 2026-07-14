@@ -40,9 +40,8 @@ type demoPageData struct {
 // NewServer creates a Server with parsed templates.
 func NewServer(client *agentctl.Client, authz *Authorizer, tmplFS fs.FS) (*Server, error) {
 	funcMap := template.FuncMap{
-		"phaseIcon": phaseIcon,
-		"lower":     strings.ToLower,
-		"safeText":  agentctl.SafeText,
+		"lower":    strings.ToLower,
+		"safeText": agentctl.SafeText,
 		"fmtCost": func(f float64) string {
 			return fmt.Sprintf("$%.4f", f)
 		},
@@ -357,21 +356,4 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	_, _ = w.Write([]byte("ok"))
-}
-
-func phaseIcon(phase string) string {
-	switch phase {
-	case "Completed":
-		return "✓"
-	case "Running":
-		return "▶"
-	case "Failed":
-		return "✗"
-	case "PendingApproval":
-		return "⏸"
-	case "Suspended":
-		return "⏸"
-	default:
-		return "●"
-	}
 }
