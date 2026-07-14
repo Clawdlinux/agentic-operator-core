@@ -502,10 +502,22 @@ class DashboardContractTest(unittest.TestCase):
 
     def test_insufficient_stage_fallback_covers_boundaries_not_projectors(self):
         marker = "@media (max-width: 1000px), (max-height: 529px)"
+        laptop_marker = (
+            "(min-width: 1001px) and (max-width: 1050px) "
+            "and (min-height: 721px)"
+        )
         self.assertIn(marker, self.dashboard)
+        self.assertIn(laptop_marker, self.dashboard)
 
         def uses_stacked_fallback(viewport_width, viewport_height):
-            return viewport_width <= 1000 or viewport_height <= 529
+            return (
+                viewport_width <= 1000
+                or viewport_height <= 529
+                or (
+                    1001 <= viewport_width <= 1050
+                    and viewport_height >= 721
+                )
+            )
 
         for viewport in (
             (901, 700),
@@ -514,6 +526,8 @@ class DashboardContractTest(unittest.TestCase):
             (943, 900),
             (960, 900),
             (1000, 900),
+            (1024, 768),
+            (1050, 721),
             (1200, 529),
         ):
             with self.subTest(viewport=viewport):
@@ -521,12 +535,47 @@ class DashboardContractTest(unittest.TestCase):
 
         for viewport in (
             (1024, 640),
-            (1024, 900),
+            (1024, 720),
+            (1051, 721),
             (1152, 720),
             (1536, 864),
         ):
             with self.subTest(viewport=viewport):
                 self.assertFalse(uses_stacked_fallback(*viewport))
+
+    def test_laptop_aspect_boundary_falls_back_when_base_rows_exceed_content_box(self):
+        style = self.dashboard.split("<style>", 1)[1].split("</style>", 1)[0]
+        base_control_room = parse_css_rules(style)[".control-room"]
+        viewport_width = 1024
+        viewport_height = 768
+        stage_height = min(viewport_height, viewport_width * 9 / 16)
+        padding_bottom = 18
+        border_height = 2
+        content_height = stage_height - padding_bottom - border_height
+        base_row_floor = 68 + 0.17 * content_height + 255 + 150
+
+        self.assertEqual(
+            base_control_room["grid-template-rows"],
+            "68px 17% minmax(255px, 1fr) 150px",
+        )
+        self.assertEqual(base_control_room["padding"], "0 24px 18px")
+        self.assertEqual(base_control_room["border"], "1px solid var(--clawd-border-strong)")
+        self.assertGreater(base_row_floor, content_height)
+
+        marker = (
+            "(min-width: 1001px) and (max-width: 1050px) "
+            "and (min-height: 721px)"
+        )
+        fallback_rules = parse_css_rules(
+            extract_css_block(self.dashboard, marker)
+        )
+        self.assertEqual(fallback_rules["body"]["display"], "block")
+        self.assertEqual(fallback_rules[".control-room"]["display"], "block")
+        self.assertEqual(fallback_rules[".control-room"]["overflow"], "visible")
+        self.assertEqual(
+            fallback_rules[".instrument-grid"]["grid-template-columns"],
+            "1fr",
+        )
 
     def test_insufficient_stage_fallback_stacks_without_clipping(self):
         marker = "@media (max-width: 1000px), (max-height: 529px)"
