@@ -525,7 +525,7 @@
     }
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 942px), (max-height: 529px) {
     body { display: block; }
 
     .control-room {
@@ -576,6 +576,13 @@
     }
 
     .event-tail { min-height: 170px; }
+
+    .event-text {
+      overflow: visible;
+      overflow-wrap: anywhere;
+      text-overflow: clip;
+      white-space: normal;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

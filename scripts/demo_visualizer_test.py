@@ -460,6 +460,44 @@ class DashboardContractTest(unittest.TestCase):
 
                 self.assertLessEqual(content_height, event_row)
 
+    def test_insufficient_stage_fallback_covers_boundaries_not_projectors(self):
+        marker = "@media (max-width: 942px), (max-height: 529px)"
+        self.assertIn(marker, self.dashboard)
+
+        def uses_stacked_fallback(viewport_width, viewport_height):
+            return viewport_width <= 942 or viewport_height <= 529
+
+        for viewport in ((901, 700), (901, 640), (942, 900), (1200, 529)):
+            with self.subTest(viewport=viewport):
+                self.assertTrue(uses_stacked_fallback(*viewport))
+                self.assertLess(
+                    min(viewport[1], viewport[0] * 9 / 16),
+                    530,
+                )
+
+        for viewport in ((1024, 640), (1152, 720), (1536, 864)):
+            with self.subTest(viewport=viewport):
+                self.assertFalse(uses_stacked_fallback(*viewport))
+
+    def test_insufficient_stage_fallback_stacks_without_clipping(self):
+        marker = "@media (max-width: 942px), (max-height: 529px)"
+        rules = parse_css_rules(extract_css_block(self.dashboard, marker))
+
+        self.assertEqual(rules["body"]["display"], "block")
+        self.assertEqual(rules[".control-room"]["display"], "block")
+        self.assertEqual(rules[".control-room"]["max-height"], "none")
+        self.assertEqual(rules[".control-room"]["overflow"], "visible")
+        self.assertEqual(rules[".control-room"]["aspect-ratio"], "auto")
+        self.assertEqual(
+            rules[".instrument-grid, .truth-strip"]["grid-template-columns"],
+            "1fr",
+        )
+        self.assertNotIn("display", rules[".event-tail"])
+        self.assertNotIn("overflow", rules[".event-tail"])
+        self.assertEqual(rules[".event-text"]["overflow"], "visible")
+        self.assertEqual(rules[".event-text"]["white-space"], "normal")
+        self.assertEqual(rules[".event-text"]["overflow-wrap"], "anywhere")
+
 
 class SSERegistrationTest(unittest.TestCase):
     def test_event_between_snapshot_and_registration_is_delivered(self):
