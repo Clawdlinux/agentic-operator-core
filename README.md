@@ -56,7 +56,7 @@ The wedge: Clawdlinux emits a signed, tamper-evident attestation artifact for ea
 | Runtime isolation | gVisor `RuntimeClass` injection for labeled pods |
 | Audit | Tamper-evident audit chain |
 | Cost | Per-workload budget and chargeback hooks |
-| Context | Agent Native Format (ANF): token-minimal context for agents, plus a governed execution runtime over MCP |
+| Context | ANF view snapshots (internal tooling): `agentctl` renders token-minimal Kubernetes and agent state for the model |
 | Delivery | Air-gapped install path and offline licensing |
 | Orchestration | Argo Workflows DAG orchestration |
 
