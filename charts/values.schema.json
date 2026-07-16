@@ -127,6 +127,10 @@
           "description": "Pre-created Secret containing OpenAI, Anthropic, and LiteLLM master keys"
         },
         "allowPlaintextKeys": { "type": "boolean" },
+        "builtinOpenAIModelsEnabled": {
+          "type": "boolean",
+          "description": "Render the built-in OpenAI model aliases"
+        },
         "models": {
           "type": "array",
           "items": { "type": "object" }

@@ -96,8 +96,10 @@ func defaultPricing() map[string]ModelPricing {
 		"openai/gpt-4-turbo":        {InputPer1KTokens: 0.01, OutputPer1KTokens: 0.03},
 		"litellm/clawdlinux-openai": {InputPer1KTokens: 0.00015, OutputPer1KTokens: 0.0006},
 		// Anthropic
-		"anthropic/claude-sonnet": {InputPer1KTokens: 0.003, OutputPer1KTokens: 0.015},
-		"anthropic/claude-haiku":  {InputPer1KTokens: 0.00025, OutputPer1KTokens: 0.00125},
+		// Claude Haiku 4.5: https://platform.claude.com/docs/en/about-claude/pricing
+		"anthropic/claude-sonnet":      {InputPer1KTokens: 0.003, OutputPer1KTokens: 0.015},
+		"anthropic/claude-haiku":       {InputPer1KTokens: 0.00025, OutputPer1KTokens: 0.00125},
+		"litellm/clawdlinux-anthropic": {InputPer1KTokens: 0.001, OutputPer1KTokens: 0.005},
 		// Ollama (local, free)
 		"ollama/gemma3:1b":   {InputPer1KTokens: 0.0, OutputPer1KTokens: 0.0},
 		"ollama/llama3.1:8b": {InputPer1KTokens: 0.0, OutputPer1KTokens: 0.0},

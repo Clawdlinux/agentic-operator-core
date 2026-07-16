@@ -88,6 +88,24 @@ func TestMemoryCostReporter_LiteLLMOpenAIAliasPricing(t *testing.T) {
 	}
 }
 
+func TestMemoryCostReporter_LiteLLMAnthropicAliasPricing(t *testing.T) {
+	reporter := NewMemoryCostReporter()
+	ctx := context.Background()
+
+	if err := reporter.RecordUsage(ctx, "litellm-anthropic-alias", "booth-demo", "agentic-system", "litellm/clawdlinux-anthropic", 1000, 500); err != nil {
+		t.Fatalf("RecordUsage failed: %v", err)
+	}
+
+	cost, err := reporter.WorkloadCostToday(ctx, "booth-demo", "agentic-system")
+	if err != nil {
+		t.Fatalf("WorkloadCostToday failed: %v", err)
+	}
+	// Claude Haiku 4.5 is $1/MTok input and $5/MTok output.
+	if cost != 0.0035 {
+		t.Fatalf("Claude Haiku 4.5 alias cost = $%.6f, want $0.003500", cost)
+	}
+}
+
 func TestMemoryCostReporter_BudgetEnforcement(t *testing.T) {
 	r := NewMemoryCostReporter()
 	ctx := context.Background()

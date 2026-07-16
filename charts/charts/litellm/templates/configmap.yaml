@@ -11,14 +11,17 @@ data:
       master_key: "os.environ/LITELLM_MASTER_KEY"
       database_url: null
     model_list:
+      {{- if .Values.builtinOpenAIModelsEnabled }}
       - model_name: clawdlinux-openai
         litellm_params:
           model: openai/gpt-4o-mini
           api_key: "os.environ/OPENAI_API_KEY"
+      {{- end }}
       - model_name: clawdlinux-anthropic
         litellm_params:
           model: anthropic/claude-haiku-4-5-20251001
           api_key: "os.environ/ANTHROPIC_API_KEY"
+      {{- if .Values.builtinOpenAIModelsEnabled }}
       - model_name: gpt-4o
         litellm_params:
           model: openai/gpt-4o
@@ -27,6 +30,7 @@ data:
         litellm_params:
           model: openai/gpt-4o-mini
           api_key: "os.environ/OPENAI_API_KEY"
+          {{- end }}
       {{- range .Values.models }}
       - {{ toYaml . | nindent 8 | trim }}
       {{- end }}

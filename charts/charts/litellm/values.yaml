@@ -21,6 +21,7 @@ masterKey: ""
 # Recommended for booth and production deployments.
 existingSecret: ""
 allowPlaintextKeys: false
+builtinOpenAIModelsEnabled: true
 models: []
 
 # LiteLLM Routing Configuration
