@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
-const ACL_GITHUB = 'https://github.com/Clawdlinux/clawdlinux-acp';
+const ACL_GITHUB = 'https://github.com/Clawdlinux/agent-native-format';
 const OPERATOR_GITHUB = 'https://github.com/Clawdlinux/agentic-operator-core';
 
 const PRODUCTS = [
