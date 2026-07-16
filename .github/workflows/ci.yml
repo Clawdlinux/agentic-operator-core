@@ -24,6 +24,10 @@ jobs:
       - name: Download modules
         run: go mod download
 
+      - name: Download nested ANF snapshot modules
+        working-directory: tools/anf-snapshot
+        run: go mod download
+
       - name: Verify gofmt
         run: |
           FILES=$(find . -name '*.go' -not -path './.git/*')
@@ -39,8 +43,17 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
 
+      - name: Verify nested ANF snapshot go.mod/go.sum are tidy
+        working-directory: tools/anf-snapshot
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
       - name: Run go vet
         run: go vet ./...
+
+      - name: Run nested ANF snapshot vet
+        run: make vet-anf-snapshot
 
       - name: Install envtest binaries
         run: |
@@ -50,6 +63,9 @@ jobs:
 
       - name: Run Go tests
         run: go test ./api/... ./pkg/... ./internal/... -count=1
+
+      - name: Run nested ANF snapshot tests
+        run: make test-anf-snapshot GO_TEST_FLAGS="-count=1"
 
   landing-build:
     name: Landing Lint and Build

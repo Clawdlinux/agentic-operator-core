@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clawdlinux/agent-native-format/pkg/anf"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +23,7 @@ import (
 
 var fixtureNow = time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC)
 
-func TestCaptureProjectsComparableFactsAtCompletion(t *testing.T) {
+func TestCaptureComparesExactDocumentFactsAtCompletion(t *testing.T) {
 	lister := newStaticLister(fixtureSource())
 	result, err := Capture(context.Background(), lister, Options{
 		Cluster:   "showcase-cluster",
@@ -53,34 +54,40 @@ func TestCaptureProjectsComparableFactsAtCompletion(t *testing.T) {
 	if result.Metrics.SourceObjects != 5 || result.Metrics.ProjectedObjects != 4 || result.Metrics.TopLevelEntities != 4 {
 		t.Fatalf("object metrics = %#v", result.Metrics)
 	}
-	if result.Metrics.SourceBytes != len(result.SourceJSON) || result.Metrics.JSONBytes != len(result.NormalizedJSON) || result.Metrics.ANFBytes != len(result.ANF) {
+	if result.Metrics.UnprojectedPods != 1 || result.Metrics.OmittedContainers != 1 || result.Metrics.OmittedServicePorts != 1 || result.Metrics.OmittedNamedTargetPorts != 0 {
+		t.Fatalf("omission metrics = %#v", result.Metrics)
+	}
+	if result.Metrics.SourceBytes != len(result.SourceJSON) || result.Metrics.DocumentJSONBytes != len(result.DocumentJSON) || result.Metrics.ANFBytes != len(result.ANF) {
 		t.Fatalf("byte metrics = %#v", result.Metrics)
 	}
-	wantReduction := float64(len(result.NormalizedJSON)-len(result.ANF)) / float64(len(result.NormalizedJSON)) * 100
+	wantReduction := float64(len(result.DocumentJSON)-len(result.ANF)) / float64(len(result.DocumentJSON)) * 100
 	if result.Metrics.Reduction != wantReduction {
-		t.Fatalf("reduction = %.8f, want normalized reduction %.8f", result.Metrics.Reduction, wantReduction)
+		t.Fatalf("reduction = %.8f, want document reduction %.8f", result.Metrics.Reduction, wantReduction)
 	}
-	if result.Metrics.JSONTokensEst != estimateTokens(len(result.NormalizedJSON)) || result.Metrics.ANFTokensEst != estimateTokens(len(result.ANF)) {
+	if result.Metrics.DocumentJSONTokensEst != estimateTokens(len(result.DocumentJSON)) || result.Metrics.ANFTokensEst != estimateTokens(len(result.ANF)) {
 		t.Fatalf("token estimates = %#v", result.Metrics)
 	}
 
-	var normalized map[string]any
-	if err := json.Unmarshal(result.NormalizedJSON, &normalized); err != nil {
-		t.Fatalf("unmarshal normalized projection: %v", err)
+	var decoded anf.Document
+	if err := json.Unmarshal(result.DocumentJSON, &decoded); err != nil {
+		t.Fatalf("unmarshal document JSON: %v", err)
 	}
-	if _, exists := normalized["AgentPermissions"]; exists {
-		t.Fatalf("normalized JSON includes unprojected permissions: %s", result.NormalizedJSON)
+	assertDocumentFactsEqual(t, result.Document, &decoded)
+	if encoded := anf.EncodeToString(&decoded); encoded != result.ANF {
+		t.Fatalf("document JSON re-encodes to different ANF:\n%s\n%s", encoded, result.ANF)
 	}
-	if strings.Contains(string(result.NormalizedJSON), "CPUPercent") || strings.Contains(string(result.NormalizedJSON), "Events") {
-		t.Fatalf("normalized JSON includes unobserved translator fields: %s", result.NormalizedJSON)
+	if strings.Contains(string(result.DocumentJSON), "CPUPercent") || strings.Contains(string(result.DocumentJSON), "Events") {
+		t.Fatalf("document JSON includes source fields outside the ANF document: %s", result.DocumentJSON)
 	}
 }
 
-func TestCaptureExcludesUnprojectedPodDataFromReduction(t *testing.T) {
+func TestCaptureCountsUnprojectedPodsWithoutChangingDocument(t *testing.T) {
 	baselineSource := fixtureSource()
 	changedSource := fixtureSource()
-	changedSource.Pods.Items[0].Annotations["example.com/build"] = strings.Repeat("changed-unprojected-metadata", 40)
-	changedSource.Pods.Items[0].Spec.Containers[0].Image = "ghcr.io/clawdlinux/operator:unprojected"
+	extraPod := *changedSource.Pods.Items[0].DeepCopy()
+	extraPod.Name = "operator-abc123-x2"
+	extraPod.UID = types.UID("pod-2")
+	changedSource.Pods.Items = append(changedSource.Pods.Items, extraPod)
 
 	baseline := mustCapture(t, baselineSource)
 	changed := mustCapture(t, changedSource)
@@ -88,14 +95,17 @@ func TestCaptureExcludesUnprojectedPodDataFromReduction(t *testing.T) {
 	if string(baseline.SourceJSON) == string(changed.SourceJSON) || baseline.Metrics.SourceBytes == changed.Metrics.SourceBytes {
 		t.Fatal("source payload did not reflect changed Pod data")
 	}
+	if baseline.Metrics.UnprojectedPods != 1 || changed.Metrics.UnprojectedPods != 2 {
+		t.Fatalf("unprojected Pods = %d -> %d, want 1 -> 2", baseline.Metrics.UnprojectedPods, changed.Metrics.UnprojectedPods)
+	}
 	assertComparisonUnchanged(t, baseline, changed)
 }
 
-func TestCaptureOmitsNamedTargetPortFromBothComparisonForms(t *testing.T) {
+func TestCaptureCountsOmittedNamedTargetPortWithoutChangingDocument(t *testing.T) {
 	baselineSource := fixtureSource()
 	changedSource := fixtureSource()
-	baselineSource.Services.Items[0].Spec.Ports[0].TargetPort = intstr.FromString("metrics")
-	changedSource.Services.Items[0].Spec.Ports[0].TargetPort = intstr.FromString("admin")
+	baselineSource.Services.Items[0].Spec.Ports[0].TargetPort = intstr.FromInt32(0)
+	changedSource.Services.Items[0].Spec.Ports[0].TargetPort = intstr.FromString("metrics")
 	if changedSource.Services.Items[0].Spec.Ports[0].TargetPort.Type != intstr.String {
 		t.Fatalf("fixture targetPort type = %d, want String", changedSource.Services.Items[0].Spec.Ports[0].TargetPort.Type)
 	}
@@ -106,8 +116,11 @@ func TestCaptureOmitsNamedTargetPortFromBothComparisonForms(t *testing.T) {
 	baseline := mustCapture(t, baselineSource)
 	changed := mustCapture(t, changedSource)
 
-	if string(baseline.SourceJSON) == string(changed.SourceJSON) {
+	if string(baseline.SourceJSON) == string(changed.SourceJSON) || baseline.Metrics.SourceBytes == changed.Metrics.SourceBytes {
 		t.Fatal("source payload did not reflect named targetPort")
+	}
+	if baseline.Metrics.OmittedNamedTargetPorts != 0 || changed.Metrics.OmittedNamedTargetPorts != 1 {
+		t.Fatalf("omitted named target ports = %d -> %d, want 0 -> 1", baseline.Metrics.OmittedNamedTargetPorts, changed.Metrics.OmittedNamedTargetPorts)
 	}
 	assertComparisonUnchanged(t, baseline, changed)
 	if changed.View.Services[0].Port != 0 || changed.View.Services[0].TargetPort != 0 {
@@ -115,18 +128,29 @@ func TestCaptureOmitsNamedTargetPortFromBothComparisonForms(t *testing.T) {
 	}
 }
 
-func TestCaptureOmitsAdditionalContainersAndServicePortsFromComparison(t *testing.T) {
+func TestCaptureCountsAdditionalContainersAndServicePortsWithoutChangingDocument(t *testing.T) {
 	baselineSource := fixtureSource()
 	changedSource := fixtureSource()
-	changedSource.Deployments.Items[0].Spec.Template.Spec.Containers[1].Image = "ghcr.io/clawdlinux/sidecar:changed"
-	changedSource.Services.Items[0].Spec.Ports[1].Port = 9090
-	changedSource.Services.Items[0].Spec.Ports[1].TargetPort = intstr.FromString("changed-metrics")
+	changedSource.Deployments.Items[0].Spec.Template.Spec.Containers = append(
+		changedSource.Deployments.Items[0].Spec.Template.Spec.Containers,
+		corev1.Container{Name: "telemetry", Image: "ghcr.io/clawdlinux/telemetry:v1"},
+	)
+	changedSource.Services.Items[0].Spec.Ports = append(
+		changedSource.Services.Items[0].Spec.Ports,
+		corev1.ServicePort{Name: "admin", Port: 9090, TargetPort: intstr.FromInt32(9090)},
+	)
 
 	baseline := mustCapture(t, baselineSource)
 	changed := mustCapture(t, changedSource)
 
-	if string(baseline.SourceJSON) == string(changed.SourceJSON) {
+	if string(baseline.SourceJSON) == string(changed.SourceJSON) || baseline.Metrics.SourceBytes == changed.Metrics.SourceBytes {
 		t.Fatal("source payload did not reflect additional container and port changes")
+	}
+	if baseline.Metrics.OmittedContainers != 1 || changed.Metrics.OmittedContainers != 2 {
+		t.Fatalf("omitted containers = %d -> %d, want 1 -> 2", baseline.Metrics.OmittedContainers, changed.Metrics.OmittedContainers)
+	}
+	if baseline.Metrics.OmittedServicePorts != 1 || changed.Metrics.OmittedServicePorts != 2 {
+		t.Fatalf("omitted service ports = %d -> %d, want 1 -> 2", baseline.Metrics.OmittedServicePorts, changed.Metrics.OmittedServicePorts)
 	}
 	assertComparisonUnchanged(t, baseline, changed)
 }
@@ -141,7 +165,7 @@ func TestCaptureStableSortsAllFiveLists(t *testing.T) {
 	if string(first.SourceJSON) != string(second.SourceJSON) {
 		t.Fatalf("source JSON changed with list order:\n%s\n%s", first.SourceJSON, second.SourceJSON)
 	}
-	if string(first.NormalizedJSON) != string(second.NormalizedJSON) || first.ANF != second.ANF || !reflect.DeepEqual(first.Metrics, second.Metrics) {
+	if string(first.DocumentJSON) != string(second.DocumentJSON) || first.ANF != second.ANF || !reflect.DeepEqual(first.Metrics, second.Metrics) {
 		t.Fatal("projection, ANF, or metrics changed with list order")
 	}
 }
@@ -204,21 +228,25 @@ func TestCaptureHonorsDeadline(t *testing.T) {
 	}
 }
 
-func TestCaptureRejectsControlCharacters(t *testing.T) {
+func TestCaptureRejectsWhitespace(t *testing.T) {
 	for _, options := range []Options{
+		{Cluster: "bad cluster", Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "bad\tcluster", Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "bad\ncluster", Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "showcase-cluster", Namespace: "bad namespace", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "showcase-cluster", Namespace: "bad\tnamespace", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "showcase-cluster", Namespace: "bad\rnamespace", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "showcase-cluster", Namespace: "bad\x00namespace", Clock: func() time.Time { return fixtureNow }},
 	} {
 		if _, err := Capture(context.Background(), newStaticLister(fixtureSource()), options); err == nil {
-			t.Fatalf("Capture accepted control characters in %#v", options)
+			t.Fatalf("Capture accepted whitespace in %#v", options)
 		}
 	}
 }
 
 func TestSummaryAndPreviewAreBounded(t *testing.T) {
 	result := mustCapture(t, fixtureSource())
-	pattern := regexp.MustCompile(`^ANF context: source=kubernetes/showcase-cluster scope=namespace:agentic-system source_bytes=[1-9][0-9]* source_objects=5 projected_objects=4 json_bytes=[1-9][0-9]* anf_bytes=[1-9][0-9]* json_tokens_est=[1-9][0-9]* anf_tokens_est=[1-9][0-9]* reduction=-?[0-9]+\.[0-9] top_level_entities=4$`)
+	pattern := regexp.MustCompile(`^ANF context: source=kubernetes/showcase-cluster scope=namespace:agentic-system source_bytes=[1-9][0-9]* source_objects=5 projected_objects=4 unprojected_pods=1 omitted_containers=1 omitted_service_ports=1 omitted_named_target_ports=0 document_json_bytes=[1-9][0-9]* anf_bytes=[1-9][0-9]* document_json_tokens_est=[1-9][0-9]* anf_tokens_est=[1-9][0-9]* reduction=-?[0-9]+\.[0-9] top_level_entities=4$`)
 	if !pattern.MatchString(result.Summary()) {
 		t.Fatalf("summary is not parseable: %q", result.Summary())
 	}
@@ -288,16 +316,32 @@ func TestWriteArtifactRequiresParentAndCleansTempOnRenameFailure(t *testing.T) {
 
 func assertComparisonUnchanged(t *testing.T, baseline, changed *Result) {
 	t.Helper()
-	if string(baseline.NormalizedJSON) != string(changed.NormalizedJSON) {
-		t.Fatalf("normalized JSON changed:\n%s\n%s", baseline.NormalizedJSON, changed.NormalizedJSON)
+	if string(baseline.DocumentJSON) != string(changed.DocumentJSON) {
+		t.Fatalf("document JSON changed:\n%s\n%s", baseline.DocumentJSON, changed.DocumentJSON)
 	}
 	if baseline.ANF != changed.ANF {
 		t.Fatalf("ANF changed:\n%s\n%s", baseline.ANF, changed.ANF)
 	}
-	if baseline.Metrics.JSONBytes != changed.Metrics.JSONBytes || baseline.Metrics.ANFBytes != changed.Metrics.ANFBytes ||
-		baseline.Metrics.JSONTokensEst != changed.Metrics.JSONTokensEst || baseline.Metrics.ANFTokensEst != changed.Metrics.ANFTokensEst ||
+	if baseline.Metrics.DocumentJSONBytes != changed.Metrics.DocumentJSONBytes || baseline.Metrics.ANFBytes != changed.Metrics.ANFBytes ||
+		baseline.Metrics.DocumentJSONTokensEst != changed.Metrics.DocumentJSONTokensEst || baseline.Metrics.ANFTokensEst != changed.Metrics.ANFTokensEst ||
 		baseline.Metrics.Reduction != changed.Metrics.Reduction {
 		t.Fatalf("comparison metrics changed: %#v != %#v", baseline.Metrics, changed.Metrics)
+	}
+}
+
+func assertDocumentFactsEqual(t *testing.T, want, got *anf.Document) {
+	t.Helper()
+	if !reflect.DeepEqual(want.Headers, got.Headers) {
+		t.Fatalf("headers differ: %#v != %#v", want.Headers, got.Headers)
+	}
+	if !reflect.DeepEqual(want.Entities, got.Entities) {
+		t.Fatalf("entities, statuses, or properties differ: %#v != %#v", want.Entities, got.Entities)
+	}
+	if !reflect.DeepEqual(want.Alerts, got.Alerts) {
+		t.Fatalf("alerts differ: %#v != %#v", want.Alerts, got.Alerts)
+	}
+	if !reflect.DeepEqual(want.Actions, got.Actions) {
+		t.Fatalf("actions differ: %#v != %#v", want.Actions, got.Actions)
 	}
 }
 

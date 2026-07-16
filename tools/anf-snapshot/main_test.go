@@ -25,6 +25,8 @@ func TestParseOptionsValidatesInputsAndHasNoClusterOverride(t *testing.T) {
 	}{
 		{name: "missing output"},
 		{name: "empty namespace", args: []string{"--output", "snapshot.anf", "--namespace", ""}},
+		{name: "namespace space", args: []string{"--output", "snapshot.anf", "--namespace", "bad namespace"}},
+		{name: "namespace tab", args: []string{"--output", "snapshot.anf", "--namespace", "bad\tnamespace"}},
 		{name: "namespace control character", args: []string{"--output", "snapshot.anf", "--namespace", "bad\nnamespace"}},
 		{name: "zero timeout", args: []string{"--output", "snapshot.anf", "--timeout", "0s"}},
 		{name: "unexpected argument", args: []string{"--output", "snapshot.anf", "extra"}},
@@ -87,17 +89,21 @@ func TestLoadClientConfigUsesEffectiveContextClusterKey(t *testing.T) {
 }
 
 func TestLoadClientConfigRejectsUnsafeEffectiveClusterKey(t *testing.T) {
-	kubeconfig := filepath.Join(t.TempDir(), "config")
-	config := clientcmdapi.Config{
-		CurrentContext: "friendly",
-		Clusters:       map[string]*clientcmdapi.Cluster{"bad\ncluster": {Server: "https://example.test"}},
-		Contexts:       map[string]*clientcmdapi.Context{"friendly": {Cluster: "bad\ncluster"}},
-	}
-	if err := clientcmd.WriteToFile(config, kubeconfig); err != nil {
-		t.Fatalf("write kubeconfig: %v", err)
-	}
-	if _, _, err := loadClientConfig(cliOptions{Kubeconfig: kubeconfig}); err == nil {
-		t.Fatal("loadClientConfig accepted a cluster key with a newline")
+	for _, cluster := range []string{"bad cluster", "bad\tcluster", "bad\ncluster"} {
+		t.Run(cluster, func(t *testing.T) {
+			kubeconfig := filepath.Join(t.TempDir(), "config")
+			config := clientcmdapi.Config{
+				CurrentContext: "friendly",
+				Clusters:       map[string]*clientcmdapi.Cluster{cluster: {Server: "https://example.test"}},
+				Contexts:       map[string]*clientcmdapi.Context{"friendly": {Cluster: cluster}},
+			}
+			if err := clientcmd.WriteToFile(config, kubeconfig); err != nil {
+				t.Fatalf("write kubeconfig: %v", err)
+			}
+			if _, _, err := loadClientConfig(cliOptions{Kubeconfig: kubeconfig}); err == nil {
+				t.Fatalf("loadClientConfig accepted cluster key %q", cluster)
+			}
+		})
 	}
 }
 
@@ -113,7 +119,7 @@ func TestRunPrintsParseableSummaryAndAtMostThreePreviewLines(t *testing.T) {
 	if len(lines) < 1 || len(lines) > 4 {
 		t.Fatalf("stdout has %d lines, want 1 to 4: %q", len(lines), stdout.String())
 	}
-	pattern := regexp.MustCompile(`^ANF context: source=kubernetes/actual-cluster scope=namespace:agentic-system source_bytes=[0-9]+ source_objects=0 projected_objects=0 json_bytes=[0-9]+ anf_bytes=[0-9]+ json_tokens_est=[0-9]+ anf_tokens_est=[0-9]+ reduction=-?[0-9]+\.[0-9] top_level_entities=0$`)
+	pattern := regexp.MustCompile(`^ANF context: source=kubernetes/actual-cluster scope=namespace:agentic-system source_bytes=[0-9]+ source_objects=0 projected_objects=0 unprojected_pods=0 omitted_containers=0 omitted_service_ports=0 omitted_named_target_ports=0 document_json_bytes=[0-9]+ anf_bytes=[0-9]+ document_json_tokens_est=[0-9]+ anf_tokens_est=[0-9]+ reduction=-?[0-9]+\.[0-9] top_level_entities=0$`)
 	if !pattern.MatchString(lines[0]) {
 		t.Fatalf("first line is not parseable summary: %q", lines[0])
 	}

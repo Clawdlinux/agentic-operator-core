@@ -148,6 +148,9 @@ func validateOutputValue(name, value string) error {
 		return fmt.Errorf("%s must not be empty", name)
 	}
 	for _, character := range value {
+		if unicode.IsSpace(character) {
+			return fmt.Errorf("%s contains whitespace", name)
+		}
 		if unicode.IsControl(character) {
 			return fmt.Errorf("%s contains a control character", name)
 		}

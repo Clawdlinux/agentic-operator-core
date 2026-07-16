@@ -77,70 +77,35 @@ type SourceSnapshot struct {
 	CronJobs    batchv1.CronJobList   `json:"cronJobs"`
 }
 
-// Metrics separates source payload accounting from the fair projected comparison.
+// Metrics separates source payload accounting from the exact document encoding comparison.
 type Metrics struct {
-	SourceBytes      int
-	SourceObjects    int
-	ProjectedObjects int
-	JSONBytes        int
-	ANFBytes         int
-	JSONTokensEst    int
-	ANFTokensEst     int
-	Reduction        float64
-	TopLevelEntities int
+	SourceBytes             int
+	SourceObjects           int
+	ProjectedObjects        int
+	UnprojectedPods         int
+	OmittedContainers       int
+	OmittedServicePorts     int
+	OmittedNamedTargetPorts int
+	DocumentJSONBytes       int
+	ANFBytes                int
+	DocumentJSONTokensEst   int
+	ANFTokensEst            int
+	Reduction               float64
+	TopLevelEntities        int
 }
 
-// Result contains the source payload, normalized projection, and ANF artifact.
+// Result contains the source payload and two encodings of the exact ANF document.
 type Result struct {
-	Cluster        string
-	Namespace      string
-	CapturedAt     time.Time
-	Source         SourceSnapshot
-	SourceJSON     []byte
-	View           anfkubernetes.NamespaceView
-	NormalizedJSON []byte
-	Document       *anf.Document
-	ANF            string
-	Metrics        Metrics
-}
-
-type normalizedNamespaceView struct {
-	Cluster     string                 `json:"cluster"`
-	Namespace   string                 `json:"namespace"`
-	Deployments []normalizedDeployment `json:"deployments"`
-	Services    []normalizedService    `json:"services"`
-	Jobs        []normalizedJob        `json:"jobs"`
-	CronJobs    []normalizedCronJob    `json:"cron_jobs"`
-}
-
-type normalizedDeployment struct {
-	Name          string `json:"name"`
-	Replicas      int32  `json:"replicas"`
-	ReadyReplicas int32  `json:"ready_replicas"`
-	Image         string `json:"image"`
-	Strategy      string `json:"strategy"`
-	AgeDays       int    `json:"age_days"`
-}
-
-type normalizedService struct {
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	Port       int32  `json:"port"`
-	TargetPort int32  `json:"target_port"`
-}
-
-type normalizedJob struct {
-	Name      string        `json:"name"`
-	Completed bool          `json:"completed"`
-	LastRun   time.Time     `json:"last_run"`
-	Duration  time.Duration `json:"duration"`
-	Succeeded bool          `json:"succeeded"`
-}
-
-type normalizedCronJob struct {
-	Name     string    `json:"name"`
-	Schedule string    `json:"schedule"`
-	LastRun  time.Time `json:"last_run"`
+	Cluster      string
+	Namespace    string
+	CapturedAt   time.Time
+	Source       SourceSnapshot
+	SourceJSON   []byte
+	View         anfkubernetes.NamespaceView
+	Document     *anf.Document
+	DocumentJSON []byte
+	ANF          string
+	Metrics      Metrics
 }
 
 // Capture fetches every required list before producing a deterministic snapshot.
@@ -185,62 +150,44 @@ func Capture(ctx context.Context, lister Lister, options Options) (*Result, erro
 	}
 
 	view := buildNamespaceView(source, options.Cluster, options.Namespace, capturedAt)
-	normalizedJSON, err := json.Marshal(normalizeNamespaceView(view))
-	if err != nil {
-		return nil, fmt.Errorf("marshal normalized NamespaceView: %w", err)
-	}
 	document := anfkubernetes.Translate(view, capturedAt)
+	documentJSON, err := json.Marshal(document)
+	if err != nil {
+		return nil, fmt.Errorf("marshal ANF document: %w", err)
+	}
 	encoded := anf.EncodeToString(document)
+	unprojectedPods, omittedContainers, omittedServicePorts, omittedNamedTargetPorts := countProjectionOmissions(source)
 
 	metrics := Metrics{
-		SourceBytes:      len(sourceJSON),
-		SourceObjects:    countSourceObjects(source),
-		ProjectedObjects: countProjectedObjects(view),
-		JSONBytes:        len(normalizedJSON),
-		ANFBytes:         len(encoded),
-		JSONTokensEst:    estimateTokens(len(normalizedJSON)),
-		ANFTokensEst:     estimateTokens(len(encoded)),
-		TopLevelEntities: len(document.Entities),
+		SourceBytes:             len(sourceJSON),
+		SourceObjects:           countSourceObjects(source),
+		ProjectedObjects:        countProjectedObjects(view),
+		UnprojectedPods:         unprojectedPods,
+		OmittedContainers:       omittedContainers,
+		OmittedServicePorts:     omittedServicePorts,
+		OmittedNamedTargetPorts: omittedNamedTargetPorts,
+		DocumentJSONBytes:       len(documentJSON),
+		ANFBytes:                len(encoded),
+		DocumentJSONTokensEst:   estimateTokens(len(documentJSON)),
+		ANFTokensEst:            estimateTokens(len(encoded)),
+		TopLevelEntities:        len(document.Entities),
 	}
-	if metrics.JSONBytes > 0 {
-		metrics.Reduction = float64(metrics.JSONBytes-metrics.ANFBytes) / float64(metrics.JSONBytes) * 100
+	if metrics.DocumentJSONBytes > 0 {
+		metrics.Reduction = float64(metrics.DocumentJSONBytes-metrics.ANFBytes) / float64(metrics.DocumentJSONBytes) * 100
 	}
 
 	return &Result{
-		Cluster:        options.Cluster,
-		Namespace:      options.Namespace,
-		CapturedAt:     capturedAt,
-		Source:         source,
-		SourceJSON:     sourceJSON,
-		View:           view,
-		NormalizedJSON: normalizedJSON,
-		Document:       document,
-		ANF:            encoded,
-		Metrics:        metrics,
+		Cluster:      options.Cluster,
+		Namespace:    options.Namespace,
+		CapturedAt:   capturedAt,
+		Source:       source,
+		SourceJSON:   sourceJSON,
+		View:         view,
+		Document:     document,
+		DocumentJSON: documentJSON,
+		ANF:          encoded,
+		Metrics:      metrics,
 	}, nil
-}
-
-func normalizeNamespaceView(view anfkubernetes.NamespaceView) normalizedNamespaceView {
-	normalized := normalizedNamespaceView{
-		Cluster: view.Cluster, Namespace: view.Namespace,
-		Deployments: make([]normalizedDeployment, 0, len(view.Deployments)),
-		Services:    make([]normalizedService, 0, len(view.Services)),
-		Jobs:        make([]normalizedJob, 0, len(view.Jobs)),
-		CronJobs:    make([]normalizedCronJob, 0, len(view.CronJobs)),
-	}
-	for _, deployment := range view.Deployments {
-		normalized.Deployments = append(normalized.Deployments, normalizedDeployment{Name: deployment.Name, Replicas: deployment.Replicas, ReadyReplicas: deployment.ReadyReplicas, Image: deployment.Image, Strategy: deployment.Strategy, AgeDays: deployment.AgeDays})
-	}
-	for _, service := range view.Services {
-		normalized.Services = append(normalized.Services, normalizedService{Name: service.Name, Type: service.Type, Port: service.Port, TargetPort: service.TargetPort})
-	}
-	for _, job := range view.Jobs {
-		normalized.Jobs = append(normalized.Jobs, normalizedJob{Name: job.Name, Completed: job.Completed, LastRun: job.LastRun, Duration: job.Duration, Succeeded: job.Succeeded})
-	}
-	for _, cronJob := range view.CronJobs {
-		normalized.CronJobs = append(normalized.CronJobs, normalizedCronJob{Name: cronJob.Name, Schedule: cronJob.Schedule, LastRun: cronJob.LastRun})
-	}
-	return normalized
 }
 
 func sortedSource(
@@ -381,6 +328,24 @@ func countProjectedObjects(view anfkubernetes.NamespaceView) int {
 	return count
 }
 
+func countProjectionOmissions(source SourceSnapshot) (unprojectedPods, omittedContainers, omittedServicePorts, omittedNamedTargetPorts int) {
+	unprojectedPods = len(source.Pods.Items)
+	for _, deployment := range source.Deployments.Items {
+		if containerCount := len(deployment.Spec.Template.Spec.Containers); containerCount > 1 {
+			omittedContainers += containerCount - 1
+		}
+	}
+	for _, service := range source.Services.Items {
+		if portCount := len(service.Spec.Ports); portCount > 1 {
+			omittedServicePorts += portCount - 1
+		}
+		if len(service.Spec.Ports) > 0 && service.Spec.Ports[0].TargetPort.Type != intstr.Int {
+			omittedNamedTargetPorts++
+		}
+	}
+	return unprojectedPods, omittedContainers, omittedServicePorts, omittedNamedTargetPorts
+}
+
 func ageDays(created, capturedAt time.Time) int {
 	if created.IsZero() || !capturedAt.After(created) {
 		return 0
@@ -404,6 +369,9 @@ func validateLabel(name, value string) error {
 		return fmt.Errorf("%s must not be empty", name)
 	}
 	for _, character := range value {
+		if unicode.IsSpace(character) {
+			return fmt.Errorf("%s contains whitespace", name)
+		}
 		if unicode.IsControl(character) {
 			return fmt.Errorf("%s contains a control character", name)
 		}
@@ -414,15 +382,19 @@ func validateLabel(name, value string) error {
 // Summary returns the single parseable measurement line used by the demo.
 func (result *Result) Summary() string {
 	return fmt.Sprintf(
-		"ANF context: source=kubernetes/%s scope=namespace:%s source_bytes=%d source_objects=%d projected_objects=%d json_bytes=%d anf_bytes=%d json_tokens_est=%d anf_tokens_est=%d reduction=%.1f top_level_entities=%d",
+		"ANF context: source=kubernetes/%s scope=namespace:%s source_bytes=%d source_objects=%d projected_objects=%d unprojected_pods=%d omitted_containers=%d omitted_service_ports=%d omitted_named_target_ports=%d document_json_bytes=%d anf_bytes=%d document_json_tokens_est=%d anf_tokens_est=%d reduction=%.1f top_level_entities=%d",
 		result.Cluster,
 		result.Namespace,
 		result.Metrics.SourceBytes,
 		result.Metrics.SourceObjects,
 		result.Metrics.ProjectedObjects,
-		result.Metrics.JSONBytes,
+		result.Metrics.UnprojectedPods,
+		result.Metrics.OmittedContainers,
+		result.Metrics.OmittedServicePorts,
+		result.Metrics.OmittedNamedTargetPorts,
+		result.Metrics.DocumentJSONBytes,
 		result.Metrics.ANFBytes,
-		result.Metrics.JSONTokensEst,
+		result.Metrics.DocumentJSONTokensEst,
 		result.Metrics.ANFTokensEst,
 		result.Metrics.Reduction,
 		result.Metrics.TopLevelEntities,
@@ -448,6 +420,7 @@ func (result *Result) PreviewLines(limit int) []string {
 }
 
 // WriteArtifact atomically replaces path with a private regular file.
+// The local demo assumes the parent directory is trusted and unchanged during this call.
 func WriteArtifact(path, content string) (resultErr error) {
 	parent := filepath.Dir(path)
 	parentInfo, err := os.Stat(parent)

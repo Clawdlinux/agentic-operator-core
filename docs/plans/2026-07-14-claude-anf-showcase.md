@@ -4,7 +4,7 @@
 
 **Goal:** Build a paced, visually legible showcase that translates live Kubernetes state into ANF, sends that context through an AgentWorkload to Claude, and displays each proof boundary in real time.
 
-**Architecture:** A small Go command snapshots one namespace with client-go, translates the observed objects through the public Agent Native Format library pinned to commit `651eea0`, writes the ANF document, and prints measured raw-versus-ANF size data. `demo-booth.sh` injects that ANF document into a temporary AgentWorkload manifest, routes every task category to the Anthropic LiteLLM alias, and pauses between evidence stages. The existing Python SSE visualizer parses ANF, Claude, controls, and audit events into one branded control room.
+**Architecture:** A small Go command snapshots one namespace with client-go and records source payload accounting. It translates projected objects through the public Agent Native Format library pinned to commit `651eea0`. The command writes the ANF document and compares its exact JSON and ANF encodings. `demo-booth.sh` injects that ANF document into a temporary AgentWorkload manifest, routes every task category to the Anthropic LiteLLM alias, and pauses between evidence stages. The existing Python SSE visualizer parses ANF, Claude, controls, and audit events into one branded control room.
 
 **Tech Stack:** Go 1.25, client-go, Agent Native Format Go library, Bash, Python standard library, HTML/CSS/JavaScript, LiteLLM, Claude Haiku 4.5.
 
@@ -15,7 +15,9 @@
 - `LIVE`: Kubernetes snapshot, ANF translation metrics, AgentWorkload completion, Claude tokens, estimated cost.
 - `CONFIG ONLY`: gVisor admission dry-run and NetworkPolicy object presence. No pod or packet-test claim.
 - `PRIOR RUN`: HMAC audit fixture verification and tampered-copy rejection.
-- ANF reduction compares the observed raw Kubernetes API JSON bytes with the emitted ANF view. It is measured for this run and labeled as an estimate where chars-per-token is used.
+- Source bytes and omission counts account for the observed Kubernetes payload.
+- ANF reduction compares JSON and ANF encodings of the exact same `anf.Document`.
+- Token counts use a chars-per-token estimate and are labeled as estimates.
 - The ANF document is appended to the actual AgentWorkload objective sent to Claude.
 - The showcase path is Claude-only. Product-level OpenAI compatibility remains supported but is not rendered, narrated, or required by the showcase.
 - Every stage pause is configurable. Tests and CI use zero delay.
@@ -35,11 +37,13 @@
 - Pin `github.com/Clawdlinux/agent-native-format` to pseudo-version for commit `651eea0fc411d34d94807fd233968e6c0c93ab9f` because existing tags have the pre-rename module path.
 - Fetch Deployments, Pods, Services, Jobs, and CronJobs from one namespace using context-aware client-go calls.
 - Convert observed objects to `translators/kubernetes.NamespaceView` without inventing CPU, memory, traffic, or error-rate data.
-- Marshal the fetched lists as the raw Kubernetes JSON comparison input.
-- Encode the translated document with `pkg/anf.EncodeToString`.
+- Marshal fetched lists only for source payload bytes, object counts, and omission accounting.
+- Count unprojected Pods, extra deployment containers, extra service ports, and named first target ports.
+- Marshal the exact translated `anf.Document` as JSON.
+- Encode that same document with `pkg/anf.EncodeToString`.
 - Write ANF to `--output` with mode `0600`.
 - Print one parseable summary line:
-  `ANF context: source=... scope=... raw_bytes=N anf_bytes=N raw_tokens_est=N anf_tokens_est=N reduction=P entities=N`
+  `ANF context: source=... scope=... source_bytes=N ... document_json_bytes=N anf_bytes=N document_json_tokens_est=N anf_tokens_est=N reduction=P ...`
 - Print at most 3 `ANF preview:` lines. Never dump the full raw JSON.
 - Fail closed on any required list error. No partial snapshot may be labeled live.
 - Add `make build-anf-snapshot`.
@@ -100,7 +104,7 @@ go test ./pkg/finops
 **Requirements:**
 - Parse the ANF summary and preview lines as `LIVE` evidence.
 - Render provider path as `Kubernetes → ANF context → AgentWorkload → LiteLLM → Claude Haiku 4.5`.
-- Add a compact ANF measurement band with raw bytes, ANF bytes, estimated token reduction, entity count, and up to 3 preview lines.
+- Add a compact band with source bytes, omission counts, document JSON bytes, ANF bytes, estimated reduction, and entity count.
 - Keep the 3 existing evidence panels for model, controls, and prior-run audit.
 - Remove all OpenAI-specific display logic and replay fixtures from tests.
 - Use event pacing without browser animation that changes the underlying proof.

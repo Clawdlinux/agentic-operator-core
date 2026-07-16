@@ -18,7 +18,7 @@ SETUP_ENVTEST := $(LOCALBIN)/setup-envtest
 STATICCHECK := $(LOCALBIN)/staticcheck
 CONTROLLER_GEN := $(LOCALBIN)/controller-gen
 
-.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build build-agentctl build-agentctl-web build-anf-snapshot install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
+.PHONY: help test validate test-unit test-go test-anf-snapshot vet-anf-snapshot verify-anf-snapshot test-python setup-envtest test-controller fmt fmt-check vet lint build build-agentctl build-agentctl-web build-anf-snapshot install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
 
 .DEFAULT_GOAL := help
 
@@ -27,6 +27,8 @@ help:
 	@echo "  make test           - Run go + python tests"
 	@echo "  make validate       - Run canonical validation sequence"
 	@echo "  make test-go        - Run go tests (excluding envtest controller)"
+	@echo "  make test-anf-snapshot - Run nested ANF snapshot tests"
+	@echo "  make vet-anf-snapshot - Run nested ANF snapshot vet checks"
 	@echo "  make test-python    - Run python agent tests (creates .venv automatically)"
 	@echo "  make test-controller - Run envtest controller suite"
 	@echo "  make fmt            - Format go code"
@@ -45,9 +47,9 @@ help:
 	@echo "  make test-smoke     - Smoke tests only (cluster must be pre-installed)"
 	@echo "  make test-e2e-cluster - E2E tests only (cluster must be pre-installed)"
 
-test: test-go test-python
+test: test-go test-anf-snapshot test-python
 
-validate: fmt-check lint test-controller test-go test-python helm-lint
+validate: fmt-check lint test-controller test-go test-anf-snapshot vet-anf-snapshot test-python helm-lint
 
 test-unit: test
 
@@ -59,6 +61,16 @@ test-go:
 		exit 1; \
 	fi; \
 	$(GO) test $$pkgs $(GO_TEST_FLAGS)
+
+test-anf-snapshot:
+	@echo "Running nested ANF snapshot tests..."
+	@cd tools/anf-snapshot && $(GO) test ./... $(GO_TEST_FLAGS)
+
+vet-anf-snapshot:
+	@echo "Running nested ANF snapshot vet checks..."
+	@cd tools/anf-snapshot && $(GO) vet ./...
+
+verify-anf-snapshot: test-anf-snapshot vet-anf-snapshot
 
 check-python-version:
 	@$(PYTHON) -c 'import sys; assert sys.version_info < (3, 13), "test-python requires Python <= 3.12 due dependency pins; run with PYTHON=python3.12"'
