@@ -25,12 +25,12 @@
 ### Task 1: Live ANF Namespace Snapshot
 
 **Files:**
-- Create: `cmd/anf-snapshot/main.go`
-- Create: `cmd/anf-snapshot/main_test.go`
-- Create: `internal/anfsnapshot/snapshot.go`
-- Create: `internal/anfsnapshot/snapshot_test.go`
-- Modify: `go.mod`
-- Modify: `go.sum`
+- Create: `tools/anf-snapshot/main.go`
+- Create: `tools/anf-snapshot/main_test.go`
+- Create: `tools/anf-snapshot/snapshot/snapshot.go`
+- Create: `tools/anf-snapshot/snapshot/snapshot_test.go`
+- Create: `tools/anf-snapshot/go.mod`
+- Create: `tools/anf-snapshot/go.sum`
 - Modify: `Makefile`
 
 **Requirements:**
@@ -50,8 +50,13 @@
 
 **Validation:**
 ```bash
-go test ./internal/anfsnapshot ./cmd/anf-snapshot
-go test -race ./internal/anfsnapshot ./cmd/anf-snapshot
+(cd tools/anf-snapshot && go test ./...)
+(cd tools/anf-snapshot && go test -race ./...)
+(cd tools/anf-snapshot && go vet ./...)
+(cd tools/anf-snapshot && go mod verify && go mod tidy -diff)
+make fmt-check-anf-snapshot
+make staticcheck-anf-snapshot
+make verify-anf-snapshot
 make build-anf-snapshot
 ```
 

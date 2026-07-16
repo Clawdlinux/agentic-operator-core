@@ -167,7 +167,7 @@ func testDependencies() runDependencies {
 			return &rest.Config{Host: "https://example.test"}, "actual-cluster", nil
 		},
 		newClient: func(*rest.Config) (kubernetes.Interface, error) {
-			return fake.NewSimpleClientset(), nil
+			return fake.NewClientset(), nil
 		},
 		clock: func() time.Time {
 			return time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC)

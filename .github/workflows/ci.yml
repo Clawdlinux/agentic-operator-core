@@ -28,16 +28,6 @@ jobs:
         working-directory: tools/anf-snapshot
         run: go mod download
 
-      - name: Verify gofmt
-        run: |
-          FILES=$(find . -name '*.go' -not -path './.git/*')
-          UNFORMATTED=$(gofmt -l $FILES)
-          if [ -n "$UNFORMATTED" ]; then
-            echo "Unformatted Go files:"
-            echo "$UNFORMATTED"
-            exit 1
-          fi
-
       - name: Verify go.mod/go.sum are tidy
         run: |
           go mod tidy
@@ -49,8 +39,8 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
 
-      - name: Run go vet
-        run: go vet ./...
+      - name: Run canonical lint
+        run: make lint
 
       - name: Run nested ANF snapshot vet
         run: make vet-anf-snapshot
