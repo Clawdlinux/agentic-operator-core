@@ -1,5 +1,12 @@
 # Naming Decision — ACP protocol + Agentic Operator
 
+> **SUPERSEDED (2026-07-16).** The protocol recommendation below (`Concord`) was
+> never adopted. The protocol repo was repositioned to **Agent Native Format
+> (ANF)** in Clawdlinux/agent-native-format#22; see that repo's
+> `naming-decision.md` for the ratified decision. The operator advice below
+> still holds: keep the `agentic-operator-core` repo name. Text kept as
+> historical research.
+
 Date: 2026-06-16. Status: RESEARCH COMPLETE. Needs human approval (gate A2).
 Author: ralph loop, Lane A1.
 
