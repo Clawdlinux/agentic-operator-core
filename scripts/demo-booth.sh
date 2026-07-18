@@ -594,6 +594,7 @@ spec:
           protocol: TCP
 YAML
 
+  kubectl -n "${NS_OPERATOR}" rollout restart deployment/"${DEMO_RELEASE}"-agentic-operator >/dev/null
   kubectl -n "${NS_OPERATOR}" rollout restart deployment/"${DEMO_RELEASE}"-litellm >/dev/null
 
   wait_for_demo_components

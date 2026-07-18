@@ -346,6 +346,14 @@ for helm_arg in \
     exit 1
   fi
 done
+for restarted_deployment in \
+  'deployment/clawdlinux-demo-agentic-operator' \
+  'deployment/clawdlinux-demo-litellm'; do
+  if ! grep -Fq "rollout restart ${restarted_deployment}" "${command_log}"; then
+    printf 'prepare did not restart deployment: %s\n' "${restarted_deployment}" >&2
+    exit 1
+  fi
+done
 
 : >"${command_log}"
 optional_openai_output="$(env \
