@@ -738,7 +738,13 @@ objective = manifest["spec"]["objective"]
 marker = "ANF_CONTEXT_INSERT_HERE"
 if objective.count(marker) != 1:
     raise SystemExit("AgentWorkload objective must contain exactly one ANF marker")
-manifest["spec"]["objective"] = objective.replace(marker, anf)
+rendered_objective = objective.replace(marker, anf)
+rendered_objective_bytes = len(rendered_objective.encode("utf-8"))
+if rendered_objective_bytes == 0:
+  raise SystemExit("AgentWorkload objective is empty")
+if rendered_objective_bytes > 32768:
+  raise SystemExit("AgentWorkload objective exceeds 32768-byte limit")
+manifest["spec"]["objective"] = rendered_objective
 annotations = manifest.setdefault("metadata", {}).setdefault("annotations", {})
 if annotations.get("demo.clawdlinux.org/template") != "true":
     raise SystemExit("AgentWorkload template annotation must be true")

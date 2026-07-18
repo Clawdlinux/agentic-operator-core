@@ -153,8 +153,8 @@ func (r *AgentWorkload) validate() error {
 		if len(*r.Spec.Objective) == 0 {
 			allErrs = append(allErrs, "objective must not be empty")
 		}
-		if len(*r.Spec.Objective) > 1000 {
-			allErrs = append(allErrs, fmt.Sprintf("objective must be ≤ 1000 characters, got %d", len(*r.Spec.Objective)))
+		if len(*r.Spec.Objective) > 32768 {
+			allErrs = append(allErrs, fmt.Sprintf("objective must be at most 32768 bytes, got %d", len(*r.Spec.Objective)))
 		}
 	}
 

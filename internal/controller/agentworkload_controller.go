@@ -703,7 +703,11 @@ func (r *AgentWorkloadReconciler) reconcileViaRuntime(ctx context.Context, workl
 	log.Info("Reconciling orchestrated workload", "name", workload.Name)
 
 	r.ensureRuntimeDefaults()
-	adapter, err := r.RuntimeRegistry.For(workload)
+	runtimeType := r.RuntimeRegistry.ResolveType(workload)
+	if workload.Status.ArgoWorkflow != nil && workload.Status.ArgoWorkflow.Name != "" && workload.Status.ArgoWorkflow.Runtime != "" {
+		runtimeType = workload.Status.ArgoWorkflow.Runtime
+	}
+	adapter, err := r.RuntimeRegistry.ForType(runtimeType)
 	if err != nil {
 		log.Error(err, "no runtime adapter for workload")
 		workload.Status.Phase = "Failed"
@@ -768,6 +772,7 @@ func (r *AgentWorkloadReconciler) reconcileViaRuntime(ctx context.Context, workl
 	workload.Status.Phase = "Running"
 	workload.Status.ArgoPhase = "Pending"
 	workload.Status.ArgoWorkflow = &agenticv1alpha1.ArgoWorkflowRef{
+		Runtime:   runtimeType,
 		Name:      execStatus.Name,
 		Namespace: execStatus.Namespace,
 		UID:       execStatus.UID,
@@ -793,7 +798,11 @@ func (r *AgentWorkloadReconciler) cleanupViaRuntime(ctx context.Context, workloa
 	}
 
 	r.ensureRuntimeDefaults()
-	adapter, err := r.RuntimeRegistry.For(workload)
+	runtimeType := workload.Status.ArgoWorkflow.Runtime
+	if runtimeType == "" {
+		runtimeType = r.RuntimeRegistry.ResolveType(workload)
+	}
+	adapter, err := r.RuntimeRegistry.ForType(runtimeType)
 	if err != nil {
 		return fmt.Errorf("cleanup: %w", err)
 	}

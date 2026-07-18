@@ -111,9 +111,9 @@ spec:
                 - cost-aware
                 type: string
               objective:
-                description: objective is the high-level goal for the agent (e.g.
-                  "optimize cluster performance")
-                maxLength: 1000
+                description: objective is the user task plus compact structured context
+                  for the agent.
+                maxLength: 32768
                 minLength: 1
                 type: string
               opaPolicy:
@@ -378,8 +378,8 @@ spec:
                 type: string
               argoWorkflow:
                 description: |-
-                  argoWorkflow references the associated Argo Workflow CR
-                  Set when the operator creates a workflow for Argo orchestration
+                  argoWorkflow references the runtime execution created for this workload.
+                  The historical field name remains for API compatibility.
                 properties:
                   createdAt:
                     description: createdAt is when the Workflow CR was created
@@ -391,6 +391,9 @@ spec:
                   namespace:
                     description: namespace is the namespace of the Argo Workflow CR
                       (usually "argo-workflows")
+                    type: string
+                  runtime:
+                    description: runtime is the adapter key used to create the execution.
                     type: string
                   uid:
                     description: uid is the unique identifier of the Workflow CR
