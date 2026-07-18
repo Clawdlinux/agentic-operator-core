@@ -10,7 +10,9 @@ on:
       - "cmd/**"
       - "agents/**"
       - "charts/**"
-      - "scripts/scan_secrets.sh"
+      - "scripts/**"
+      - "tests/smoke/**"
+      - "examples/**"
       - ".github/workflows/test-gates.yml"
   push:
     branches:
@@ -23,7 +25,9 @@ on:
       - "cmd/**"
       - "agents/**"
       - "charts/**"
-      - "scripts/scan_secrets.sh"
+      - "scripts/**"
+      - "tests/smoke/**"
+      - "examples/**"
       - ".github/workflows/test-gates.yml"
   schedule:
     - cron: "0 3 * * *"
@@ -41,6 +45,9 @@ jobs:
 
       - name: Quick secret scan
         run: make scan-secrets
+
+      - name: Run booth CLI smoke tests
+        run: bash tests/smoke/test_demo_booth_cli.sh
 
       - name: Set up Go
         uses: actions/setup-go@v5

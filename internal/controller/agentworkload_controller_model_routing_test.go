@@ -2,17 +2,21 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/go-logr/logr/funcr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 )
@@ -222,6 +226,74 @@ func Test_AgentWorkloadReconciler_routeAndCallModel(t *testing.T) {
 				t.Fatalf("expected model %q, got %q", tc.expectedModel, routingInfo.ModelName)
 			}
 		})
+	}
+}
+
+func TestRouteAndCallModel_RedactsObjectiveOnFailure(t *testing.T) {
+	t.Parallel()
+
+	var logOutput strings.Builder
+	logger := funcr.New(func(prefix, args string) {
+		logOutput.WriteString(prefix)
+		logOutput.WriteString(args)
+		logOutput.WriteByte('\n')
+	}, funcr.Options{})
+	ctx := logf.IntoContext(context.Background(), logger)
+	scheme := newControllerTestScheme(t)
+	mockServer := newMockOpenAIServer(mockOpenAIScenarioHTTP500)
+	defer mockServer.Close()
+
+	objective := "SECRET_OBJECTIVE_MARKER analyze quarterly revenue data"
+	strategy := "cost-aware"
+	classifier := "default"
+	endpoint := mockServer.URL
+	secretKey := "api-key"
+	workload := &agenticv1alpha1.AgentWorkload{
+		ObjectMeta: metav1.ObjectMeta{Name: "redacted-routing", Namespace: "test-routing"},
+		Spec: agenticv1alpha1.AgentWorkloadSpec{
+			ModelStrategy:  &strategy,
+			TaskClassifier: &classifier,
+			Objective:      &objective,
+			Providers: []agenticv1alpha1.LLMProvider{{
+				Name:         "mock-openai",
+				Type:         "openai-compatible",
+				Endpoint:     &endpoint,
+				APIKeySecret: &agenticv1alpha1.SecretKeyRef{Name: "provider-secret", Key: &secretKey},
+			}},
+			ModelMapping: map[string]string{"analysis": "mock-openai/gpt-4"},
+		},
+	}
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: workload.Namespace}},
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "provider-secret", Namespace: workload.Namespace},
+				Data:       map[string][]byte{"api-key": []byte("test-token")},
+			},
+		).
+		Build()
+	reconciler := &AgentWorkloadReconciler{Client: k8sClient, Scheme: scheme}
+
+	_, _, err := reconciler.routeAndCallModel(ctx, workload)
+	if err == nil {
+		t.Fatal("expected provider failure")
+	}
+
+	logs := logOutput.String()
+	if strings.Contains(logs, objective) || strings.Contains(logs, "SECRET_OBJECTIVE_MARKER") {
+		t.Fatalf("routing failure log leaked objective content: %s", logs)
+	}
+	digest := sha256.Sum256([]byte(objective))
+	for _, expected := range []string{
+		fmt.Sprintf("\"objectiveBytes\"=%d", len([]byte(objective))),
+		fmt.Sprintf("\"objectiveSHA256\"=\"%x\"", digest),
+		"\"workload\"=\"redacted-routing\"",
+		"\"namespace\"=\"test-routing\"",
+	} {
+		if !strings.Contains(logs, expected) {
+			t.Fatalf("routing failure log missing %q: %s", expected, logs)
+		}
 	}
 }
 

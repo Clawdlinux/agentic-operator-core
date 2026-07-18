@@ -32,6 +32,7 @@ RECORD=false
 CLEANUP=false
 DEMO_MODE=legacy
 TAMPER_AUDIT=false
+PORT_FORWARD_PID=""
 ORIGINAL_ARGS=("$@")
 
 if [[ ( -t 1 || "${FORCE_COLOR:-}" == "1" ) && -z "${NO_COLOR:-}" ]]; then
@@ -90,7 +91,7 @@ warn() { printf '%b[WARN]%b %s\n' "${YELLOW}" "${RESET}" "$*"; }
 die() { printf '%b[FAIL]%b %s\n' "${RED}" "${RESET}" "$*" >&2; exit 1; }
 
 validate_pace() {
-  [[ "$1" =~ ^[0-9]+$ ]] || die "pace must be a non-negative integer"
+  [[ "$1" =~ ^([0-9]|[1-5][0-9]|60)$ ]] || die "pace must be an integer from 0 to 60"
 }
 
 narration_pause() {
@@ -460,9 +461,6 @@ create_runtime_provider_secret() {
   fi
 
   {
-    if [[ -n "${OPENAI_API_KEY:-}" ]]; then
-      printf 'OPENAI_API_KEY=%s\n' "${OPENAI_API_KEY}"
-    fi
     printf 'ANTHROPIC_API_KEY=%s\n' "${ANTHROPIC_API_KEY}"
     printf 'LITELLM_MASTER_KEY=%s\n' "${master_key}"
     printf 'api-key=%s\n' "${master_key}"
@@ -598,19 +596,38 @@ assert_runtime_secret_shape() {
 }
 
 ANF_TEMP_FILE=""
+ANF_OUTPUT_TEMP_FILE=""
+ANF_SANITIZED_TEMP_FILE=""
 WORKLOAD_TEMP_FILE=""
 WORKLOAD_SOURCE_TEMP_FILE=""
 AUDIT_TEMP_FILE=""
 
 cleanup_showcase_temp_files() {
   [[ -z "${ANF_TEMP_FILE}" ]] || rm -f "${ANF_TEMP_FILE}"
+  [[ -z "${ANF_OUTPUT_TEMP_FILE}" ]] || rm -f "${ANF_OUTPUT_TEMP_FILE}"
+  [[ -z "${ANF_SANITIZED_TEMP_FILE}" ]] || rm -f "${ANF_SANITIZED_TEMP_FILE}"
   [[ -z "${WORKLOAD_TEMP_FILE}" ]] || rm -f "${WORKLOAD_TEMP_FILE}"
   [[ -z "${WORKLOAD_SOURCE_TEMP_FILE}" ]] || rm -f "${WORKLOAD_SOURCE_TEMP_FILE}"
   [[ -z "${AUDIT_TEMP_FILE}" ]] || rm -f "${AUDIT_TEMP_FILE}"
   ANF_TEMP_FILE=""
+  ANF_OUTPUT_TEMP_FILE=""
+  ANF_SANITIZED_TEMP_FILE=""
   WORKLOAD_TEMP_FILE=""
   WORKLOAD_SOURCE_TEMP_FILE=""
   AUDIT_TEMP_FILE=""
+}
+
+cleanup_port_forward() {
+  if [[ -n "${PORT_FORWARD_PID}" ]]; then
+    kill "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
+    wait "${PORT_FORWARD_PID}" 2>/dev/null || true
+    PORT_FORWARD_PID=""
+  fi
+}
+
+cleanup_showcase_resources() {
+  cleanup_port_forward
+  cleanup_showcase_temp_files
 }
 
 find_anf_snapshot() {
@@ -623,15 +640,54 @@ find_anf_snapshot() {
 
 capture_anf_context() {
   step "LIVE: Kubernetes state translated to Agent Native Format"
-  local snapshot size
+  local snapshot size summary
   snapshot="$(find_anf_snapshot)"
   ANF_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-anf.XXXXXX")"
   chmod 600 "${ANF_TEMP_FILE}"
-  "${snapshot}" --namespace "${NS_OPERATOR}" --output "${ANF_TEMP_FILE}"
+  ANF_OUTPUT_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-anf-output.XXXXXX")"
+  chmod 600 "${ANF_OUTPUT_TEMP_FILE}"
+  "${snapshot}" --namespace "${NS_OPERATOR}" --output "${ANF_TEMP_FILE}" >"${ANF_OUTPUT_TEMP_FILE}"
+  summary="$(grep -m1 '^ANF context:' "${ANF_OUTPUT_TEMP_FILE}" || true)"
+  [[ -n "${summary}" ]] || die "ANF snapshot summary is missing"
+  printf '%s\n' "${summary}"
   size="$(wc -c <"${ANF_TEMP_FILE}" | tr -d '[:space:]')"
   [[ "${size}" =~ ^[0-9]+$ ]] || die "could not measure ANF context"
   ((size > 0)) || die "ANF context is empty"
   ((size <= 32768)) || die "ANF context exceeds 32 KiB demo limit"
+}
+
+sanitize_anf_context() {
+  local source_path="$1"
+  local output_path="$2"
+  python3 - "${source_path}" "${output_path}" <<'PY'
+import os
+import sys
+import unicodedata
+
+source_path, output_path = sys.argv[1:]
+try:
+    with open(source_path, "rb") as source:
+        raw = source.read()
+
+    text = raw.decode("utf-8")
+    if any(unicodedata.category(char) == "Cc" and char not in "\t\n" for char in text):
+        raise ValueError
+    reserved = ("BEGIN ANF CONTEXT", "END ANF CONTEXT", "ANF_CONTEXT_INSERT_HERE")
+    if any(token in text for token in reserved):
+        raise ValueError
+
+    lines = text.split("\n")
+    if any(line.startswith("?") for line in lines):
+        raise ValueError
+
+    sanitized = "\n".join(f"ANF_DATA {line}" for line in lines)
+except (OSError, UnicodeError, ValueError):
+    raise SystemExit("ANF context rejected by safety policy")
+
+fd = os.open(output_path, os.O_WRONLY | os.O_TRUNC, 0o600)
+with os.fdopen(fd, "w", encoding="utf-8") as output:
+    output.write(sanitized)
+PY
 }
 
 build_research_workload_json() {
@@ -639,8 +695,11 @@ build_research_workload_json() {
   chmod 600 "${WORKLOAD_TEMP_FILE}"
   WORKLOAD_SOURCE_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-agentworkload-source.XXXXXX.json")"
   chmod 600 "${WORKLOAD_SOURCE_TEMP_FILE}"
+  ANF_SANITIZED_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-anf-sanitized.XXXXXX")"
+  chmod 600 "${ANF_SANITIZED_TEMP_FILE}"
+  sanitize_anf_context "${ANF_TEMP_FILE}" "${ANF_SANITIZED_TEMP_FILE}"
   kubectl apply --dry-run=client -f "${RESEARCH_MANIFEST}" -o json >"${WORKLOAD_SOURCE_TEMP_FILE}"
-  python3 - "${WORKLOAD_SOURCE_TEMP_FILE}" "${ANF_TEMP_FILE}" "${WORKLOAD_TEMP_FILE}" <<'PY'
+  python3 - "${WORKLOAD_SOURCE_TEMP_FILE}" "${ANF_SANITIZED_TEMP_FILE}" "${WORKLOAD_TEMP_FILE}" <<'PY'
 import json
 import os
 import sys
@@ -731,13 +790,20 @@ assert_nonzero_routing_tokens() {
   fi
 }
 
+assert_claude_routing() {
+  local routing_message="$1"
+  [[ " ${routing_message} " == *" litellm/clawdlinux-anthropic "* ]] ||
+    die "routing condition does not prove litellm/clawdlinux-anthropic"
+  assert_nonzero_routing_tokens "${routing_message}"
+}
+
 show_real_routing_and_cost() {
   step "LIVE: Claude routing, token, and cost evidence"
   local routing_message cost_annotation metric_output metric_line metric_value
   routing_message="$(kubectl -n "${NS_OPERATOR}" get agentworkload booth-incident-investigation \
     -o jsonpath='{range .status.conditions[?(@.type=="ModelRoutingSucceeded")]}{.message}{end}')"
   [[ -n "${routing_message}" ]] || die "ModelRoutingSucceeded condition is missing"
-  assert_nonzero_routing_tokens "${routing_message}"
+  assert_claude_routing "${routing_message}"
   printf 'Model routing: %s\n' "${routing_message}"
 
   cost_annotation="$(kubectl -n "${NS_OPERATOR}" get agentworkload booth-incident-investigation \
@@ -745,23 +811,25 @@ show_real_routing_and_cost() {
   awk -v cost="${cost_annotation:-0}" 'BEGIN { exit !(cost + 0 > 0) }' || die "cost annotation is missing or zero"
   printf 'Cost annotation: $%s\n' "${cost_annotation}"
 
-  local pod_name local_port port_forward_pid
+  local pod_name local_port
   pod_name="$(operator_pod_name)"
   [[ -n "${pod_name}" ]] || die "operator pod not found"
   local_port="${DEMO_METRICS_PORT:-18080}"
   kubectl -n "${NS_OPERATOR}" port-forward "pod/${pod_name}" "${local_port}:8080" >/dev/null 2>&1 &
-  port_forward_pid=$!
+  PORT_FORWARD_PID=$!
+  if [[ -n "${PORT_FORWARD_PID_FILE:-}" ]]; then
+    printf '%s' "${PORT_FORWARD_PID}" >"${PORT_FORWARD_PID_FILE}"
+  fi
   metric_output=""
   for _ in {1..20}; do
     metric_output="$(curl -fsS --max-time 2 "http://127.0.0.1:${local_port}/metrics" 2>/dev/null || true)"
     [[ -n "${metric_output}" ]] && break
     sleep 1
   done
-  kill "${port_forward_pid}" >/dev/null 2>&1 || true
-  wait "${port_forward_pid}" 2>/dev/null || true
+  cleanup_port_forward
 
-  metric_line="$(printf '%s\n' "${metric_output}" | grep '^clawdlinux_agent_cost_dollars{' | grep 'workload="booth-incident-investigation"' | head -1 || true)"
-  [[ -n "${metric_line}" ]] || die "clawdlinux_agent_cost_dollars metric is missing for the booth workload"
+  metric_line="$(printf '%s\n' "${metric_output}" | grep '^clawdlinux_agent_cost_dollars{' | grep -F 'workload="booth-incident-investigation"' | grep -F 'model="litellm/clawdlinux-anthropic"' | head -1 || true)"
+  [[ -n "${metric_line}" ]] || die "Claude cost metric is missing for the booth workload"
   metric_value="$(awk '{print $NF}' <<<"${metric_line}")"
   awk -v cost="${metric_value:-0}" 'BEGIN { exit !(cost + 0 > 0) }' || die "clawdlinux_agent_cost_dollars is zero"
   printf 'Cost metric: %s\n' "${metric_line}"
@@ -866,10 +934,10 @@ present_real_demo() {
   require_demo_context
   [[ -f "${RESEARCH_MANIFEST}" ]] || die "missing ${RESEARCH_MANIFEST}"
   assert_runtime_secret_shape
-  trap cleanup_showcase_temp_files EXIT
-  trap 'cleanup_showcase_temp_files; exit 129' HUP
-  trap 'cleanup_showcase_temp_files; exit 130' INT
-  trap 'cleanup_showcase_temp_files; exit 143' TERM
+  trap cleanup_showcase_resources EXIT
+  trap 'cleanup_showcase_resources; exit 129' HUP
+  trap 'cleanup_showcase_resources; exit 130' INT
+  trap 'cleanup_showcase_resources; exit 143' TERM
   apply_research_workload
   wait_for_research_completion
   show_real_routing_and_cost
@@ -877,7 +945,7 @@ present_real_demo() {
   show_network_policy_presence
   run_prior_run_audit "${TAMPER_AUDIT}"
   print_present_summary
-  cleanup_showcase_temp_files
+  cleanup_showcase_resources
   trap - EXIT HUP INT TERM
 }
 

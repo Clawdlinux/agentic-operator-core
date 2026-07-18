@@ -890,7 +890,13 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 	)
 
 	if err != nil {
-		log.Error(err, "model routing failed", "objective", instructions)
+		objectiveDigest := sha256.Sum256([]byte(instructions))
+		log.Error(err, "model routing failed",
+			"objectiveBytes", len([]byte(instructions)),
+			"objectiveSHA256", fmt.Sprintf("%x", objectiveDigest),
+			"workload", workload.Name,
+			"namespace", workload.Namespace,
+		)
 		return nil, routingInfo, err
 	}
 
