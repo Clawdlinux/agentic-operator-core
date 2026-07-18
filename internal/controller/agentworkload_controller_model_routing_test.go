@@ -664,22 +664,23 @@ func TestReconcile_RejectsUnrenderedTemplateBeforeModelRouting(t *testing.T) {
 	}
 }
 
-func TestReconcile_DeletingUnrenderedTemplateSkipsRuntimeCleanup(t *testing.T) {
+func TestReconcile_DeletingExecutedWorkloadCannotBypassCleanupWithTemplateAnnotation(t *testing.T) {
 	t.Parallel()
 
 	scheme := newControllerTestScheme(t)
 	deletionTime := metav1.Now()
 	workload := &agenticv1alpha1.AgentWorkload{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              "deleting-unrendered-template",
+			Name:              "deleting-executed-workload",
 			Namespace:         "test-routing",
 			Annotations:       map[string]string{"demo.clawdlinux.org/template": "true"},
 			Finalizers:        []string{AgentWorkloadFinalizer},
 			DeletionTimestamp: &deletionTime,
 		},
 		Status: agenticv1alpha1.AgentWorkloadStatus{
+			Phase: "Running",
 			ArgoWorkflow: &agenticv1alpha1.ArgoWorkflowRef{
-				Name:      "must-not-clean-up",
+				Name:      "executed-workflow",
 				Namespace: "argo-workflows",
 			},
 		},
@@ -706,14 +707,14 @@ func TestReconcile_DeletingUnrenderedTemplateSkipsRuntimeCleanup(t *testing.T) {
 	if result != (ctrl.Result{}) {
 		t.Fatalf("result = %+v, want terminal no-requeue result", result)
 	}
-	if calls := adapter.cleanupCalls.Load(); calls != 0 {
-		t.Fatalf("cleanup calls = %d, want 0", calls)
+	if calls := adapter.cleanupCalls.Load(); calls != 1 {
+		t.Fatalf("cleanup calls = %d, want 1", calls)
 	}
 
 	updated := &agenticv1alpha1.AgentWorkload{}
 	err = k8sClient.Get(context.Background(), request.NamespacedName, updated)
 	if err != nil && !apierrors.IsNotFound(err) {
-		t.Fatalf("get finalized template: %v", err)
+		t.Fatalf("get finalized workload: %v", err)
 	}
 	if err == nil {
 		for _, finalizer := range updated.Finalizers {
