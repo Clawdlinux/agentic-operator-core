@@ -164,7 +164,8 @@ type AgentPersona struct {
 	MemoryScope string `json:"memoryScope,omitempty"`
 
 	// SystemPromptAppend is a user-controlled runtime persona preference.
-	// The built-in model routing path does not send it as system content.
+	// Runtime adapters may append it to prompts they construct. The built-in direct
+	// model-routing path treats it as labeled, untrusted user content, never system content.
 	// +optional
 	SystemPromptAppend string `json:"systemPromptAppend,omitempty"`
 
