@@ -36,23 +36,24 @@ func (p *MockOpenAIProvider) Type() string {
 	return "openai-compatible"
 }
 
-// CallModel returns a mock response for testing
-func (p *MockOpenAIProvider) CallModel(ctx context.Context, operationID, model, prompt string) (*ModelResponse, error) {
+// CallModel returns a mock response for testing.
+func (p *MockOpenAIProvider) CallModel(ctx context.Context, operationID, model, systemPrompt, userPrompt string) (*ModelResponse, error) {
+	_ = systemPrompt
 	_ = operationID
 	// Track call count
 	p.callCount[model]++
 
 	// Try to find exact match first
-	if response, ok := p.responses[prompt]; ok {
+	if response, ok := p.responses[userPrompt]; ok {
 		return &ModelResponse{
 			Content:      response,
-			InputTokens:  len(prompt) / 4, // Rough estimate: ~4 chars per token
+			InputTokens:  len(userPrompt) / 4, // Rough estimate: ~4 chars per token
 			OutputTokens: len(response) / 4,
 			Model:        model,
 			Provider:     p.name,
 			Raw: map[string]interface{}{
 				"mock":     true,
-				"prompt":   prompt,
+				"prompt":   userPrompt,
 				"response": response,
 			},
 		}, nil
@@ -61,19 +62,19 @@ func (p *MockOpenAIProvider) CallModel(ctx context.Context, operationID, model, 
 	// Return default response based on model
 	defaultResponse := fmt.Sprintf(
 		"Mock response from %s/%s for prompt: %s",
-		p.name, model, prompt,
+		p.name, model, userPrompt,
 	)
 
 	return &ModelResponse{
 		Content:      defaultResponse,
-		InputTokens:  len(prompt) / 4,
+		InputTokens:  len(userPrompt) / 4,
 		OutputTokens: len(defaultResponse) / 4,
 		Model:        model,
 		Provider:     p.name,
 		Raw: map[string]interface{}{
 			"mock":     true,
 			"default":  true,
-			"prompt":   prompt,
+			"prompt":   userPrompt,
 			"response": defaultResponse,
 		},
 	}, nil

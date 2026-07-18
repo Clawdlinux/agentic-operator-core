@@ -32,6 +32,7 @@ type WorkloadUsage struct {
 	TotalPromptTokens     int64
 	TotalCompletionTokens int64
 	EstimatedCostUSD      float64
+	EstimatedCostByModel  map[string]float64
 	RequestCount          int64
 	LastUpdated           time.Time
 }
@@ -119,7 +120,7 @@ func (m *MemoryCostReporter) getOrCreateUsage(key string) *WorkloadUsage {
 	if u, ok := m.usage[key]; ok {
 		return u
 	}
-	u := &WorkloadUsage{}
+	u := &WorkloadUsage{EstimatedCostByModel: make(map[string]float64)}
 	m.usage[key] = u
 	return u
 }
@@ -154,12 +155,13 @@ func (m *MemoryCostReporter) RecordUsage(ctx context.Context, operationID, workl
 	u.TotalPromptTokens += promptTokens
 	u.TotalCompletionTokens += completionTokens
 	u.EstimatedCostUSD += cost
+	u.EstimatedCostByModel[model] += cost
 	u.RequestCount++
 	u.LastUpdated = time.Now()
 
 	// Update Prometheus metrics
 	m.costGauge.WithLabelValues(workloadName, namespace).Set(u.EstimatedCostUSD)
-	m.costDollarsGauge.WithLabelValues(workloadName, namespace, model).Set(u.EstimatedCostUSD)
+	m.costDollarsGauge.WithLabelValues(workloadName, namespace, model).Set(u.EstimatedCostByModel[model])
 	m.tokensCount.WithLabelValues(workloadName, namespace, "prompt").Add(float64(promptTokens))
 	m.tokensCount.WithLabelValues(workloadName, namespace, "completion").Add(float64(completionTokens))
 
@@ -234,5 +236,9 @@ func (m *MemoryCostReporter) GetUsage(workloadName, namespace string) *WorkloadU
 	}
 	// Return copy to avoid race
 	usageCopy := *u
+	usageCopy.EstimatedCostByModel = make(map[string]float64, len(u.EstimatedCostByModel))
+	for model, cost := range u.EstimatedCostByModel {
+		usageCopy.EstimatedCostByModel[model] = cost
+	}
 	return &usageCopy
 }

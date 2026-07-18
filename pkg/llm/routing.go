@@ -33,7 +33,7 @@ func (mr *ModelRouter) RouteAndCall(
 	c client.Client,
 	namespace string,
 	spec *v1alpha1.AgentWorkloadSpec,
-	instructions string,
+	userPrompt string,
 	operationID string,
 ) (*ModelResponse, *RoutingInfo, error) {
 	routingInfo := &RoutingInfo{}
@@ -57,8 +57,8 @@ func (mr *ModelRouter) RouteAndCall(
 	}
 
 	// Classify the task with tracing
-	classificationCtx, classificationSpan := StartTaskClassificationSpan(ctx, instructions)
-	taskCategory := mr.classifier.Classify(instructions)
+	classificationCtx, classificationSpan := StartTaskClassificationSpan(ctx, userPrompt)
+	taskCategory := mr.classifier.Classify(userPrompt)
 	SetTaskClassificationAttributes(classificationSpan, string(taskCategory))
 	classificationSpan.End()
 	ctx = classificationCtx
@@ -133,7 +133,11 @@ func (mr *ModelRouter) RouteAndCall(
 
 	// Call the model with tracing
 	callCtx, callSpan := StartModelCallSpan(ctx, providerName, modelName)
-	response, err := provider.CallModel(callCtx, operationID, modelName, instructions)
+	systemPrompt := ""
+	if spec.Persona != nil {
+		systemPrompt = spec.Persona.SystemPromptAppend
+	}
+	response, err := provider.CallModel(callCtx, operationID, modelName, systemPrompt, userPrompt)
 	if err != nil {
 		SetModelCallAttributes(callSpan, 0, 0, false)
 		callSpan.End()

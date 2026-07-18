@@ -202,6 +202,22 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
+	if workload.Annotations["demo.clawdlinux.org/template"] == "true" {
+		workload.Status.Phase = "Failed"
+		workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
+			Type:               "TemplateRejected",
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: workload.Generation,
+			Reason:             "UnrenderedTemplate",
+			Message:            "Unrendered showcase templates cannot be reconciled.",
+			LastTransitionTime: metav1.Now(),
+		})
+		if err := r.Status().Update(ctx, &workload); err != nil {
+			return ctrl.Result{}, fmt.Errorf("update rejected template status: %w", err)
+		}
+		return ctrl.Result{}, nil
+	}
+
 	// ========== LICENSE ENFORCEMENT ==========
 	// Check license validity BEFORE creating any workload.
 	currentCount := 0
@@ -860,16 +876,16 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 		return nil, nil, fmt.Errorf("unknown task classifier: %s", classifierType)
 	}
 
-	// Get the task instructions (use objective as the primary instruction source)
-	instructions := ""
+	// The objective is untrusted user content. The router derives trusted system
+	// instructions only from the workload persona.
+	userPrompt := ""
 	if workload.Spec.Objective != nil {
-		instructions = *workload.Spec.Objective
+		userPrompt = *workload.Spec.Objective
 	}
-	if instructions == "" {
+	if userPrompt == "" {
 		log.Info("skipping model routing: no objective/instructions found")
 		return nil, nil, nil
 	}
-
 	// Initialize the provider registry and model router
 	registry := llm.NewProviderRegistry()
 	router := llm.NewModelRouter(registry, classifier)
@@ -885,14 +901,14 @@ func (r *AgentWorkloadReconciler) routeAndCallModel(
 		r.Client,
 		workload.Namespace,
 		&workload.Spec,
-		instructions,
+		userPrompt,
 		persistedModelRoutingOperationID(workload),
 	)
 
 	if err != nil {
-		objectiveDigest := sha256.Sum256([]byte(instructions))
+		objectiveDigest := sha256.Sum256([]byte(userPrompt))
 		log.Error(err, "model routing failed",
-			"objectiveBytes", len([]byte(instructions)),
+			"objectiveBytes", len([]byte(userPrompt)),
 			"objectiveSHA256", fmt.Sprintf("%x", objectiveDigest),
 			"workload", workload.Name,
 			"namespace", workload.Namespace,

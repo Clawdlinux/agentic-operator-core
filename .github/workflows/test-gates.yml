@@ -67,7 +67,13 @@ jobs:
         run: make test-go
 
       - name: Install helm-unittest plugin
-        run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.1.1
+        run: |
+          plugin_dir="${RUNNER_TEMP}/helm-unittest"
+          git clone --filter=blob:none https://github.com/helm-unittest/helm-unittest.git "${plugin_dir}"
+          git -C "${plugin_dir}" checkout --detach 9cf59a78dbb89f3e3c70c62d2570cd7e96b97845
+          test "$(git -C "${plugin_dir}" rev-parse HEAD)" = "9cf59a78dbb89f3e3c70c62d2570cd7e96b97845"
+          helm plugin install "${plugin_dir}"
+          helm plugin list | grep -Eq '^unittest[[:space:]]+1\.1\.1([[:space:]]|$)'
 
       - name: Run Helm unit tests
         run: helm unittest charts

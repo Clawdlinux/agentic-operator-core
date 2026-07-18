@@ -468,7 +468,9 @@ create_runtime_provider_secret() {
     --from-env-file=/dev/stdin \
     --dry-run=client \
     -o yaml | kubectl apply -f - >/dev/null
-  if [[ -n "$(kubectl -n "${NS_OPERATOR}" get secret "${DEMO_SECRET}" -o jsonpath='{.data.OPENAI_API_KEY}' 2>/dev/null || true)" ]]; then
+  if kubectl -n "${NS_OPERATOR}" get secret "${DEMO_SECRET}" \
+    -o go-template='{{range $key, $value := .data}}{{$key}}{{"\n"}}{{end}}' 2>/dev/null | \
+    grep -Fxq 'OPENAI_API_KEY'; then
     kubectl -n "${NS_OPERATOR}" patch secret "${DEMO_SECRET}" --type=json \
       -p='[{"op":"remove","path":"/data/OPENAI_API_KEY"}]' >/dev/null
   fi

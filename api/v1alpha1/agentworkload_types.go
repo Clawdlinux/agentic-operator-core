@@ -163,9 +163,8 @@ type AgentPersona struct {
 	// +optional
 	MemoryScope string `json:"memoryScope,omitempty"`
 
-	// SystemPromptAppend is injected at the END of the base system prompt.
-	// Use this to encode persona-specific instructions without overriding
-	// the operator's base safety and governance prompt.
+	// SystemPromptAppend supplies trusted persona instructions in the model
+	// provider's system role. Workload objectives remain user-role content.
 	// +optional
 	SystemPromptAppend string `json:"systemPromptAppend,omitempty"`
 
