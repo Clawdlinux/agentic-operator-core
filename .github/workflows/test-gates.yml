@@ -66,5 +66,11 @@ jobs:
       - name: Run Go tests
         run: make test-go
 
+      - name: Install helm-unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.1.1
+
+      - name: Run Helm unit tests
+        run: helm unittest charts
+
       - name: Lint Helm chart
         run: make helm-lint

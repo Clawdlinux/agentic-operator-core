@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -64,5 +65,47 @@ func TestOpenAICompatibleProvider_RedactsHTTPErrorResponseBody(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "400") {
 		t.Fatalf("sanitized error %q does not include status code", err)
+	}
+}
+
+func TestOpenAICompatibleProvider_ReusesConnectionAfterBoundedHTTPError(t *testing.T) {
+	t.Parallel()
+
+	var mutex sync.Mutex
+	var remoteAddresses []string
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		mutex.Lock()
+		remoteAddresses = append(remoteAddresses, request.RemoteAddr)
+		requestCount++
+		currentRequest := requestCount
+		mutex.Unlock()
+
+		if currentRequest == 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(strings.Repeat("provider-error", 4096)))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"ok"}}],"usage":{"prompt_tokens":2,"completion_tokens":1}}`))
+	}))
+	t.Cleanup(server.Close)
+
+	provider := NewOpenAICompatibleProvider("test-provider", server.URL, "test-token")
+	if _, err := provider.CallModel(context.Background(), "operation-1", "test-model", "test prompt"); err == nil {
+		t.Fatal("first CallModel returned nil error")
+	}
+	if _, err := provider.CallModel(context.Background(), "operation-2", "test-model", "test prompt"); err != nil {
+		t.Fatalf("second CallModel failed: %v", err)
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+	if len(remoteAddresses) != 2 {
+		t.Fatalf("request count = %d, want 2", len(remoteAddresses))
+	}
+	if remoteAddresses[0] != remoteAddresses[1] {
+		t.Fatalf("HTTP connection was not reused: first=%q second=%q", remoteAddresses[0], remoteAddresses[1])
 	}
 }

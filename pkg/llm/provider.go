@@ -14,6 +14,8 @@ import (
 	agentv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 )
 
+const maxProviderErrorBodyDrainBytes int64 = 1 << 20
+
 // Provider defines the interface for LLM providers
 type Provider interface {
 	// CallModel sends a prompt to the model and returns the response. Providers
@@ -74,6 +76,13 @@ func safeProviderRequestID(value string) string {
 		}
 	}
 	return value
+}
+
+func drainProviderErrorBody(body io.Reader) bool {
+	// Reaching EOF permits connection reuse. Bodies over the cap remain unread,
+	// so closing the response body retires that connection.
+	drained, _ := io.Copy(io.Discard, io.LimitReader(body, maxProviderErrorBodyDrainBytes+1))
+	return drained > maxProviderErrorBodyDrainBytes
 }
 
 // OpenAICompatibleProvider implements the Provider interface for OpenAI-compatible APIs
@@ -146,7 +155,9 @@ func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, operationID, m
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		if drainProviderErrorBody(resp.Body) {
+			resp.Close = true
+		}
 		return nil, &ProviderHTTPError{
 			StatusCode: resp.StatusCode,
 			RequestID:  safeProviderRequestID(resp.Header.Get("X-Request-ID")),

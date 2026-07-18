@@ -1,3 +1,5 @@
+# TEMPLATE ONLY. Do not apply this file directly.
+# scripts/demo-booth.sh replaces ANF_CONTEXT_INSERT_HERE and clears the template annotation.
 apiVersion: agentic.clawdlinux.org/v1alpha1
 kind: AgentWorkload
 metadata:
@@ -8,6 +10,7 @@ metadata:
     app.kubernetes.io/part-of: clawdlinux-booth-demo
     demo.clawdlinux.org/evidence: live-anf-via-litellm-to-claude
   annotations:
+    demo.clawdlinux.org/template: "true"
     demo.clawdlinux.org/provider-proof: "Live ANF context is routed through in-cluster LiteLLM to Claude Haiku 4.5."
 spec:
   objective: |

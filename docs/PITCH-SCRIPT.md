@@ -16,7 +16,7 @@ Times are targets. If she interrupts with questions, good, let her. The deck is 
 "Four things happened at once. Strong open runtimes became available, so we no longer need to rebuild that layer. Incidents went from hypothetical to a bank self-reporting to its regulator. Fed guidance explicitly excludes agentic AI, so auditors are improvising. The buyers who need verifiable evidence most are also the ones that often cannot use a hosted control plane. We start with self-hosted and air-gapped deployments."
 
 **Slide 4, What we built (90s).**
-"Our target product is an in-cluster governance and attestation plane. The booth proves one OpenAI-routed model call through LiteLLM. It shows genuine tokens, nonzero cost evidence, and a separate Anthropic reachability check. It also shows webhook mutation simulation, NetworkPolicy object presence, and prior-run HMAC audit verification. The current path does not execute OPA. It does not prove packet enforcement, a scheduled gVisor workload, or current-run audit generation."
+"Our target product is an in-cluster governance and attestation plane. The booth captures a live ANF snapshot and injects it into an AgentWorkload objective. That workload routes through LiteLLM to the Claude alias. It shows genuine tokens and nonzero cost evidence. It also shows webhook mutation simulation, NetworkPolicy object presence, and prior-run HMAC audit verification. The current path does not execute OPA. It does not prove packet enforcement, a scheduled gVisor workload, or current-run audit generation."
 
 **Slide 5, How a run works (60s).**
 Walk the six target steps quickly. Say: "This slide describes the target product contract. Policy allow or deny happens before execution in that contract. The current `--present` path does not execute OPA. It also does not produce current-run attestation."
@@ -40,7 +40,7 @@ Transition straight into the demo. No gap.
 
 ## Part 2: Current booth proof and target product contract
 
-Prepare once with both provider keys exported or stored in the ignored repo-root `.env` file:
+Prepare once with `ANTHROPIC_API_KEY` exported or stored in the ignored repo-root `.env` file:
 
 ```bash
 scripts/demo-booth.sh --prepare
@@ -48,7 +48,7 @@ scripts/demo-booth.sh --prepare
 
 Set `DEMO_ENV_FILE=/path/to/file` to use another credential file.
 Exported variables override file values.
-The script parses only the 2 provider key names.
+The script accepts the Anthropic key required by this showcase.
 It never sources the file or prints values.
 
 Preparation creates kind cluster `clawdlinux-demo`. It installs pinned cert-manager.
@@ -64,12 +64,10 @@ scripts/demo-booth.sh --present
 
 Say each proof label aloud. Do not blend target behavior into the current demo.
 
-**REAL LLM CALL AND COST.** `examples/research-agent.yaml` uses one incident investigator.
-Every task category maps to `clawdlinux-openai`. LiteLLM routes that alias to OpenAI.
+**LIVE ANF, CLAUDE ROUTING, AND COST.** `examples/research-agent.template.yaml` is not directly deployable.
+The script captures live Kubernetes state as ANF and injects it into a rendered AgentWorkload.
+Every task category maps to `clawdlinux-anthropic` through in-cluster LiteLLM.
 The status condition shows genuine token counts. The annotation and metric show nonzero cost.
-
-**REAL, separate Anthropic check.** A small request uses `clawdlinux-anthropic` through LiteLLM.
-It proves provider reachability. Do not claim the AgentWorkload used Anthropic.
 
 **WEBHOOK MUTATION SIMULATION.** A server-side dry-run shows webhook mutation.
 It injects `runtimeClassName=gvisor`. No gVisor pod is scheduled on kind/macOS.

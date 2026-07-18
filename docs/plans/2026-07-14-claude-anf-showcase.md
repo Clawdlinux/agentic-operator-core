@@ -65,7 +65,7 @@ make build-anf-snapshot
 ### Task 2: Claude-Only Paced Showcase Path
 
 **Files:**
-- Modify: `examples/research-agent.yaml`
+- Rename: `examples/research-agent.yaml` to `examples/research-agent.template.yaml`
 - Modify: `scripts/demo-booth.sh`
 - Modify: `tests/smoke/test_demo_booth_cli.sh`
 - Modify: `charts/charts/litellm/templates/configmap.yaml`

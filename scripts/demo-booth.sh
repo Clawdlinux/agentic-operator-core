@@ -15,7 +15,7 @@ CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.17.2}"
 DEMO_RELEASE="${DEMO_RELEASE:-clawdlinux-demo}"
 DEMO_SECRET="${DEMO_SECRET:-clawdlinux-demo-litellm}"
 DEMO_ENV_FILE="${DEMO_ENV_FILE:-${REPO_ROOT}/.env}"
-RESEARCH_MANIFEST="${REPO_ROOT}/examples/research-agent.yaml"
+RESEARCH_MANIFEST="${REPO_ROOT}/examples/research-agent.template.yaml"
 AUDIT_FIXTURE="${REPO_ROOT}/_staging/booth/attestation-fallback.jsonl"
 # Committed demo fixture key. Never use it as a production secret.
 AUDIT_DEMO_KEY="booth-demo-2026=bmluZXZpZ2lsLWJvb3RoLWRlbW8tYXR0ZXN0YXRpb24ta2V5LTMyYg=="
@@ -725,6 +725,10 @@ marker = "ANF_CONTEXT_INSERT_HERE"
 if objective.count(marker) != 1:
     raise SystemExit("AgentWorkload objective must contain exactly one ANF marker")
 manifest["spec"]["objective"] = objective.replace(marker, anf)
+annotations = manifest.setdefault("metadata", {}).setdefault("annotations", {})
+if annotations.get("demo.clawdlinux.org/template") != "true":
+    raise SystemExit("AgentWorkload template annotation must be true")
+annotations["demo.clawdlinux.org/template"] = "false"
 
 fd = os.open(output_path, os.O_WRONLY | os.O_TRUNC, 0o600)
 with os.fdopen(fd, "w", encoding="utf-8") as output:
