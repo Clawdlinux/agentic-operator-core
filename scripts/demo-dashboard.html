@@ -32,7 +32,7 @@
   .control-room {
     position: relative;
     display: grid;
-    grid-template-rows: 68px 17% minmax(255px, 1fr) 150px;
+    grid-template-rows: 68px 110px 94px minmax(250px, 1fr) 130px;
     width: min(100vw, calc(100vh * 16 / 9));
     max-height: 100vh;
     padding: 0 24px 18px;
@@ -149,22 +149,59 @@
   .scope-prior { color: var(--clawd-evidence-prior); }
 
   .provider-path {
-    display: flex;
-    align-items: baseline;
-    gap: 15px;
-    margin: 13px 0 8px;
-    font-size: 31px;
-    font-weight: 650;
-    letter-spacing: 0;
-    white-space: nowrap;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(118px, 1fr) 24px) minmax(118px, 1fr);
+    align-items: stretch;
+    gap: 5px;
+    margin: 8px 0 5px;
   }
 
   .path-separator {
+    align-self: center;
+    text-align: center;
     color: var(--clawd-color-signal);
     font-family: var(--clawd-font-evidence);
-    font-size: 23px;
+    font-size: 18px;
     font-weight: 400;
   }
+
+  .pipeline-node {
+    display: grid;
+    align-content: center;
+    min-width: 0;
+    min-height: 50px;
+    padding: 6px 8px;
+    border: 1px solid var(--clawd-border-subtle);
+    border-radius: 4px;
+    transition: border-color 180ms ease, background-color 180ms ease;
+  }
+
+  .pipeline-node.verified {
+    border-color: rgb(0 212 170 / 55%);
+    background: rgb(0 212 170 / 5%);
+  }
+
+  .node-name {
+    overflow: hidden;
+    color: var(--clawd-text-primary);
+    font-size: 20px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .node-state {
+    min-height: 14px;
+    overflow: hidden;
+    color: var(--clawd-text-muted);
+    font-family: var(--clawd-font-evidence);
+    font-size: 10px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pipeline-node.verified .node-state { color: var(--clawd-evidence-live); }
 
   .provider-model {
     color: var(--clawd-text-muted);
@@ -180,6 +217,64 @@
     font-family: var(--clawd-font-evidence);
     font-size: 13px;
   }
+
+  .anf-band {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: stretch;
+    border-bottom: 1px solid var(--clawd-border-strong);
+  }
+
+  .anf-band-heading {
+    display: grid;
+    align-content: center;
+    gap: 7px;
+    padding-right: 14px;
+    border-right: 1px solid var(--clawd-border-strong);
+  }
+
+  .anf-band-heading h2 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+
+  .anf-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0;
+  }
+
+  .anf-metric {
+    min-width: 0;
+    padding: 7px 10px;
+    border-right: 1px solid var(--clawd-border-subtle);
+  }
+
+  .anf-metric:nth-child(4n) { border-right: 0; }
+  .anf-metric:nth-child(n + 5) { border-top: 1px solid var(--clawd-border-subtle); }
+
+  .anf-metric dt {
+    color: var(--clawd-text-muted);
+    font-family: var(--clawd-font-evidence);
+    font-size: 9px;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .anf-metric dd {
+    min-width: 0;
+    margin: 2px 0 0;
+    overflow: hidden;
+    color: var(--clawd-text-secondary);
+    font-family: var(--clawd-font-evidence);
+    font-size: 11px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .anf-metric dd.verified { color: var(--clawd-evidence-live); }
 
   .instrument-grid {
     display: grid;
@@ -330,9 +425,15 @@
     }
 
     .provider-path {
-      gap: 11px;
-      font-size: 27px;
+      grid-template-columns: repeat(4, minmax(105px, 1fr) 18px) minmax(105px, 1fr);
+      gap: 3px;
     }
+
+    .node-name { font-size: 20px; }
+
+    .anf-band { grid-template-columns: 96px minmax(0, 1fr); }
+    .anf-metric { padding-right: 7px; padding-left: 7px; }
+    .anf-metric dd { font-size: 10px; }
 
     .instrument {
       padding-right: 14px;
@@ -350,7 +451,7 @@
 
   @media (min-width: 901px) and (max-height: 720px) {
     .control-room {
-      grid-template-rows: 56px 88px minmax(230px, 1fr) 116px;
+      grid-template-rows: 54px 86px 86px minmax(230px, 1fr) 116px;
       padding-bottom: 8px;
     }
 
@@ -360,17 +461,23 @@
     }
 
     .provider-path {
-      gap: 10px;
-      margin: 7px 0 4px;
-      font-size: 24px;
+      margin: 5px 0 3px;
     }
 
-    .path-separator { font-size: 20px; }
+    .path-separator { font-size: 18px; }
+
+    .pipeline-node { min-height: 44px; padding: 4px 6px; }
+    .node-name { font-size: 20px; }
+    .node-state { font-size: 9px; }
 
     .stage-line {
       min-height: 17px;
       font-size: 12px;
     }
+
+    .anf-band-heading h2 { font-size: 14px; }
+    .anf-metric { padding-top: 5px; padding-bottom: 5px; }
+    .anf-metric dd { font-size: 10px; }
 
     .instrument { padding-top: 12px; padding-bottom: 8px; }
 
@@ -414,7 +521,7 @@
 
   @media (min-width: 901px) and (max-height: 660px) {
     .control-room {
-      grid-template-rows: 50px 80px minmax(220px, 1fr) 110px;
+      grid-template-rows: 48px 72px 80px minmax(216px, 1fr) 104px;
       padding-bottom: 6px;
     }
 
@@ -424,17 +531,25 @@
     }
 
     .provider-path {
-      gap: 8px;
-      margin: 5px 0 3px;
-      font-size: 20px;
+      margin: 3px 0 2px;
     }
 
-    .path-separator { font-size: 18px; }
+    .path-separator { font-size: 16px; }
+
+    .pipeline-node { min-height: 39px; padding: 3px 5px; }
+    .node-name { font-size: 20px; }
+    .node-state { font-size: 8px; }
 
     .stage-line {
       min-height: 15px;
       font-size: 11px;
     }
+
+    .anf-band { grid-template-columns: 86px minmax(0, 1fr); }
+    .anf-band-heading h2 { font-size: 13px; }
+    .anf-metric { padding: 4px 5px; }
+    .anf-metric dt { font-size: 8px; }
+    .anf-metric dd { font-size: 9px; }
 
     .instrument { padding-top: 9px; padding-bottom: 6px; }
 
@@ -504,9 +619,30 @@
     .provider { min-height: 180px; }
 
     .provider-path {
-      flex-wrap: wrap;
-      white-space: normal;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 5px;
     }
+
+    .pipeline-node { min-height: 58px; }
+    .path-separator { display: none; }
+
+    .anf-band {
+      display: block;
+      padding: 18px 0;
+    }
+
+    .anf-band-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 0 12px;
+      border-right: 0;
+    }
+
+    .anf-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .anf-metric { min-height: 54px; border-top: 1px solid var(--clawd-border-subtle); }
+    .anf-metric:nth-child(2n) { border-right: 0; }
+    .anf-metric:nth-child(4n + 1) { border-right: 1px solid var(--clawd-border-subtle); }
 
     .instrument-grid { grid-template-columns: 1fr; }
 
@@ -519,6 +655,24 @@
     .event-tail { min-height: 170px; }
 
     .event-text {
+      overflow: visible;
+      overflow-wrap: anywhere;
+      text-overflow: clip;
+      white-space: normal;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .anf-metrics { grid-template-columns: 1fr; }
+
+    .anf-metric,
+    .anf-metric:nth-child(2n),
+    .anf-metric:nth-child(4n + 1) {
+      min-height: 0;
+      border-right: 0;
+    }
+
+    .anf-metric dd {
       overflow: visible;
       overflow-wrap: anywhere;
       text-overflow: clip;
@@ -550,15 +704,51 @@
   </header>
 
   <section class="provider" aria-labelledby="providerHeading">
-    <div class="section-label" id="providerHeading">Dominant provider path / routing event derived</div>
-    <div class="provider-path" aria-live="polite">
-      <span>AgentWorkload</span>
-      <span class="path-separator">/</span>
-      <span>in-cluster LiteLLM</span>
-      <span class="path-separator">/</span>
-      <span class="provider-model" id="providerModel">provider pending</span>
+    <div class="section-label" id="providerHeading">Typed ANF pipeline / verified from LIVE detail events</div>
+    <div class="provider-path" aria-label="Kubernetes to ANF to AgentWorkload to LiteLLM to Claude" aria-live="polite">
+      <div class="pipeline-node" id="kubernetesNode">
+        <span class="node-name">Kubernetes</span>
+        <span class="node-state" id="kubernetesState">capture pending</span>
+      </div>
+      <span class="path-separator" aria-hidden="true">-&gt;</span>
+      <div class="pipeline-node" id="anfNode">
+        <span class="node-name">ANF</span>
+        <span class="node-state" id="anfState">encoding pending</span>
+      </div>
+      <span class="path-separator" aria-hidden="true">-&gt;</span>
+      <div class="pipeline-node" id="workloadNode">
+        <span class="node-name">AgentWorkload</span>
+        <span class="node-state" id="workloadState">render pending</span>
+      </div>
+      <span class="path-separator" aria-hidden="true">-&gt;</span>
+      <div class="pipeline-node" id="litellmNode">
+        <span class="node-name">LiteLLM</span>
+        <span class="node-state" id="litellmState">route pending</span>
+      </div>
+      <span class="path-separator" aria-hidden="true">-&gt;</span>
+      <div class="pipeline-node" id="claudeNode">
+        <span class="node-name provider-model" id="providerModel">Claude</span>
+        <span class="node-state" id="claudeState">response pending</span>
+      </div>
     </div>
     <p class="stage-line" id="stageLine">Waiting for recorded or live run evidence.</p>
+  </section>
+
+  <section class="anf-band" aria-labelledby="anfHeading">
+    <div class="anf-band-heading">
+      <h2 id="anfHeading">ANF summary</h2>
+      <span class="scope-label scope-live">LIVE</span>
+    </div>
+    <dl class="anf-metrics">
+      <div class="anf-metric"><dt>Source</dt><dd id="anfSource">pending</dd></div>
+      <div class="anf-metric"><dt>Scope</dt><dd id="anfScope">pending</dd></div>
+      <div class="anf-metric"><dt>Captured</dt><dd><span id="anfSourceBytes">pending</span> bytes</dd></div>
+      <div class="anf-metric"><dt>Objects</dt><dd><span id="anfSourceObjects">pending</span> -&gt; <span id="anfProjectedObjects">pending</span></dd></div>
+      <div class="anf-metric"><dt>Omitted, not compressed</dt><dd>pods <span id="anfUnprojectedPods">pending</span> | ctrs <span id="anfOmittedContainers">pending</span> | svc <span id="anfOmittedServicePorts">pending</span> | named <span id="anfOmittedNamedTargetPorts">pending</span></dd></div>
+      <div class="anf-metric"><dt>Document JSON</dt><dd><span id="documentJsonBytes">pending</span> bytes | <span id="documentJsonTokens">pending</span> tokens est.</dd></div>
+      <div class="anf-metric"><dt>ANF</dt><dd><span id="anfBytes">pending</span> bytes | <span id="anfTokens">pending</span> tokens est.</dd></div>
+      <div class="anf-metric"><dt>Reduction</dt><dd><span id="anfReduction">pending</span> | <span id="anfTopLevelEntities">pending</span> top-level entities</dd></div>
+    </dl>
   </section>
 
   <div class="instrument-grid">
@@ -617,6 +807,31 @@ const elements = {
   connectionText: byId('connectionText'),
   providerModel: byId('providerModel'),
   stageLine: byId('stageLine'),
+  kubernetesNode: byId('kubernetesNode'),
+  kubernetesState: byId('kubernetesState'),
+  anfNode: byId('anfNode'),
+  anfState: byId('anfState'),
+  workloadNode: byId('workloadNode'),
+  workloadState: byId('workloadState'),
+  litellmNode: byId('litellmNode'),
+  litellmState: byId('litellmState'),
+  claudeNode: byId('claudeNode'),
+  claudeState: byId('claudeState'),
+  anfSource: byId('anfSource'),
+  anfScope: byId('anfScope'),
+  anfSourceBytes: byId('anfSourceBytes'),
+  anfSourceObjects: byId('anfSourceObjects'),
+  anfProjectedObjects: byId('anfProjectedObjects'),
+  anfUnprojectedPods: byId('anfUnprojectedPods'),
+  anfOmittedContainers: byId('anfOmittedContainers'),
+  anfOmittedServicePorts: byId('anfOmittedServicePorts'),
+  anfOmittedNamedTargetPorts: byId('anfOmittedNamedTargetPorts'),
+  documentJsonBytes: byId('documentJsonBytes'),
+  documentJsonTokens: byId('documentJsonTokens'),
+  anfBytes: byId('anfBytes'),
+  anfTokens: byId('anfTokens'),
+  anfReduction: byId('anfReduction'),
+  anfTopLevelEntities: byId('anfTopLevelEntities'),
   completion: byId('completionValue'),
   inputTokens: byId('inputTokens'),
   outputTokens: byId('outputTokens'),
@@ -658,8 +873,37 @@ function setRunMode(mode) {
 
 function resetRun(mode) {
   setRunMode(mode);
-  elements.providerModel.textContent = 'provider pending';
+  elements.providerModel.textContent = 'Claude';
   elements.providerModel.classList.remove('resolved');
+  const nodeDefaults = [
+    [elements.kubernetesNode, elements.kubernetesState, 'capture pending'],
+    [elements.anfNode, elements.anfState, 'encoding pending'],
+    [elements.workloadNode, elements.workloadState, 'render pending'],
+    [elements.litellmNode, elements.litellmState, 'route pending'],
+    [elements.claudeNode, elements.claudeState, 'response pending'],
+  ];
+  for (const [node, state, text] of nodeDefaults) {
+    node.classList.remove('verified');
+    state.textContent = text;
+  }
+  const anfValues = [
+    elements.anfSource,
+    elements.anfScope,
+    elements.anfSourceBytes,
+    elements.anfSourceObjects,
+    elements.anfProjectedObjects,
+    elements.anfUnprojectedPods,
+    elements.anfOmittedContainers,
+    elements.anfOmittedServicePorts,
+    elements.anfOmittedNamedTargetPorts,
+    elements.documentJsonBytes,
+    elements.documentJsonTokens,
+    elements.anfBytes,
+    elements.anfTokens,
+    elements.anfReduction,
+    elements.anfTopLevelEntities,
+  ];
+  for (const value of anfValues) value.textContent = 'pending';
   elements.stageLine.textContent = mode === 'replay'
     ? 'Playing captured evidence. This is not a live cluster connection.'
     : 'Waiting for live cluster evidence.';
@@ -682,14 +926,6 @@ function resetRun(mode) {
   elements.eventList.replaceChildren();
 }
 
-function providerFromRouting(text) {
-  const match = text.match(/\brouted to\s+([A-Za-z0-9._:/-]+)/i);
-  if (!match) return null;
-  const route = match[1].replace(/[),.;]+$/, '');
-  const segments = route.split('/');
-  return segments[segments.length - 1] || null;
-}
-
 function renderEventTail() {
   const fragment = document.createDocumentFragment();
   for (const item of meaningfulEvents) {
@@ -709,7 +945,7 @@ function renderEventTail() {
 
 function addMeaningfulEvent(event, tone = '') {
   if (!EVIDENCE_SCOPES.has(event.evidence_scope)) return;
-  const text = event.raw || event.text;
+  const text = event.text;
   if (!text) return;
   meaningfulEvents.push({ scope: event.evidence_scope, text, tone });
   meaningfulEvents = meaningfulEvents.slice(-5);
@@ -722,26 +958,77 @@ function handleStage(event) {
 }
 
 function handleOk(event) {
-  if (/AgentWorkload reached Completed/i.test(event.text)) {
-    elements.completion.textContent = 'Completed';
-    elements.completion.classList.add('verified');
-  }
   addMeaningfulEvent(event, 'ok');
 }
 
+function formatInteger(value) {
+  return Number(value).toLocaleString('en-US');
+}
+
+function verifyNode(node, state, text) {
+  node.classList.add('verified');
+  state.textContent = text;
+}
+
+function applySourceLabel(via) {
+  const labels = {
+    'repo-agentctl': 'repo agentctl',
+    'path-agentctl': 'PATH agentctl',
+    'kubectl-fallback': 'kubectl fallback',
+    'kubectl': 'kubectl',
+  };
+  return labels[via] || via;
+}
+
+function handleANFSummary(event) {
+  verifyNode(elements.kubernetesNode, elements.kubernetesState, 'captured');
+  verifyNode(elements.anfNode, elements.anfState, 'encoded');
+  elements.anfSource.textContent = event.source;
+  elements.anfScope.textContent = event.scope;
+  elements.anfSourceBytes.textContent = formatInteger(event.source_bytes);
+  elements.anfSourceObjects.textContent = formatInteger(event.source_objects);
+  elements.anfProjectedObjects.textContent = formatInteger(event.projected_objects);
+  elements.anfUnprojectedPods.textContent = formatInteger(event.unprojected_pods);
+  elements.anfOmittedContainers.textContent = formatInteger(event.omitted_containers);
+  elements.anfOmittedServicePorts.textContent = formatInteger(event.omitted_service_ports);
+  elements.anfOmittedNamedTargetPorts.textContent = formatInteger(event.omitted_named_target_ports);
+  elements.documentJsonBytes.textContent = formatInteger(event.document_json_bytes);
+  elements.documentJsonTokens.textContent = formatInteger(event.document_json_tokens_est);
+  elements.anfBytes.textContent = formatInteger(event.anf_bytes);
+  elements.anfTokens.textContent = formatInteger(event.anf_tokens_est);
+  elements.anfReduction.textContent = `${Number(event.reduction) >= 0 ? '+' : ''}${event.reduction}%`;
+  elements.anfTopLevelEntities.textContent = formatInteger(event.top_level_entities);
+}
+
 function handleDetail(event) {
-  if (event.kind === 'routing') {
-    const provider = providerFromRouting(event.raw);
-    if (provider) {
-      elements.providerModel.textContent = provider;
-      elements.providerModel.classList.add('resolved');
+  if (event.kind === 'anf-summary') {
+    handleANFSummary(event);
+  } else if (event.kind === 'workload-render') {
+    if (event.anf_injected) {
+      verifyNode(elements.workloadNode, elements.workloadState, 'ANF injected');
+    } else {
+      elements.workloadState.textContent = 'rendered without ANF';
     }
-    if (event.input_tokens != null) {
-      elements.inputTokens.textContent = String(event.input_tokens);
-      elements.outputTokens.textContent = String(event.output_tokens);
-    }
-  } else if (event.kind === 'cost') {
-    elements.cost.textContent = `$${event.cost_usd} estimated`;
+  } else if (event.kind === 'workload-apply') {
+    verifyNode(
+      elements.workloadNode,
+      elements.workloadState,
+      `applied via ${applySourceLabel(event.via)}`,
+    );
+  } else if (event.kind === 'workload-complete') {
+    verifyNode(elements.workloadNode, elements.workloadState, 'Completed | metric verified');
+    elements.completion.textContent = 'Completed | metric verified';
+    elements.completion.classList.add('verified');
+  } else if (event.kind === 'provider-result') {
+    verifyNode(elements.litellmNode, elements.litellmState, 'routed');
+    verifyNode(elements.claudeNode, elements.claudeState, 'responded');
+    elements.providerModel.textContent = 'Claude';
+    elements.providerModel.classList.add('resolved');
+    elements.inputTokens.textContent = formatInteger(event.input_tokens);
+    elements.outputTokens.textContent = formatInteger(event.output_tokens);
+  } else if (event.kind === 'cost-evidence') {
+    const annotationMatches = event.annotation_usd === event.metric_usd;
+    elements.cost.textContent = `$${event.metric_usd} estimated${annotationMatches ? ' | annotation agrees' : ''}`;
     elements.cost.classList.add('verified');
   } else if (event.kind === 'gvisor') {
     elements.gvisor.textContent = 'dry-run injected; no pod scheduled';
@@ -752,7 +1039,15 @@ function handleDetail(event) {
   }
 
   const meaningfulKinds = new Set([
-    'routing', 'cost', 'anthropic', 'gvisor', 'networkpolicy', 'audit-start',
+    'anf-summary',
+    'workload-render',
+    'workload-apply',
+    'workload-complete',
+    'provider-result',
+    'cost-evidence',
+    'gvisor',
+    'networkpolicy',
+    'audit-start',
   ]);
   if (meaningfulKinds.has(event.kind)) addMeaningfulEvent(event);
 }

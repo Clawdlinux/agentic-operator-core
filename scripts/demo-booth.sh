@@ -90,6 +90,15 @@ ok() { printf '%b[OK]%b %s\n' "${GREEN}" "${RESET}" "$*"; }
 warn() { printf '%b[WARN]%b %s\n' "${YELLOW}" "${RESET}" "$*"; }
 die() { printf '%b[FAIL]%b %s\n' "${RED}" "${RESET}" "$*" >&2; exit 1; }
 
+emit_contract_line() {
+  local line="$1"
+  local size
+  size="$(printf '%s' "${line}" | wc -c | tr -d '[:space:]')"
+  [[ "${size}" =~ ^[0-9]+$ ]] || die "could not measure booth contract line"
+  ((size <= 256)) || die "booth contract line exceeds 256 bytes"
+  printf '%s\n' "${line}"
+}
+
 validate_pace() {
   [[ "$1" =~ ^([0-9]|[1-5][0-9]|60)$ ]] || die "pace must be an integer from 0 to 60"
 }
@@ -711,7 +720,7 @@ PY
 }
 
 build_research_workload_json() {
-  local sanitized_size
+  local sanitized_size render_proof
   WORKLOAD_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-agentworkload.XXXXXX.json")"
   chmod 600 "${WORKLOAD_TEMP_FILE}"
   WORKLOAD_SOURCE_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-agentworkload-source.XXXXXX.json")"
@@ -723,7 +732,7 @@ build_research_workload_json() {
   ((sanitized_size > 0)) || die "sanitized ANF context is empty"
   ((sanitized_size <= 32768)) || die "sanitized ANF context exceeds 32 KiB demo limit"
   kubectl apply --dry-run=client -f "${RESEARCH_MANIFEST}" -o json >"${WORKLOAD_SOURCE_TEMP_FILE}"
-  python3 - "${WORKLOAD_SOURCE_TEMP_FILE}" "${ANF_SANITIZED_TEMP_FILE}" "${WORKLOAD_TEMP_FILE}" <<'PY'
+  render_proof="$(python3 - "${WORKLOAD_SOURCE_TEMP_FILE}" "${ANF_SANITIZED_TEMP_FILE}" "${WORKLOAD_TEMP_FILE}" <<'PY'
 import json
 import os
 import sys
@@ -750,11 +759,24 @@ if annotations.get("demo.clawdlinux.org/template") != "true":
     raise SystemExit("AgentWorkload template annotation must be true")
 annotations["demo.clawdlinux.org/template"] = "false"
 
+name = manifest.get("metadata", {}).get("name")
+namespace = manifest.get("metadata", {}).get("namespace")
+if not isinstance(name, str) or not name:
+  raise SystemExit("AgentWorkload metadata.name is missing")
+if not isinstance(namespace, str) or not namespace:
+  raise SystemExit("AgentWorkload metadata.namespace is missing")
+
 fd = os.open(output_path, os.O_WRONLY | os.O_TRUNC, 0o600)
 with os.fdopen(fd, "w", encoding="utf-8") as output:
     json.dump(manifest, output, separators=(",", ":"))
     output.write("\n")
+print(f"{name}\t{namespace}\t{rendered_objective_bytes}")
 PY
+)"
+  IFS=$'\t' read -r WORKLOAD_RENDER_NAME WORKLOAD_RENDER_NAMESPACE WORKLOAD_RENDER_OBJECTIVE_BYTES <<<"${render_proof}"
+  [[ -n "${WORKLOAD_RENDER_NAME}" && -n "${WORKLOAD_RENDER_NAMESPACE}" ]] || die "rendered AgentWorkload identity is missing"
+  [[ "${WORKLOAD_RENDER_OBJECTIVE_BYTES}" =~ ^[0-9]+$ ]] || die "rendered AgentWorkload objective size is invalid"
+  emit_contract_line "AgentWorkload render: name=${WORKLOAD_RENDER_NAME} namespace=${WORKLOAD_RENDER_NAMESPACE} objective_bytes=${WORKLOAD_RENDER_OBJECTIVE_BYTES} anf_injected=true template=false"
   rm -f "${WORKLOAD_SOURCE_TEMP_FILE}"
   WORKLOAD_SOURCE_TEMP_FILE=""
 }
@@ -781,6 +803,11 @@ apply_research_workload() {
   if [[ -n "${agentctl_command}" ]]; then
     if "${agentctl_command}" apply -f "${WORKLOAD_TEMP_FILE}" >/dev/null; then
       ok "Applied with ${agentctl_source}"
+      if [[ "${agentctl_source}" == "repo-local agentctl" ]]; then
+        emit_contract_line "AgentWorkload apply: name=${WORKLOAD_RENDER_NAME} namespace=${WORKLOAD_RENDER_NAMESPACE} via=repo-agentctl"
+      else
+        emit_contract_line "AgentWorkload apply: name=${WORKLOAD_RENDER_NAME} namespace=${WORKLOAD_RENDER_NAMESPACE} via=path-agentctl"
+      fi
       cleanup_showcase_temp_files
       return
     fi
@@ -790,8 +817,10 @@ apply_research_workload() {
   kubectl apply -f "${WORKLOAD_TEMP_FILE}" >/dev/null
   if [[ -n "${agentctl_command}" ]]; then
     ok "agentctl failed. Applied with kubectl."
+    emit_contract_line "AgentWorkload apply: name=${WORKLOAD_RENDER_NAME} namespace=${WORKLOAD_RENDER_NAMESPACE} via=kubectl-fallback"
   else
     ok "agentctl unavailable. Applied with kubectl."
+    emit_contract_line "AgentWorkload apply: name=${WORKLOAD_RENDER_NAME} namespace=${WORKLOAD_RENDER_NAMESPACE} via=kubectl"
   fi
   cleanup_showcase_temp_files
 }
@@ -822,6 +851,8 @@ assert_nonzero_routing_tokens() {
     ((10#${BASH_REMATCH[1]} <= 0 || 10#${BASH_REMATCH[2]} <= 0)); then
     die "routing condition has missing or zero token counts"
   fi
+  ROUTING_INPUT_TOKENS="${BASH_REMATCH[1]}"
+  ROUTING_OUTPUT_TOKENS="${BASH_REMATCH[2]}"
 }
 
 assert_claude_routing() {
@@ -829,6 +860,7 @@ assert_claude_routing() {
   [[ " ${routing_message} " == *" litellm/clawdlinux-anthropic "* ]] ||
     die "routing condition does not prove litellm/clawdlinux-anthropic"
   assert_nonzero_routing_tokens "${routing_message}"
+  emit_contract_line "Provider result: gateway=litellm route=litellm/clawdlinux-anthropic provider=claude input_tokens=${ROUTING_INPUT_TOKENS} output_tokens=${ROUTING_OUTPUT_TOKENS}"
 }
 
 show_real_routing_and_cost() {
@@ -842,7 +874,8 @@ show_real_routing_and_cost() {
 
   cost_annotation="$(kubectl -n "${NS_OPERATOR}" get agentworkload booth-incident-investigation \
     -o go-template='{{index .metadata.annotations "agentworkload.clawdlinux.io/cost-usd-today"}}')"
-  awk -v cost="${cost_annotation:-0}" 'BEGIN { exit !(cost + 0 > 0) }' || die "cost annotation is missing or zero"
+  [[ "${cost_annotation}" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "cost annotation is not a decimal"
+  awk -v cost="${cost_annotation}" 'BEGIN { exit !(cost + 0 > 0) }' || die "cost annotation is missing or zero"
   printf 'Cost annotation: $%s\n' "${cost_annotation}"
 
   local pod_name local_port
@@ -870,8 +903,10 @@ show_real_routing_and_cost() {
     head -1 || true)"
   [[ -n "${metric_line}" ]] || die "Claude cost metric is missing for the booth workload"
   metric_value="$(awk '{print $NF}' <<<"${metric_line}")"
-  awk -v cost="${metric_value:-0}" 'BEGIN { exit !(cost + 0 > 0) }' || die "clawdlinux_agent_cost_dollars is zero"
+  [[ "${metric_value}" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "clawdlinux_agent_cost_dollars is not a decimal"
+  awk -v cost="${metric_value}" 'BEGIN { exit !(cost + 0 > 0) }' || die "clawdlinux_agent_cost_dollars is zero"
   printf 'Cost metric: %s\n' "${metric_line}"
+  emit_contract_line "Cost evidence: annotation_usd=${cost_annotation} metric_usd=${metric_value} route=litellm/clawdlinux-anthropic"
   narration_pause
 }
 

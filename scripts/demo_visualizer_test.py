@@ -19,6 +19,15 @@ SPEC = importlib.util.spec_from_file_location("demo_visualizer", SCRIPT_PATH)
 demo_visualizer = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(demo_visualizer)
 
+ANF_SUMMARY = (
+    "ANF context: source=kubernetes/kind-showcase "
+    "scope=namespace:agentic-system source_bytes=9123 source_objects=5 "
+    "projected_objects=4 unprojected_pods=1 omitted_containers=1 "
+    "omitted_service_ports=1 omitted_named_target_ports=0 "
+    "document_json_bytes=4096 anf_bytes=2048 document_json_tokens_est=1024 "
+    "anf_tokens_est=512 reduction=-50.0 top_level_entities=4"
+)
+
 
 def extract_css_block(source, marker):
     marker_start = source.index(marker)
@@ -158,6 +167,44 @@ class RunModeTest(unittest.TestCase):
 
         self.assertEqual(events[0]["type"], "run-start")
         self.assertEqual(events[0].get("mode"), "live")
+
+    def test_unknown_stdout_stays_in_terminal_and_out_of_sse(self):
+        events = []
+        output = io.StringIO()
+        process = mock.Mock()
+        process.stdout = io.StringIO("upstream diagnostic without a known prefix\r\n")
+        process.returncode = 0
+
+        demo_visualizer.run_process(
+            ["--present"],
+            broadcaster=events.append,
+            process_factory=lambda *args, **kwargs: process,
+            output=output,
+        )
+
+        self.assertEqual(
+            [event["type"] for event in events],
+            ["run-start", "run-end"],
+        )
+        self.assertEqual(
+            output.getvalue(),
+            "upstream diagnostic without a known prefix\r\n",
+        )
+
+    def test_replay_pipeline_event_keeps_replay_mode_label(self):
+        events = []
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as replay:
+            replay.write(ANF_SUMMARY + "\n")
+            replay.flush()
+            demo_visualizer.run_replay(
+                replay.name,
+                broadcaster=events.append,
+                sleeper=lambda _: None,
+            )
+
+        self.assertEqual(events[0]["mode"], "replay")
+        self.assertEqual(events[1]["kind"], "anf-summary")
+        self.assertEqual(events[1]["evidence_scope"], "LIVE")
 
 
 class BroadcastContractTest(unittest.TestCase):
@@ -337,6 +384,157 @@ class DashboardContractTest(unittest.TestCase):
             replay_branch,
         )
 
+    def test_typed_pipeline_has_five_stable_nodes(self):
+        nodes = re.findall(r'<div class="pipeline-node" id="([^"]+)">', self.dashboard)
+
+        self.assertEqual(
+            nodes,
+            [
+                "kubernetesNode",
+                "anfNode",
+                "workloadNode",
+                "litellmNode",
+                "claudeNode",
+            ],
+        )
+        self.assertIn(
+            'aria-label="Kubernetes to ANF to AgentWorkload to LiteLLM to Claude"',
+            self.dashboard,
+        )
+        self.assertIn("grid-template-columns: repeat(4", self.dashboard)
+
+    def test_anf_band_exposes_every_typed_summary_field(self):
+        field_ids = (
+            "anfSource",
+            "anfScope",
+            "anfSourceBytes",
+            "anfSourceObjects",
+            "anfProjectedObjects",
+            "anfUnprojectedPods",
+            "anfOmittedContainers",
+            "anfOmittedServicePorts",
+            "anfOmittedNamedTargetPorts",
+            "documentJsonBytes",
+            "documentJsonTokens",
+            "anfBytes",
+            "anfTokens",
+            "anfReduction",
+            "anfTopLevelEntities",
+        )
+
+        for field_id in field_ids:
+            with self.subTest(field_id=field_id):
+                self.assertIn(f'id="{field_id}"', self.dashboard)
+                self.assertIn(f"{field_id}: byId('{field_id}')", self.dashboard)
+
+        self.assertGreaterEqual(self.dashboard.count("tokens est."), 2)
+        self.assertIn("Omitted, not compressed", self.dashboard)
+
+    def test_mobile_anf_band_wraps_values_in_one_column(self):
+        rules = parse_css_rules(
+            extract_css_block(self.dashboard, "@media (max-width: 600px)")
+        )
+
+        self.assertEqual(rules[".anf-metrics"]["grid-template-columns"], "1fr")
+        self.assertEqual(rules[".anf-metric dd"]["white-space"], "normal")
+        self.assertEqual(rules[".anf-metric dd"]["overflow-wrap"], "anywhere")
+        self.assertEqual(rules[".anf-metric dd"]["text-overflow"], "clip")
+
+    def test_reset_clears_pipeline_proof_and_anf_values(self):
+        reset = self.dashboard.split("function resetRun(mode) {", 1)[1]
+        reset = reset.split("function renderEventTail", 1)[0]
+
+        self.assertIn("node.classList.remove('verified');", reset)
+        self.assertIn("state.textContent = text;", reset)
+        self.assertIn("for (const value of anfValues) value.textContent = 'pending';", reset)
+        for default_text in (
+            "capture pending",
+            "encoding pending",
+            "render pending",
+            "route pending",
+            "response pending",
+        ):
+            with self.subTest(default_text=default_text):
+                self.assertIn(default_text, reset)
+
+    def test_only_matching_typed_kinds_advance_pipeline_nodes(self):
+        detail = self.dashboard.split("function handleDetail(event) {", 1)[1]
+        detail = detail.split("function handleReceipt", 1)[0]
+        expected_kinds = (
+            "anf-summary",
+            "workload-render",
+            "workload-apply",
+            "workload-complete",
+            "provider-result",
+            "cost-evidence",
+        )
+
+        for kind in expected_kinds:
+            with self.subTest(kind=kind):
+                self.assertIn(f"event.kind === '{kind}'", detail)
+
+        for legacy_kind in ("routing", "cost", "anthropic"):
+            with self.subTest(legacy_kind=legacy_kind):
+                self.assertNotIn(f"event.kind === '{legacy_kind}'", detail)
+
+        self.assertNotIn("providerFromRouting", self.dashboard)
+        self.assertNotIn("event.raw", self.dashboard)
+
+    def test_typed_handlers_map_all_anf_fields_and_pipeline_evidence(self):
+        summary = self.dashboard.split("function handleANFSummary(event) {", 1)[1]
+        summary = summary.split("function handleDetail", 1)[0]
+        mappings = {
+            "anfSource": "source",
+            "anfScope": "scope",
+            "anfSourceBytes": "source_bytes",
+            "anfSourceObjects": "source_objects",
+            "anfProjectedObjects": "projected_objects",
+            "anfUnprojectedPods": "unprojected_pods",
+            "anfOmittedContainers": "omitted_containers",
+            "anfOmittedServicePorts": "omitted_service_ports",
+            "anfOmittedNamedTargetPorts": "omitted_named_target_ports",
+            "documentJsonBytes": "document_json_bytes",
+            "documentJsonTokens": "document_json_tokens_est",
+            "anfBytes": "anf_bytes",
+            "anfTokens": "anf_tokens_est",
+            "anfReduction": "reduction",
+            "anfTopLevelEntities": "top_level_entities",
+        }
+
+        for element, field in mappings.items():
+            with self.subTest(field=field):
+                self.assertRegex(summary, rf"elements\.{element}\.textContent = [^;]*event\.{field}")
+
+        detail = self.dashboard.split("function handleDetail(event) {", 1)[1]
+        detail = detail.split("function handleReceipt", 1)[0]
+        self.assertIn("if (event.anf_injected) {", detail)
+        self.assertIn("'ANF injected'", detail)
+        self.assertIn("'rendered without ANF'", detail)
+        self.assertIn("'Completed | metric verified'", detail)
+        self.assertIn("elements.inputTokens.textContent = formatInteger(event.input_tokens);", detail)
+        self.assertIn("elements.outputTokens.textContent = formatInteger(event.output_tokens);", detail)
+        self.assertIn("event.annotation_usd === event.metric_usd", detail)
+        self.assertIn("$${event.metric_usd} estimated", detail)
+
+    def test_meaningful_tail_uses_typed_text_and_all_pipeline_kinds(self):
+        add_event = self.dashboard.split("function addMeaningfulEvent", 1)[1]
+        add_event = add_event.split("function handleStage", 1)[0]
+        self.assertIn("const text = event.text;", add_event)
+        self.assertNotIn("event.raw", add_event)
+
+        kinds = self.dashboard.split("const meaningfulKinds = new Set([", 1)[1]
+        kinds = kinds.split("]);", 1)[0]
+        for kind in (
+            "anf-summary",
+            "workload-render",
+            "workload-apply",
+            "workload-complete",
+            "provider-result",
+            "cost-evidence",
+        ):
+            with self.subTest(kind=kind):
+                self.assertIn(f"'{kind}'", kinds)
+
     def test_evidence_tail_allows_only_proof_scope_labels(self):
         self.assertIn(
             "const EVIDENCE_SCOPES = new Set([",
@@ -375,7 +573,10 @@ class DashboardContractTest(unittest.TestCase):
             r'<span class="scope-label [^"]+">([^<]+)</span>',
             self.dashboard,
         )
-        self.assertEqual(panel_badges, ["LIVE", "CONFIG ONLY", "PRIOR RUN"])
+        self.assertEqual(
+            panel_badges,
+            ["LIVE", "LIVE", "CONFIG ONLY", "PRIOR RUN"],
+        )
         self.assertIn('<h2 id="auditHeading">Prior-run audit receipt</h2>', self.dashboard)
         self.assertIn(
             '<div class="audit-verdict" id="auditVerdict">awaiting prior-run fixture</div>',
@@ -425,7 +626,7 @@ class DashboardContractTest(unittest.TestCase):
                     r"(?:\d+px|\d+%|minmax\([^)]*\))",
                     control_room["grid-template-rows"],
                 )
-                self.assertEqual(len(row_values), 4)
+                self.assertEqual(len(row_values), 5)
                 row_floor = sum(
                     int(value)
                     for value in re.findall(
@@ -448,7 +649,7 @@ class DashboardContractTest(unittest.TestCase):
                 rules = parse_css_rules(extract_css_block(self.dashboard, marker))
 
                 self.assertGreaterEqual(
-                    pixel_value(rules[".provider-path"]["font-size"]), provider_min
+                    pixel_value(rules[".node-name"]["font-size"]), provider_min
                 )
                 self.assertGreaterEqual(
                     pixel_value(
@@ -482,7 +683,7 @@ class DashboardContractTest(unittest.TestCase):
                     r"(?:\d+px|\d+%|minmax\([^)]*\))",
                     rules[".control-room"]["grid-template-rows"],
                 )
-                self.assertEqual(len(row_values), 4)
+                self.assertEqual(len(row_values), 5)
                 event_row = pixel_value(row_values[-1])
                 heading = rules[".instrument h2, .event-tail h2"]
                 event_tail = rules[".event-tail"]
@@ -552,11 +753,11 @@ class DashboardContractTest(unittest.TestCase):
         padding_bottom = 18
         border_height = 2
         content_height = stage_height - padding_bottom - border_height
-        base_row_floor = 68 + 0.17 * content_height + 255 + 150
+        base_row_floor = 68 + 110 + 94 + 250 + 130
 
         self.assertEqual(
             base_control_room["grid-template-rows"],
-            "68px 17% minmax(255px, 1fr) 150px",
+            "68px 110px 94px minmax(250px, 1fr) 130px",
         )
         self.assertEqual(base_control_room["padding"], "0 24px 18px")
         self.assertEqual(base_control_room["border"], "1px solid var(--clawd-border-strong)")
@@ -814,6 +1015,7 @@ class ParserEvidenceScopeTest(unittest.TestCase):
         parser = demo_visualizer.Parser()
         samples = (
             ("==> REAL: Routing, token, and cost evidence", "LIVE"),
+            ("==> LIVE: Kubernetes state translated to ANF", "LIVE"),
             (
                 "SIMULATION / CONFIGURATION PROOF: server-side dry-run injected "
                 "runtimeClassName=gvisor. No pod was scheduled.",
@@ -848,6 +1050,179 @@ class ParserEvidenceScopeTest(unittest.TestCase):
 
         self.assertEqual(receipt["type"], "receipt")
         self.assertEqual(receipt.get("evidence_scope"), "PRIOR RUN")
+
+
+class StrictANFPipelineParserTest(unittest.TestCase):
+    def test_valid_pipeline_lines_emit_structured_live_details(self):
+        samples = (
+            (
+                ANF_SUMMARY + "\r\n",
+                "anf-summary",
+                {
+                    "source": "kubernetes/kind-showcase",
+                    "scope": "namespace:agentic-system",
+                    "source_bytes": 9123,
+                    "source_objects": 5,
+                    "projected_objects": 4,
+                    "unprojected_pods": 1,
+                    "omitted_containers": 1,
+                    "omitted_service_ports": 1,
+                    "omitted_named_target_ports": 0,
+                    "document_json_bytes": 4096,
+                    "anf_bytes": 2048,
+                    "document_json_tokens_est": 1024,
+                    "anf_tokens_est": 512,
+                    "reduction": -50.0,
+                    "top_level_entities": 4,
+                },
+            ),
+            (
+                "AgentWorkload render: name=booth-incident-investigation "
+                "namespace=agentic-system objective_bytes=32768 "
+                "anf_injected=true template=false",
+                "workload-render",
+                {
+                    "name": "booth-incident-investigation",
+                    "namespace": "agentic-system",
+                    "objective_bytes": 32768,
+                    "anf_injected": True,
+                    "template": False,
+                },
+            ),
+            (
+                "AgentWorkload apply: name=booth-incident-investigation "
+                "namespace=agentic-system via=repo-agentctl",
+                "workload-apply",
+                {
+                    "name": "booth-incident-investigation",
+                    "namespace": "agentic-system",
+                    "via": "repo-agentctl",
+                },
+            ),
+            (
+                "[OK] AgentWorkload reached Completed",
+                "workload-complete",
+                {},
+            ),
+            (
+                "Provider result: gateway=litellm "
+                "route=litellm/clawdlinux-anthropic provider=claude "
+                "input_tokens=1234 output_tokens=567",
+                "provider-result",
+                {
+                    "gateway": "litellm",
+                    "route": "litellm/clawdlinux-anthropic",
+                    "provider": "claude",
+                    "input_tokens": 1234,
+                    "output_tokens": 567,
+                },
+            ),
+            (
+                "Cost evidence: annotation_usd=0.012345 metric_usd=0.012345 "
+                "route=litellm/clawdlinux-anthropic",
+                "cost-evidence",
+                {
+                    "annotation_usd": "0.012345",
+                    "metric_usd": "0.012345",
+                    "route": "litellm/clawdlinux-anthropic",
+                },
+            ),
+        )
+
+        for line, expected_kind, expected_fields in samples:
+            with self.subTest(kind=expected_kind):
+                event = demo_visualizer.Parser().parse(line)
+
+                self.assertEqual(event["type"], "detail")
+                self.assertEqual(event["kind"], expected_kind)
+                self.assertEqual(event["evidence_scope"], "LIVE")
+                self.assertNotIn("raw", event)
+                self.assertLessEqual(len(event["text"].encode("utf-8")), 160)
+                for field, expected_value in expected_fields.items():
+                    self.assertEqual(event[field], expected_value)
+
+    def test_render_objective_accepts_only_inclusive_byte_bounds(self):
+        template = (
+            "AgentWorkload render: name=workload namespace=agentic-system "
+            "objective_bytes={} anf_injected=true template=false"
+        )
+
+        for objective_bytes in (1, 32768):
+            with self.subTest(objective_bytes=objective_bytes):
+                event = demo_visualizer.Parser().parse(
+                    template.format(objective_bytes)
+                )
+                self.assertEqual(event["objective_bytes"], objective_bytes)
+
+        for objective_bytes in (0, 32769):
+            with self.subTest(objective_bytes=objective_bytes):
+                self.assertIsNone(
+                    demo_visualizer.Parser().parse(
+                        template.format(objective_bytes)
+                    )
+                )
+
+    def test_anf_counts_accept_ten_digits_and_reject_invalid_numbers(self):
+        ten_digit_summary = ANF_SUMMARY.replace(
+            "source_objects=5", "source_objects=9999999999"
+        )
+        event = demo_visualizer.Parser().parse(ten_digit_summary)
+        self.assertEqual(event["source_objects"], 9999999999)
+
+        invalid_lines = (
+            ANF_SUMMARY.replace("source_objects=5", "source_objects=10000000000"),
+            ANF_SUMMARY.replace("source_objects=5", "source_objects=-1"),
+            ANF_SUMMARY.replace("source_objects=5", "source_objects=five"),
+            ANF_SUMMARY.replace("reduction=-50.0", "reduction=50"),
+            ANF_SUMMARY.replace("reduction=-50.0", "reduction=50.00"),
+        )
+        for line in invalid_lines:
+            with self.subTest(line=line):
+                self.assertIsNone(demo_visualizer.Parser().parse(line))
+
+    def test_anf_summary_rejects_missing_reordered_and_oversized_lines(self):
+        reordered = ANF_SUMMARY.replace(
+            "source_bytes=9123 source_objects=5",
+            "source_objects=5 source_bytes=9123",
+        )
+        missing = ANF_SUMMARY.replace(" top_level_entities=4", "")
+
+        for line in (reordered, missing):
+            with self.subTest(line=line[:80]):
+                self.assertIsNone(demo_visualizer.Parser().parse(line))
+
+    def test_known_pipeline_prefixes_reject_oversized_lines(self):
+        for prefix in demo_visualizer.PIPELINE_PREFIXES:
+            line = prefix + "x" * 1025
+            with self.subTest(prefix=prefix):
+                self.assertGreater(len(line.encode("utf-8")), 1024)
+                self.assertIsNone(demo_visualizer.Parser().parse(line))
+
+    def test_known_pipeline_prefixes_reject_malformed_lines(self):
+        malformed = (
+            "AgentWorkload render: namespace=agentic-system name=workload "
+            "objective_bytes=10 anf_injected=true template=false",
+            "AgentWorkload render: name=Workload namespace=agentic-system "
+            "objective_bytes=10 anf_injected=true template=false",
+            "AgentWorkload apply: name=workload namespace=agentic-system via=curl",
+            "[OK] AgentWorkload reached Completed eventually",
+            "Provider result: gateway=litellm "
+            "route=litellm/clawdlinux-anthropic provider=claude "
+            "input_tokens=many output_tokens=2",
+            "Cost evidence: metric_usd=0.1 annotation_usd=0.1 "
+            "route=litellm/clawdlinux-anthropic",
+            "Cost evidence: annotation_usd=1e-3 metric_usd=0.1 "
+            "route=litellm/clawdlinux-anthropic",
+        )
+
+        for line in malformed:
+            with self.subTest(line=line):
+                self.assertIsNone(demo_visualizer.Parser().parse(line))
+
+    def test_unknown_lines_do_not_become_parser_events(self):
+        self.assertIsNone(
+            demo_visualizer.Parser().parse("unclassified upstream stdout")
+        )
 
 
 if __name__ == "__main__":

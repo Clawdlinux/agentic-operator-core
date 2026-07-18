@@ -54,6 +54,75 @@ history_lock = threading.Lock()
 seq_counter = [0]
 
 ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
+DNS_LABEL = r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?'
+CLUSTER_IDENTIFIER = r'[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?'
+UINT = r'[0-9]{1,10}'
+COST_DECIMAL = r'(?:0|[1-9][0-9]{0,5})(?:\.[0-9]{1,9})?'
+PIPELINE_LINE_MAX_BYTES = 1024
+EVENT_TEXT_MAX_BYTES = 160
+
+ANF_SUMMARY_RE = re.compile(
+    rf'^ANF context: source=(?P<source>kubernetes/(?P<cluster>{CLUSTER_IDENTIFIER})) '
+    rf'scope=(?P<scope>namespace:(?P<namespace>{DNS_LABEL})) '
+    rf'source_bytes=(?P<source_bytes>{UINT}) '
+    rf'source_objects=(?P<source_objects>{UINT}) '
+    rf'projected_objects=(?P<projected_objects>{UINT}) '
+    rf'unprojected_pods=(?P<unprojected_pods>{UINT}) '
+    rf'omitted_containers=(?P<omitted_containers>{UINT}) '
+    rf'omitted_service_ports=(?P<omitted_service_ports>{UINT}) '
+    rf'omitted_named_target_ports=(?P<omitted_named_target_ports>{UINT}) '
+    rf'document_json_bytes=(?P<document_json_bytes>{UINT}) '
+    rf'anf_bytes=(?P<anf_bytes>{UINT}) '
+    rf'document_json_tokens_est=(?P<document_json_tokens_est>{UINT}) '
+    rf'anf_tokens_est=(?P<anf_tokens_est>{UINT}) '
+    rf'reduction=(?P<reduction>-?[0-9]{{1,10}}\.[0-9]) '
+    rf'top_level_entities=(?P<top_level_entities>{UINT})$'
+)
+WORKLOAD_RENDER_RE = re.compile(
+    rf'^AgentWorkload render: name=(?P<name>{DNS_LABEL}) '
+    rf'namespace=(?P<namespace>{DNS_LABEL}) '
+    rf'objective_bytes=(?P<objective_bytes>{UINT}) '
+    r'anf_injected=(?P<anf_injected>true) template=(?P<template>false)$'
+)
+WORKLOAD_APPLY_RE = re.compile(
+    rf'^AgentWorkload apply: name=(?P<name>{DNS_LABEL}) '
+    rf'namespace=(?P<namespace>{DNS_LABEL}) '
+    r'via=(?P<via>repo-agentctl|path-agentctl|kubectl-fallback|kubectl)$'
+)
+WORKLOAD_COMPLETE_LINE = '[OK] AgentWorkload reached Completed'
+PROVIDER_RESULT_RE = re.compile(
+    rf'^Provider result: gateway=(?P<gateway>litellm) '
+    rf'route=(?P<route>litellm/clawdlinux-anthropic) '
+    rf'provider=(?P<provider>claude) input_tokens=(?P<input_tokens>{UINT}) '
+    rf'output_tokens=(?P<output_tokens>{UINT})$'
+)
+COST_EVIDENCE_RE = re.compile(
+    rf'^Cost evidence: annotation_usd=(?P<annotation_usd>{COST_DECIMAL}) '
+    rf'metric_usd=(?P<metric_usd>{COST_DECIMAL}) '
+    r'route=(?P<route>litellm/clawdlinux-anthropic)$'
+)
+PIPELINE_PREFIXES = (
+    'ANF context:',
+    'AgentWorkload render:',
+    'AgentWorkload apply:',
+    WORKLOAD_COMPLETE_LINE,
+    'Provider result:',
+    'Cost evidence:',
+)
+ANF_NUMERIC_FIELDS = (
+    'source_bytes',
+    'source_objects',
+    'projected_objects',
+    'unprojected_pods',
+    'omitted_containers',
+    'omitted_service_ports',
+    'omitted_named_target_ports',
+    'document_json_bytes',
+    'anf_bytes',
+    'document_json_tokens_est',
+    'anf_tokens_est',
+    'top_level_entities',
+)
 
 
 def new_client_queue():
@@ -119,7 +188,7 @@ class Parser:
 
     @staticmethod
     def _scope_for_stage(text):
-        if text.startswith("REAL:"):
+        if text.startswith(("LIVE:", "REAL:")):
             return "LIVE"
         if text.startswith("SIMULATION / CONFIGURATION PROOF:"):
             return "CONFIG ONLY"
@@ -135,9 +204,127 @@ class Parser:
             event["evidence_scope"] = evidence_scope
         return event
 
+    @staticmethod
+    def _tail_text(text):
+        encoded = text.encode("utf-8")
+        if len(encoded) <= EVENT_TEXT_MAX_BYTES:
+            return text
+        return encoded[: EVENT_TEXT_MAX_BYTES - 3].decode(
+            "utf-8", errors="ignore"
+        ) + "..."
+
+    def _detail(self, kind, text, **fields):
+        return self._event(
+            {
+                "type": "detail",
+                "kind": kind,
+                "text": self._tail_text(text),
+                **fields,
+            },
+            "LIVE",
+        )
+
+    def _parse_pipeline_event(self, line):
+        if len(line.encode("utf-8")) > PIPELINE_LINE_MAX_BYTES:
+            return None
+
+        match = ANF_SUMMARY_RE.fullmatch(line)
+        if match:
+            fields = {
+                field: int(match.group(field)) for field in ANF_NUMERIC_FIELDS
+            }
+            fields.update(
+                source=match.group("source"),
+                scope=match.group("scope"),
+                reduction=float(match.group("reduction")),
+            )
+            return self._detail(
+                "anf-summary",
+                (
+                    f"ANF: {fields['anf_bytes']} bytes, "
+                    f"{match.group('reduction')}% reduction, "
+                    f"{fields['top_level_entities']} entities"
+                ),
+                **fields,
+            )
+
+        match = WORKLOAD_RENDER_RE.fullmatch(line)
+        if match:
+            objective_bytes = int(match.group("objective_bytes"))
+            if not 1 <= objective_bytes <= 32768:
+                return None
+            return self._detail(
+                "workload-render",
+                (
+                    f"Rendered {match.group('name')}: "
+                    f"{objective_bytes}-byte objective with ANF"
+                ),
+                name=match.group("name"),
+                namespace=match.group("namespace"),
+                objective_bytes=objective_bytes,
+                anf_injected=True,
+                template=False,
+            )
+
+        match = WORKLOAD_APPLY_RE.fullmatch(line)
+        if match:
+            return self._detail(
+                "workload-apply",
+                f"Applied {match.group('name')} via {match.group('via')}",
+                name=match.group("name"),
+                namespace=match.group("namespace"),
+                via=match.group("via"),
+            )
+
+        if line == WORKLOAD_COMPLETE_LINE:
+            return self._detail(
+                "workload-complete",
+                "AgentWorkload reached Completed",
+            )
+
+        match = PROVIDER_RESULT_RE.fullmatch(line)
+        if match:
+            input_tokens = int(match.group("input_tokens"))
+            output_tokens = int(match.group("output_tokens"))
+            return self._detail(
+                "provider-result",
+                (
+                    f"Claude via {match.group('route')}: "
+                    f"{input_tokens} input, {output_tokens} output tokens"
+                ),
+                gateway=match.group("gateway"),
+                route=match.group("route"),
+                provider=match.group("provider"),
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            )
+
+        match = COST_EVIDENCE_RE.fullmatch(line)
+        if match:
+            annotation_usd = match.group("annotation_usd")
+            metric_usd = match.group("metric_usd")
+            return self._detail(
+                "cost-evidence",
+                (
+                    f"Cost: ${annotation_usd} annotation, "
+                    f"${metric_usd} metric"
+                ),
+                annotation_usd=annotation_usd,
+                metric_usd=metric_usd,
+                route=match.group("route"),
+            )
+
+        return None
+
     def parse(self, raw_line):
-        line = ANSI_RE.sub('', raw_line).rstrip("\n")
+        line = ANSI_RE.sub('', raw_line).rstrip("\r\n")
         if not line.strip():
+            return None
+
+        pipeline_event = self._parse_pipeline_event(line)
+        if pipeline_event is not None:
+            return pipeline_event
+        if line.startswith(PIPELINE_PREFIXES):
             return None
 
         for pattern, kind in LINE_PATTERNS:
@@ -228,7 +415,7 @@ class Parser:
             receipt["detail"] = line
             return self._event({"type": "receipt", **receipt, "raw": line}, "PRIOR RUN")
 
-        return self._event({"type": "raw", "raw": line})
+        return None
 
 
 def run_process(args, broadcaster=None, process_factory=None, output=None):
