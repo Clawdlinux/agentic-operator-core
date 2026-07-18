@@ -646,6 +646,15 @@ find_anf_snapshot() {
   printf '%s' "${REPO_ROOT}/bin/anf-snapshot"
 }
 
+measure_file_bytes() {
+  local file_path="$1"
+  local description="$2"
+  local size
+  size="$(wc -c <"${file_path}" | tr -d '[:space:]')"
+  [[ "${size}" =~ ^[0-9]+$ ]] || die "could not measure ${description}"
+  printf '%s' "${size}"
+}
+
 capture_anf_context() {
   step "LIVE: Kubernetes state translated to Agent Native Format"
   local snapshot size summary
@@ -658,8 +667,7 @@ capture_anf_context() {
   summary="$(grep -m1 '^ANF context:' "${ANF_OUTPUT_TEMP_FILE}" || true)"
   [[ -n "${summary}" ]] || die "ANF snapshot summary is missing"
   printf '%s\n' "${summary}"
-  size="$(wc -c <"${ANF_TEMP_FILE}" | tr -d '[:space:]')"
-  [[ "${size}" =~ ^[0-9]+$ ]] || die "could not measure ANF context"
+  size="$(measure_file_bytes "${ANF_TEMP_FILE}" "ANF context")"
   ((size > 0)) || die "ANF context is empty"
   ((size <= 32768)) || die "ANF context exceeds 32 KiB demo limit"
 }
@@ -703,6 +711,7 @@ PY
 }
 
 build_research_workload_json() {
+  local sanitized_size
   WORKLOAD_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-agentworkload.XXXXXX.json")"
   chmod 600 "${WORKLOAD_TEMP_FILE}"
   WORKLOAD_SOURCE_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-agentworkload-source.XXXXXX.json")"
@@ -710,6 +719,9 @@ build_research_workload_json() {
   ANF_SANITIZED_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-anf-sanitized.XXXXXX")"
   chmod 600 "${ANF_SANITIZED_TEMP_FILE}"
   sanitize_anf_context "${ANF_TEMP_FILE}" "${ANF_SANITIZED_TEMP_FILE}"
+  sanitized_size="$(measure_file_bytes "${ANF_SANITIZED_TEMP_FILE}" "sanitized ANF context")"
+  ((sanitized_size > 0)) || die "sanitized ANF context is empty"
+  ((sanitized_size <= 32768)) || die "sanitized ANF context exceeds 32 KiB demo limit"
   kubectl apply --dry-run=client -f "${RESEARCH_MANIFEST}" -o json >"${WORKLOAD_SOURCE_TEMP_FILE}"
   python3 - "${WORKLOAD_SOURCE_TEMP_FILE}" "${ANF_SANITIZED_TEMP_FILE}" "${WORKLOAD_TEMP_FILE}" <<'PY'
 import json

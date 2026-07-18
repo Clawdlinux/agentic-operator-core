@@ -797,6 +797,60 @@ if find "${fallback_root}/tmp" -type f -name 'clawdlinux-*' -print -quit | grep 
   exit 1
 fi
 
+amplified_anf='AMPLIFICATION_SECRET_MARKER'
+for _ in {1..3000}; do
+  amplified_anf+=$'\nx'
+done
+: >"${fallback_log}"
+set +e
+amplified_output="$(TMPDIR="${fallback_root}/tmp" FAKE_ANF="${amplified_anf}" FAKE_COMMAND_LOG="${fallback_log}" PATH="${fallback_bin}:/usr/bin:/bin" bash -c '
+  source "$1"
+  REPO_ROOT="$2"
+  RESEARCH_MANIFEST="$2/examples/research-agent.template.yaml"
+  AUDIT_FIXTURE="$2/audit.jsonl"
+  NS_OPERATOR="test-routing"
+  ORIGINAL_ARGS=(--present --pace 0)
+  main --present --pace 0
+' _ "${DEMO_SCRIPT}" "${fallback_root}" 2>&1)"
+amplified_status=$?
+set -e
+if [[ ${amplified_status} -eq 0 ]] || ! grep -Fq 'sanitized ANF context exceeds 32 KiB demo limit' <<<"${amplified_output}"; then
+  printf 'sanitized ANF amplification must fail closed\n' >&2
+  exit 1
+fi
+if grep -Fq 'AMPLIFICATION_SECRET_MARKER' <<<"${amplified_output}" || grep -Fq 'AMPLIFICATION_SECRET_MARKER' "${fallback_log}"; then
+  printf 'amplified ANF content leaked into output or command log\n' >&2
+  exit 1
+fi
+if grep -Eq '(^| )(agentctl|kubectl) apply( |$)' "${fallback_log}"; then
+  printf 'amplified ANF reached manifest apply\n' >&2
+  exit 1
+fi
+if find "${fallback_root}/tmp" -type f -name 'clawdlinux-*' -print -quit | grep -q .; then
+  printf 'showcase temporary files remain after sanitized oversize rejection\n' >&2
+  exit 1
+fi
+
+boundary_anf_file="${TEST_TMP_DIR}/boundary.anf"
+printf 'b%.0s' {1..32759} >"${boundary_anf_file}"
+: >"${fallback_log}"
+boundary_size="$(TMPDIR="${fallback_root}/tmp" FAKE_COMMAND_LOG="${fallback_log}" PATH="${fallback_bin}:/usr/bin:/bin" bash -c '
+  source "$1"
+  RESEARCH_MANIFEST="$2/examples/research-agent.template.yaml"
+  ANF_TEMP_FILE="$3"
+  trap cleanup_showcase_temp_files EXIT
+  build_research_workload_json
+  wc -c <"${ANF_SANITIZED_TEMP_FILE}" | tr -d "[:space:]"
+' _ "${DEMO_SCRIPT}" "${fallback_root}" "${boundary_anf_file}")"
+if [[ "${boundary_size}" != '32768' ]]; then
+  printf 'sanitized ANF at the 32 KiB boundary must pass\n' >&2
+  exit 1
+fi
+if find "${fallback_root}/tmp" -type f -name 'clawdlinux-*' -print -quit | grep -q .; then
+  printf 'showcase temporary files remain after sanitized boundary check\n' >&2
+  exit 1
+fi
+
 : >"${fallback_log}"
 full_present_output="$(TMPDIR="${fallback_root}/tmp" FAKE_ANF="${fake_anf}" FAKE_COMMAND_LOG="${fallback_log}" APPLIED_JSON_FILE="${applied_json}" APPLIED_MODE_FILE="${applied_mode}" APPLIED_PATH_FILE="${applied_path}" PATH="${fallback_bin}:/usr/bin:/bin" bash -c '
   source "$1"
