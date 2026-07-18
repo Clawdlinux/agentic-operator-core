@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-logr/logr/funcr"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apiMeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,6 +27,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/llm"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/routing"
+	runtimeadapter "github.com/Clawdlinux/agentic-operator-core/pkg/runtime"
 )
 
 type mockOpenAIScenario string
@@ -504,6 +506,27 @@ type countingTenantResolver struct {
 	calls atomic.Int64
 }
 
+type countingCleanupAdapter struct {
+	cleanupCalls atomic.Int64
+}
+
+func (*countingCleanupAdapter) Capabilities() runtimeadapter.RuntimeCapabilities {
+	return runtimeadapter.RuntimeCapabilities{}
+}
+
+func (*countingCleanupAdapter) Execute(context.Context, *agenticv1alpha1.AgentWorkload) (*runtimeadapter.ExecutionStatus, error) {
+	return nil, nil
+}
+
+func (*countingCleanupAdapter) Status(context.Context, *agenticv1alpha1.AgentWorkload) (*runtimeadapter.ExecutionStatus, error) {
+	return nil, nil
+}
+
+func (a *countingCleanupAdapter) Cleanup(context.Context, *agenticv1alpha1.AgentWorkload) error {
+	a.cleanupCalls.Add(1)
+	return nil
+}
+
 func (r *countingTenantResolver) ExtractFromNamespace(context.Context, string) (*multitenancy.TenantContext, error) {
 	r.calls.Add(1)
 	return nil, nil
@@ -587,7 +610,7 @@ func TestReconcile_RejectsUnrenderedTemplateBeforeModelRouting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reconcile failed: %v", err)
 	}
-	if result.Requeue || result.RequeueAfter != 0 {
+	if result != (ctrl.Result{}) {
 		t.Fatalf("result = %+v, want terminal no-requeue result", result)
 	}
 	if calls := providerCalls.Load(); calls != 0 {
@@ -638,6 +661,66 @@ func TestReconcile_RejectsUnrenderedTemplateBeforeModelRouting(t *testing.T) {
 	}
 	if strings.Contains(condition.Message, objective) {
 		t.Fatalf("TemplateRejected message leaked objective: %q", condition.Message)
+	}
+}
+
+func TestReconcile_DeletingUnrenderedTemplateSkipsRuntimeCleanup(t *testing.T) {
+	t.Parallel()
+
+	scheme := newControllerTestScheme(t)
+	deletionTime := metav1.Now()
+	workload := &agenticv1alpha1.AgentWorkload{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "deleting-unrendered-template",
+			Namespace:         "test-routing",
+			Annotations:       map[string]string{"demo.clawdlinux.org/template": "true"},
+			Finalizers:        []string{AgentWorkloadFinalizer},
+			DeletionTimestamp: &deletionTime,
+		},
+		Status: agenticv1alpha1.AgentWorkloadStatus{
+			ArgoWorkflow: &agenticv1alpha1.ArgoWorkflowRef{
+				Name:      "must-not-clean-up",
+				Namespace: "argo-workflows",
+			},
+		},
+	}
+	adapter := &countingCleanupAdapter{}
+	registry := runtimeadapter.NewRegistry()
+	registry.Register("argo", adapter)
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&agenticv1alpha1.AgentWorkload{}).
+		WithObjects(workload).
+		Build()
+	reconciler := &AgentWorkloadReconciler{
+		Client:          k8sClient,
+		Scheme:          scheme,
+		RuntimeRegistry: registry,
+	}
+	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}}
+
+	result, err := reconciler.Reconcile(context.Background(), request)
+	if err != nil {
+		t.Fatalf("Reconcile failed: %v", err)
+	}
+	if result != (ctrl.Result{}) {
+		t.Fatalf("result = %+v, want terminal no-requeue result", result)
+	}
+	if calls := adapter.cleanupCalls.Load(); calls != 0 {
+		t.Fatalf("cleanup calls = %d, want 0", calls)
+	}
+
+	updated := &agenticv1alpha1.AgentWorkload{}
+	err = k8sClient.Get(context.Background(), request.NamespacedName, updated)
+	if err != nil && !apierrors.IsNotFound(err) {
+		t.Fatalf("get finalized template: %v", err)
+	}
+	if err == nil {
+		for _, finalizer := range updated.Finalizers {
+			if finalizer == AgentWorkloadFinalizer {
+				t.Fatalf("finalizers = %v, want %q removed", updated.Finalizers, AgentWorkloadFinalizer)
+			}
+		}
 	}
 }
 

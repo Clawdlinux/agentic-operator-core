@@ -170,6 +170,32 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	log.Info("Reconciling AgentWorkload", "name", workload.Name)
 
+	if workload.Annotations["demo.clawdlinux.org/template"] == "true" {
+		if !workload.DeletionTimestamp.IsZero() {
+			if controllerutil.RemoveFinalizer(&workload, AgentWorkloadFinalizer) {
+				if err := r.Update(ctx, &workload); err != nil {
+					log.Error(err, "failed to remove finalizer from rejected template")
+					return ctrl.Result{}, err
+				}
+			}
+			return ctrl.Result{}, nil
+		}
+
+		workload.Status.Phase = "Failed"
+		workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
+			Type:               "TemplateRejected",
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: workload.Generation,
+			Reason:             "UnrenderedTemplate",
+			Message:            "Unrendered showcase templates cannot be reconciled.",
+			LastTransitionTime: metav1.Now(),
+		})
+		if err := r.Status().Update(ctx, &workload); err != nil {
+			return ctrl.Result{}, fmt.Errorf("update rejected template status: %w", err)
+		}
+		return ctrl.Result{}, nil
+	}
+
 	// ========== FINALIZER HANDLING ==========
 	// Cross-namespace Argo Workflows are not GC'd by Kubernetes ownerReferences,
 	// so we use a finalizer to clean them up explicitly on delete.
@@ -185,22 +211,6 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				log.Error(err, "failed to remove finalizer")
 				return ctrl.Result{}, err
 			}
-		}
-		return ctrl.Result{}, nil
-	}
-
-	if workload.Annotations["demo.clawdlinux.org/template"] == "true" {
-		workload.Status.Phase = "Failed"
-		workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
-			Type:               "TemplateRejected",
-			Status:             metav1.ConditionTrue,
-			ObservedGeneration: workload.Generation,
-			Reason:             "UnrenderedTemplate",
-			Message:            "Unrendered showcase templates cannot be reconciled.",
-			LastTransitionTime: metav1.Now(),
-		})
-		if err := r.Status().Update(ctx, &workload); err != nil {
-			return ctrl.Result{}, fmt.Errorf("update rejected template status: %w", err)
 		}
 		return ctrl.Result{}, nil
 	}
