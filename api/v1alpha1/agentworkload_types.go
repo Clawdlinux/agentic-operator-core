@@ -163,8 +163,8 @@ type AgentPersona struct {
 	// +optional
 	MemoryScope string `json:"memoryScope,omitempty"`
 
-	// SystemPromptAppend supplies trusted persona instructions in the model
-	// provider's system role. Workload objectives remain user-role content.
+	// SystemPromptAppend is a user-controlled runtime persona preference.
+	// The built-in model routing path does not send it as system content.
 	// +optional
 	SystemPromptAppend string `json:"systemPromptAppend,omitempty"`
 

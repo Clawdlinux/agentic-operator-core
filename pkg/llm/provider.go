@@ -18,15 +18,21 @@ const maxProviderErrorBodyDrainBytes int64 = 1 << 20
 
 // Provider defines the interface for LLM providers
 type Provider interface {
-	// CallModel sends trusted system instructions separately from untrusted user
-	// content. Providers receive a stable operation ID for upstream idempotency.
-	CallModel(ctx context.Context, operationID, model, systemPrompt, userPrompt string) (*ModelResponse, error)
+	// CallModel sends a user prompt to the model. Providers receive a stable
+	// operation ID for upstream idempotency.
+	CallModel(ctx context.Context, operationID, model, prompt string) (*ModelResponse, error)
 
 	// Name returns the provider name
 	Name() string
 
 	// Type returns the provider type
 	Type() string
+}
+
+// RoleAwareProvider can keep operator-owned system instructions separate from
+// untrusted user content without changing the public Provider contract.
+type RoleAwareProvider interface {
+	CallModelWithSystem(ctx context.Context, operationID, model, systemPrompt, userPrompt string) (*ModelResponse, error)
 }
 
 // ModelResponse represents the response from an LLM API call
@@ -111,8 +117,14 @@ func (p *OpenAICompatibleProvider) Type() string {
 	return "openai-compatible"
 }
 
-// CallModel sends a request to the OpenAI-compatible API.
-func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, operationID, model, systemPrompt, userPrompt string) (*ModelResponse, error) {
+// CallModel sends a user-only request to the OpenAI-compatible API.
+func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, operationID, model, prompt string) (*ModelResponse, error) {
+	return p.CallModelWithSystem(ctx, operationID, model, "", prompt)
+}
+
+// CallModelWithSystem sends operator-owned system instructions separately from
+// untrusted user content.
+func (p *OpenAICompatibleProvider) CallModelWithSystem(ctx context.Context, operationID, model, systemPrompt, userPrompt string) (*ModelResponse, error) {
 	// Cloudflare Workers AI requires model names prefixed with "@cf/"
 	// If provider is Cloudflare and model doesn't already have the prefix, add it.
 	if (strings.Contains(p.name, "cloudflare") || strings.Contains(p.name, "workers-ai")) &&

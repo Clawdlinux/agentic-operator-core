@@ -68,11 +68,25 @@ jobs:
 
       - name: Install helm-unittest plugin
         run: |
+          # Build the plugin from an immutable source commit. Do not run its
+          # installer hook, which downloads a mutable release asset.
           plugin_dir="${RUNNER_TEMP}/helm-unittest"
           git clone --filter=blob:none https://github.com/helm-unittest/helm-unittest.git "${plugin_dir}"
           git -C "${plugin_dir}" checkout --detach 9cf59a78dbb89f3e3c70c62d2570cd7e96b97845
           test "$(git -C "${plugin_dir}" rev-parse HEAD)" = "9cf59a78dbb89f3e3c70c62d2570cd7e96b97845"
-          helm plugin install "${plugin_dir}"
+          (
+            cd "${plugin_dir}"
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=go1.26.0 \
+              go build -trimpath -buildvcs=false -o untt-linux-amd64 \
+              -ldflags "-X github.com/helm-unittest/helm-unittest/internal/build.version=1.1.1 -extldflags '-static'" \
+              ./cmd/helm-unittest
+          )
+          helm_plugins="$(helm env | sed -n 's/^HELM_PLUGINS="\(.*\)"$/\1/p')"
+          test -n "${helm_plugins}"
+          install_dir="${helm_plugins}/unittest"
+          mkdir -p "${install_dir}"
+          install -m 0755 "${plugin_dir}/untt-linux-amd64" "${install_dir}/untt-linux-amd64"
+          install -m 0644 "${plugin_dir}/plugin.yaml" "${install_dir}/plugin.yaml"
           helm plugin list | grep -Eq '^unittest[[:space:]]+1\.1\.1([[:space:]]|$)'
 
       - name: Run Helm unit tests

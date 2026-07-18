@@ -29,6 +29,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apiMeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -170,18 +171,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// ========== FINALIZER HANDLING ==========
 	// Cross-namespace Argo Workflows are not GC'd by Kubernetes ownerReferences,
 	// so we use a finalizer to clean them up explicitly on delete.
-	//
-	// Pattern: add the finalizer if missing and CONTINUE in the same Reconcile.
-	// `r.Update` mutates `workload.ResourceVersion` in place on success, so subsequent
-	// `r.Status().Update` calls in this loop will use the up-to-date version.
-	if workload.DeletionTimestamp.IsZero() {
-		if controllerutil.AddFinalizer(&workload, AgentWorkloadFinalizer) {
-			if err := r.Update(ctx, &workload); err != nil {
-				log.Error(err, "failed to add finalizer")
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
+	if !workload.DeletionTimestamp.IsZero() {
 		// Object is being deleted -- run cleanup if our finalizer is present.
 		if controllerutil.ContainsFinalizer(&workload, AgentWorkloadFinalizer) {
 			if err := r.cleanupViaRuntime(ctx, &workload); err != nil {
@@ -195,11 +185,6 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 		}
 		return ctrl.Result{}, nil
-	}
-
-	if err := r.reconcilePersonaNamespaceLabels(ctx, &workload); err != nil {
-		log.Error(err, "failed to reconcile persona labels on namespace")
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	if workload.Annotations["demo.clawdlinux.org/template"] == "true" {
@@ -216,6 +201,34 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, fmt.Errorf("update rejected template status: %w", err)
 		}
 		return ctrl.Result{}, nil
+	}
+
+	if condition := apiMeta.FindStatusCondition(workload.Status.Conditions, "TemplateRejected"); condition != nil && condition.Status == metav1.ConditionTrue {
+		workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
+			Type:               "TemplateRejected",
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: workload.Generation,
+			Reason:             "RenderedTemplate",
+			Message:            "Showcase template markers were cleared before reconciliation.",
+			LastTransitionTime: metav1.Now(),
+		})
+		if err := r.Status().Update(ctx, &workload); err != nil {
+			return ctrl.Result{}, fmt.Errorf("clear rejected template status: %w", err)
+		}
+	}
+
+	// Add the finalizer only after template validation. Update mutates the local
+	// resource version, so later status updates use the current object version.
+	if controllerutil.AddFinalizer(&workload, AgentWorkloadFinalizer) {
+		if err := r.Update(ctx, &workload); err != nil {
+			log.Error(err, "failed to add finalizer")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := r.reconcilePersonaNamespaceLabels(ctx, &workload); err != nil {
+		log.Error(err, "failed to reconcile persona labels on namespace")
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	// ========== LICENSE ENFORCEMENT ==========

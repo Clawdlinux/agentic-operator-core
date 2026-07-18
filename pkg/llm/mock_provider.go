@@ -37,7 +37,12 @@ func (p *MockOpenAIProvider) Type() string {
 }
 
 // CallModel returns a mock response for testing.
-func (p *MockOpenAIProvider) CallModel(ctx context.Context, operationID, model, systemPrompt, userPrompt string) (*ModelResponse, error) {
+func (p *MockOpenAIProvider) CallModel(ctx context.Context, operationID, model, prompt string) (*ModelResponse, error) {
+	return p.CallModelWithSystem(ctx, operationID, model, "", prompt)
+}
+
+// CallModelWithSystem returns a mock response while preserving role-aware compatibility.
+func (p *MockOpenAIProvider) CallModelWithSystem(ctx context.Context, operationID, model, systemPrompt, userPrompt string) (*ModelResponse, error) {
 	_ = systemPrompt
 	_ = operationID
 	// Track call count

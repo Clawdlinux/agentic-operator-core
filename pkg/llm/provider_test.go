@@ -24,7 +24,7 @@ func TestOpenAICompatibleProvider_PropagatesIdempotencyKey(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	provider := NewOpenAICompatibleProvider("test-provider", server.URL, "test-token")
-	if _, err := provider.CallModel(context.Background(), operationID, "test-model", "", "test prompt"); err != nil {
+	if _, err := provider.CallModel(context.Background(), operationID, "test-model", "test prompt"); err != nil {
 		t.Fatalf("CallModel failed: %v", err)
 	}
 
@@ -58,10 +58,10 @@ func TestOpenAICompatibleProvider_SeparatesSystemAndUserMessages(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	provider := NewOpenAICompatibleProvider("test-provider", server.URL, "test-token")
-	if _, err := provider.CallModel(context.Background(), "operation-1", "test-model", "trusted governance", "untrusted ANF data"); err != nil {
-		t.Fatalf("CallModel with system prompt failed: %v", err)
+	if _, err := provider.CallModelWithSystem(context.Background(), "operation-1", "test-model", "trusted governance", "untrusted ANF data"); err != nil {
+		t.Fatalf("CallModelWithSystem failed: %v", err)
 	}
-	if _, err := provider.CallModel(context.Background(), "operation-2", "test-model", "", "plain objective"); err != nil {
+	if _, err := provider.CallModel(context.Background(), "operation-2", "test-model", "plain objective"); err != nil {
 		t.Fatalf("CallModel without system prompt failed: %v", err)
 	}
 
@@ -98,7 +98,7 @@ func TestOpenAICompatibleProvider_RedactsHTTPErrorResponseBody(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	provider := NewOpenAICompatibleProvider("test-provider", server.URL, "test-token")
-	_, err := provider.CallModel(context.Background(), "operation-1", "test-model", "", secretMarker)
+	_, err := provider.CallModel(context.Background(), "operation-1", "test-model", secretMarker)
 	if err == nil {
 		t.Fatal("CallModel returned nil error")
 	}
@@ -144,10 +144,10 @@ func TestOpenAICompatibleProvider_ReusesConnectionAfterBoundedHTTPError(t *testi
 	t.Cleanup(server.Close)
 
 	provider := NewOpenAICompatibleProvider("test-provider", server.URL, "test-token")
-	if _, err := provider.CallModel(context.Background(), "operation-1", "test-model", "", "test prompt"); err == nil {
+	if _, err := provider.CallModel(context.Background(), "operation-1", "test-model", "test prompt"); err == nil {
 		t.Fatal("first CallModel returned nil error")
 	}
-	if _, err := provider.CallModel(context.Background(), "operation-2", "test-model", "", "test prompt"); err != nil {
+	if _, err := provider.CallModel(context.Background(), "operation-2", "test-model", "test prompt"); err != nil {
 		t.Fatalf("second CallModel failed: %v", err)
 	}
 
