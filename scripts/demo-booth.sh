@@ -468,6 +468,10 @@ create_runtime_provider_secret() {
     --from-env-file=/dev/stdin \
     --dry-run=client \
     -o yaml | kubectl apply -f - >/dev/null
+  if [[ -n "$(kubectl -n "${NS_OPERATOR}" get secret "${DEMO_SECRET}" -o jsonpath='{.data.OPENAI_API_KEY}' 2>/dev/null || true)" ]]; then
+    kubectl -n "${NS_OPERATOR}" patch secret "${DEMO_SECRET}" --type=json \
+      -p='[{"op":"remove","path":"/data/OPENAI_API_KEY"}]' >/dev/null
+  fi
   unset existing_master_key existing_master_key_with_sentinel master_key
   ok "Runtime Secret ${DEMO_SECRET} created without printing key values"
 }
@@ -586,13 +590,15 @@ YAML
 }
 
 assert_runtime_secret_shape() {
-  local secret_keys required_key
+  local secret_keys required_key expected_keys
   secret_keys="$(kubectl -n "${NS_OPERATOR}" get secret "${DEMO_SECRET}" \
-    -o go-template='{{range $key, $value := .data}}{{$key}}{{"\n"}}{{end}}')"
+    -o go-template='{{range $key, $value := .data}}{{$key}}{{"\n"}}{{end}}' | LC_ALL=C sort)"
   for required_key in ANTHROPIC_API_KEY LITELLM_MASTER_KEY api-key; do
     grep -Fxq "${required_key}" <<<"${secret_keys}" || die "Secret ${DEMO_SECRET} is missing key ${required_key}. Run --prepare again."
   done
-  ok "Runtime Secret has all required key names"
+  expected_keys=$'ANTHROPIC_API_KEY\nLITELLM_MASTER_KEY\napi-key'
+  [[ "${secret_keys}" == "${expected_keys}" ]] || die "Secret ${DEMO_SECRET} has unexpected key names. Run --prepare again."
+  ok "Runtime Secret has the exact showcase key allowlist"
 }
 
 ANF_TEMP_FILE=""
@@ -670,7 +676,11 @@ try:
         raw = source.read()
 
     text = raw.decode("utf-8")
-    if any(unicodedata.category(char) == "Cc" and char not in "\t\n" for char in text):
+    if any(
+      unicodedata.category(char) in ("Zl", "Zp")
+      or (unicodedata.category(char) == "Cc" and char not in "\t\n")
+      for char in text
+    ):
         raise ValueError
     reserved = ("BEGIN ANF CONTEXT", "END ANF CONTEXT", "ANF_CONTEXT_INSERT_HERE")
     if any(token in text for token in reserved):
@@ -828,7 +838,12 @@ show_real_routing_and_cost() {
   done
   cleanup_port_forward
 
-  metric_line="$(printf '%s\n' "${metric_output}" | grep '^clawdlinux_agent_cost_dollars{' | grep -F 'workload="booth-incident-investigation"' | grep -F 'model="litellm/clawdlinux-anthropic"' | head -1 || true)"
+  metric_line="$(printf '%s\n' "${metric_output}" |
+    grep '^clawdlinux_agent_cost_dollars{' |
+    grep -E '[{,]workload="booth-incident-investigation"([,}])' |
+    grep -E '[{,]namespace="'"${NS_OPERATOR}"'"([,}])' |
+    grep -E '[{,]model="litellm/clawdlinux-anthropic"([,}])' |
+    head -1 || true)"
   [[ -n "${metric_line}" ]] || die "Claude cost metric is missing for the booth workload"
   metric_value="$(awk '{print $NF}' <<<"${metric_line}")"
   awk -v cost="${metric_value:-0}" 'BEGIN { exit !(cost + 0 > 0) }' || die "clawdlinux_agent_cost_dollars is zero"

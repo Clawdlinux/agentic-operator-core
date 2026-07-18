@@ -232,6 +232,8 @@ func Test_AgentWorkloadReconciler_routeAndCallModel(t *testing.T) {
 func TestRouteAndCallModel_RedactsObjectiveOnFailure(t *testing.T) {
 	t.Parallel()
 
+	const reflectedBodyMarker = "REFLECTED_PROVIDER_BODY_MARKER"
+	objective := "SECRET_OBJECTIVE_MARKER analyze quarterly revenue data"
 	var logOutput strings.Builder
 	logger := funcr.New(func(prefix, args string) {
 		logOutput.WriteString(prefix)
@@ -240,10 +242,12 @@ func TestRouteAndCallModel_RedactsObjectiveOnFailure(t *testing.T) {
 	}, funcr.Options{})
 	ctx := logf.IntoContext(context.Background(), logger)
 	scheme := newControllerTestScheme(t)
-	mockServer := newMockOpenAIServer(mockOpenAIScenarioHTTP500)
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(reflectedBodyMarker + objective))
+	}))
 	defer mockServer.Close()
 
-	objective := "SECRET_OBJECTIVE_MARKER analyze quarterly revenue data"
 	strategy := "cost-aware"
 	classifier := "default"
 	endpoint := mockServer.URL
@@ -279,10 +283,15 @@ func TestRouteAndCallModel_RedactsObjectiveOnFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected provider failure")
 	}
+	if strings.Contains(err.Error(), objective) || strings.Contains(err.Error(), reflectedBodyMarker) {
+		t.Fatalf("routing failure error leaked provider response content: %s", err)
+	}
 
 	logs := logOutput.String()
-	if strings.Contains(logs, objective) || strings.Contains(logs, "SECRET_OBJECTIVE_MARKER") {
-		t.Fatalf("routing failure log leaked objective content: %s", logs)
+	if strings.Contains(logs, objective) ||
+		strings.Contains(logs, "SECRET_OBJECTIVE_MARKER") ||
+		strings.Contains(logs, reflectedBodyMarker) {
+		t.Fatalf("routing failure log leaked objective or provider response content: %s", logs)
 	}
 	digest := sha256.Sum256([]byte(objective))
 	for _, expected := range []string{

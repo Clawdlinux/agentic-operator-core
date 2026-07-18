@@ -48,6 +48,34 @@ type ModelResponse struct {
 	Raw map[string]interface{}
 }
 
+// ProviderHTTPError reports a provider HTTP failure without retaining response content.
+type ProviderHTTPError struct {
+	StatusCode int
+	RequestID  string
+}
+
+func (e *ProviderHTTPError) Error() string {
+	if e.RequestID != "" {
+		return fmt.Sprintf("provider returned HTTP status %d (request_id=%s)", e.StatusCode, e.RequestID)
+	}
+	return fmt.Sprintf("provider returned HTTP status %d", e.StatusCode)
+}
+
+func safeProviderRequestID(value string) string {
+	if value == "" || len(value) > 128 {
+		return ""
+	}
+	for _, char := range value {
+		if !((char >= 'a' && char <= 'z') ||
+			(char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') ||
+			char == '-' || char == '_' || char == '.' || char == ':') {
+			return ""
+		}
+	}
+	return value
+}
+
 // OpenAICompatibleProvider implements the Provider interface for OpenAI-compatible APIs
 type OpenAICompatibleProvider struct {
 	name     string
@@ -118,8 +146,11 @@ func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, operationID, m
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		return nil, &ProviderHTTPError{
+			StatusCode: resp.StatusCode,
+			RequestID:  safeProviderRequestID(resp.Header.Get("X-Request-ID")),
+		}
 	}
 
 	// Parse response
