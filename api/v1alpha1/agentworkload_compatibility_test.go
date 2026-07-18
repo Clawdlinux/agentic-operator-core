@@ -308,6 +308,8 @@ func TestAgentWorkloadCompatibility_CRDObjectiveLength(t *testing.T) {
 		{name: "4 KiB objective", objective: strings.Repeat("a", 4096), wantValid: true},
 		{name: "32 KiB objective", objective: strings.Repeat("a", 32768), wantValid: true},
 		{name: "over 32 KiB objective", objective: strings.Repeat("a", 32769), wantValid: false},
+		{name: "32768 multibyte characters", objective: strings.Repeat("é", 32768), wantValid: true},
+		{name: "32769 multibyte characters", objective: strings.Repeat("é", 32769), wantValid: false},
 	}
 
 	for _, tc := range testCases {
@@ -344,6 +346,20 @@ func TestAgentWorkloadCompatibility_WebhookAcceptsBoundedContextObjective(t *tes
 
 	if err := workload.ValidateCreate(); err != nil {
 		t.Fatalf("4 KiB objective allowed by the CRD must pass webhook validation: %v", err)
+	}
+}
+
+func TestAgentWorkloadCompatibility_CRDAndWebhookAgreeOnMultibyteObjective(t *testing.T) {
+	objective := strings.Repeat("é", 32768)
+	workload := &AgentWorkload{
+		Spec: AgentWorkloadSpec{
+			Objective: &objective,
+			Agents:    []string{"agent1"},
+		},
+	}
+
+	if err := workload.ValidateCreate(); err != nil {
+		t.Fatalf("webhook rejected CRD-valid multibyte objective: %v", err)
 	}
 }
 

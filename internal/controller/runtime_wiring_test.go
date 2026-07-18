@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -231,6 +233,35 @@ func TestReconcileViaRuntime_UsesPersistedRuntimeForStatus(t *testing.T) {
 	}
 	if argo.statusCalls != 1 || pod.statusCalls != 0 {
 		t.Fatalf("status calls: argo=%d pod=%d, want argo=1 pod=0", argo.statusCalls, pod.statusCalls)
+	}
+}
+
+func TestReconcile_UsesPersistedRuntimeWhenSpecChanges(t *testing.T) {
+	testCases := []struct {
+		name          string
+		orchestration *agenticv1alpha1.OrchestrationSpec
+	}{
+		{name: "removed", orchestration: nil},
+		{name: "empty", orchestration: &agenticv1alpha1.OrchestrationSpec{Type: runtimeTypePointer("")}},
+		{name: "mutated", orchestration: &agenticv1alpha1.OrchestrationSpec{Type: runtimeTypePointer("pod")}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			workload := executedRuntimeWorkload("full-reconcile-"+tc.name, "pod", "argo")
+			workload.Spec.Orchestration = tc.orchestration
+			argo := &recordingRuntimeAdapter{status: runtimeadapter.ExecutionStatus{Phase: "Running", Name: "execution"}}
+			pod := &recordingRuntimeAdapter{status: runtimeadapter.ExecutionStatus{Phase: "Failed", Name: "execution"}}
+			reconciler := newRuntimeProvenanceReconciler(t, workload, map[string]*recordingRuntimeAdapter{"argo": argo, "pod": pod})
+
+			request := ctrl.Request{NamespacedName: types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}}
+			if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+				t.Fatalf("Reconcile() error: %v", err)
+			}
+			if argo.statusCalls != 1 || pod.statusCalls != 0 {
+				t.Fatalf("status calls: argo=%d pod=%d, want argo=1 pod=0", argo.statusCalls, pod.statusCalls)
+			}
+		})
 	}
 }
 

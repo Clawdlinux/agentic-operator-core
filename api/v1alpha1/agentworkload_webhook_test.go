@@ -168,6 +168,27 @@ func TestWebhook_AcceptsObjectiveAtLimit(t *testing.T) {
 	}
 }
 
+func TestWebhook_ObjectiveLimitCountsUnicodeCharacters(t *testing.T) {
+	objective := strings.Repeat("é", 32768)
+	workload := &AgentWorkload{
+		Spec: AgentWorkloadSpec{
+			WorkloadType:      stringPtr("generic"),
+			MCPServerEndpoint: stringPtr("https://localhost:8000"),
+			Objective:         &objective,
+			Agents:            []string{"agent1"},
+		},
+	}
+
+	if err := workload.ValidateCreate(); err != nil {
+		t.Fatalf("32768-character multibyte objective was rejected: %v", err)
+	}
+
+	objective += "é"
+	if err := workload.ValidateCreate(); err == nil {
+		t.Fatal("32769-character multibyte objective was accepted")
+	}
+}
+
 func TestWebhook_AcceptAllWorkloadTypes(t *testing.T) {
 	workloadTypes := []string{"generic", "ceph", "minio", "postgres", "aws", "kubernetes"}
 

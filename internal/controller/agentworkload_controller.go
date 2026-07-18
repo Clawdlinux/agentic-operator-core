@@ -228,6 +228,12 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	// A persisted execution reference is authoritative. Resume it through the
+	// recorded adapter even if the mutable orchestration spec was removed.
+	if workload.Status.ArgoWorkflow != nil && workload.Status.ArgoWorkflow.Name != "" {
+		return r.reconcileViaRuntime(ctx, &workload)
+	}
+
 	if err := r.reconcilePersonaNamespaceLabels(ctx, &workload); err != nil {
 		log.Error(err, "failed to reconcile persona labels on namespace")
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
