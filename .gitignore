@@ -26,6 +26,10 @@ landing/dist/
 landing/.vercel/
 *.tsbuildinfo
 
+# Local agent tooling (installed caveman skills, not product code)
+.agents/
+skills-lock.json
+
 # Go workspace file
 go.work
 go.work.sum
