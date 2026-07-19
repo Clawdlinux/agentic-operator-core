@@ -1,0 +1,27 @@
+:root {
+  color-scheme: dark;
+
+  --clawd-color-night: #05080f;
+  --clawd-color-ice: #e2e8f0;
+  --clawd-color-signal: #60a5fa;
+  --clawd-color-evidence: #00d4aa;
+
+  --clawd-surface-base: var(--clawd-color-night);
+  --clawd-surface-raised: #0f1420;
+  --clawd-surface-overlay: #1a202c;
+  --clawd-border-subtle: rgb(255 255 255 / 6%);
+  --clawd-border-strong: rgb(255 255 255 / 12%);
+
+  --clawd-text-primary: var(--clawd-color-ice);
+  --clawd-text-secondary: #cbd5e1;
+  --clawd-text-muted: #94a3b8;
+
+  --clawd-evidence-live: var(--clawd-color-evidence);
+  --clawd-evidence-config: var(--clawd-color-signal);
+  --clawd-evidence-prior: #94a3b8;
+  --clawd-focus-ring: 0 0 0 3px rgb(96 165 250 / 45%);
+
+  --clawd-font-display: "Space Grotesk", "Avenir Next", sans-serif;
+  --clawd-font-evidence: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  --clawd-radius-standard: 8px;
+}

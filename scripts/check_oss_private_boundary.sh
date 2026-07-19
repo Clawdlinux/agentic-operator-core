@@ -25,7 +25,8 @@ PRIVATE_PATH_SIGNALS=(
   "tenant_quota"
 )
 
-PRIVATE_CONTENT_REGEX='billing|invoice|payment|subscription|licensing|license[[:space:]_-]?key|license[[:space:]_-]?enforcement|commercial|enterprise|entitlement|multi[[:space:]_-]?tenant|multitenant|tenant[[:space:]_-]?isolation|tenant[[:space:]_-]?quota|premium[[:space:]_-]?tier|paid[[:space:]_-]?tier|sla'
+PRIVATE_CONTENT_REGEX='billing|invoice|payment|subscription|licensing|license[[:space:]_-]?key|license[[:space:]_-]?enforcement|commercial|enterprise|entitlement|multi[[:space:]_-]?tenant|multitenant|tenant[[:space:]_-]?isolation|tenant[[:space:]_-]?quota|premium[[:space:]_-]?tier|paid[[:space:]_-]?tier'
+PRIVATE_SLA_REGEX='(^|[^[:alnum:]_])sla([^[:alnum:]_]|$)'
 
 ALLOWLIST_PATTERNS=()
 
@@ -111,6 +112,10 @@ is_allowlisted_path() {
   local path="$1"
   local pattern
 
+  if [[ "${#ALLOWLIST_PATTERNS[@]}" -eq 0 ]]; then
+    return 1
+  fi
+
   for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
     if [[ "${path}" == ${pattern} ]]; then
       return 0
@@ -185,8 +190,14 @@ for path in "${CHANGED_FILES[@]}"; do
   if [[ -n "${added_lines}" ]]; then
     lower_added_lines="$(printf '%s\n' "${added_lines}" | tr '[:upper:]' '[:lower:]')"
 
-    if echo "${lower_added_lines}" | grep -Eq "${PRIVATE_CONTENT_REGEX}"; then
-      match="$(echo "${lower_added_lines}" | grep -Eo "${PRIVATE_CONTENT_REGEX}" | head -n 1)"
+    match=""
+    if grep -Eq "${PRIVATE_CONTENT_REGEX}" <<<"${lower_added_lines}"; then
+      match="$(grep -Eom1 "${PRIVATE_CONTENT_REGEX}" <<<"${lower_added_lines}")"
+    elif grep -Eq "${PRIVATE_SLA_REGEX}" <<<"${lower_added_lines}"; then
+      match="sla"
+    fi
+
+    if [[ -n "${match}" ]]; then
       REASONS+=("added content contains '${match}'")
     fi
   fi

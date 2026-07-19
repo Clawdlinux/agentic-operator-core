@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -153,8 +154,9 @@ func (r *AgentWorkload) validate() error {
 		if len(*r.Spec.Objective) == 0 {
 			allErrs = append(allErrs, "objective must not be empty")
 		}
-		if len(*r.Spec.Objective) > 1000 {
-			allErrs = append(allErrs, fmt.Sprintf("objective must be ≤ 1000 characters, got %d", len(*r.Spec.Objective)))
+		objectiveLength := utf8.RuneCountInString(*r.Spec.Objective)
+		if objectiveLength > 32768 {
+			allErrs = append(allErrs, fmt.Sprintf("objective must be at most 32768 characters, got %d", objectiveLength))
 		}
 	}
 

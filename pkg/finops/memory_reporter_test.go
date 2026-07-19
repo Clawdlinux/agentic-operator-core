@@ -88,6 +88,24 @@ func TestMemoryCostReporter_LiteLLMOpenAIAliasPricing(t *testing.T) {
 	}
 }
 
+func TestMemoryCostReporter_LiteLLMAnthropicAliasPricing(t *testing.T) {
+	reporter := NewMemoryCostReporter()
+	ctx := context.Background()
+
+	if err := reporter.RecordUsage(ctx, "litellm-anthropic-alias", "booth-demo", "agentic-system", "litellm/clawdlinux-anthropic", 1000, 500); err != nil {
+		t.Fatalf("RecordUsage failed: %v", err)
+	}
+
+	cost, err := reporter.WorkloadCostToday(ctx, "booth-demo", "agentic-system")
+	if err != nil {
+		t.Fatalf("WorkloadCostToday failed: %v", err)
+	}
+	// Claude Haiku 4.5 is $1/MTok input and $5/MTok output.
+	if cost != 0.0035 {
+		t.Fatalf("Claude Haiku 4.5 alias cost = $%.6f, want $0.003500", cost)
+	}
+}
+
 func TestMemoryCostReporter_BudgetEnforcement(t *testing.T) {
 	r := NewMemoryCostReporter()
 	ctx := context.Background()
@@ -188,4 +206,67 @@ func TestMemoryCostReporter_PrometheusCollectorEmitsClawdlinuxCostMetric(t *test
 		return
 	}
 	t.Fatal("clawdlinux_agent_cost_dollars metric not found")
+}
+
+func TestMemoryCostReporter_MixedModelsEmitExactPerModelCosts(t *testing.T) {
+	t.Parallel()
+
+	reporter := NewMemoryCostReporter()
+	ctx := context.Background()
+	if err := reporter.RecordUsage(ctx, "openai-operation", "mixed-workload", "demo-ns", "openai/gpt-4o-mini", 1000, 500); err != nil {
+		t.Fatalf("record OpenAI usage: %v", err)
+	}
+	if err := reporter.RecordUsage(ctx, "anthropic-operation", "mixed-workload", "demo-ns", "litellm/clawdlinux-anthropic", 1000, 500); err != nil {
+		t.Fatalf("record Anthropic usage: %v", err)
+	}
+
+	usage := reporter.GetUsage("mixed-workload", "demo-ns")
+	if usage == nil {
+		t.Fatal("expected usage record")
+	}
+	if usage.EstimatedCostUSD != 0.00395 {
+		t.Fatalf("workload cost = %.8f, want 0.00395000", usage.EstimatedCostUSD)
+	}
+	if usage.EstimatedCostByModel["openai/gpt-4o-mini"] != 0.00045 {
+		t.Fatalf("OpenAI cost = %.8f, want 0.00045000", usage.EstimatedCostByModel["openai/gpt-4o-mini"])
+	}
+	if usage.EstimatedCostByModel["litellm/clawdlinux-anthropic"] != 0.0035 {
+		t.Fatalf("Anthropic cost = %.8f, want 0.00350000", usage.EstimatedCostByModel["litellm/clawdlinux-anthropic"])
+	}
+
+	registry := prometheus.NewRegistry()
+	if err := registry.Register(reporter.PrometheusCollector()); err != nil {
+		t.Fatalf("register collector: %v", err)
+	}
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+	modelCosts := map[string]float64{}
+	for _, family := range metricFamilies {
+		if family.GetName() != "clawdlinux_agent_cost_dollars" {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			model := ""
+			for _, label := range metric.GetLabel() {
+				if label.GetName() == "model" {
+					model = label.GetValue()
+				}
+			}
+			modelCosts[model] = metric.GetGauge().GetValue()
+		}
+	}
+	if modelCosts["openai/gpt-4o-mini"] != 0.00045 {
+		t.Fatalf("OpenAI metric = %.8f, want 0.00045000", modelCosts["openai/gpt-4o-mini"])
+	}
+	if modelCosts["litellm/clawdlinux-anthropic"] != 0.0035 {
+		t.Fatalf("Anthropic metric = %.8f, want 0.00350000", modelCosts["litellm/clawdlinux-anthropic"])
+	}
+
+	usage.EstimatedCostByModel["openai/gpt-4o-mini"] = 99
+	isolatedCopy := reporter.GetUsage("mixed-workload", "demo-ns")
+	if isolatedCopy.EstimatedCostByModel["openai/gpt-4o-mini"] != 0.00045 {
+		t.Fatal("GetUsage returned a shared EstimatedCostByModel map")
+	}
 }

@@ -1,0 +1,66 @@
+
+Dashboard:  http://127.0.0.1:8765
+Open that URL now (full-screen it on the showcase display).
+
+  starting in 5...  starting in 4...  starting in 3...  starting in 2...  starting in 1...                              [OK] Runtime Secret has the exact showcase key allowlist
+
+==> LIVE: Claude-routed AgentWorkload through in-cluster LiteLLM
+
+==> LIVE: Kubernetes state translated to Agent Native Format
+ANF context: source=kubernetes/kind-clawdlinux-demo scope=namespace:agentic-system source_bytes=38023 source_objects=7 projected_objects=5 unprojected_pods=2 omitted_containers=0 omitted_service_ports=1 omitted_named_target_ports=3 document_json_bytes=1339 anf_bytes=621 document_json_tokens_est=334 anf_tokens_est=155 reduction=53.6 top_level_entities=5
+Narration pause: 6s
+AgentWorkload render: name=booth-incident-investigation namespace=agentic-system objective_bytes=1190 anf_injected=true template=false
+[OK] Applied with repo-local agentctl
+AgentWorkload apply: name=booth-incident-investigation namespace=agentic-system via=repo-agentctl
+[OK] AgentWorkload reached Completed
+
+==> LIVE: Claude routing, token, and cost evidence
+Provider result: gateway=litellm route=litellm/clawdlinux-anthropic provider=claude input_tokens=471 output_tokens=491
+Model routing: Task classified as analysis, routed to litellm/clawdlinux-anthropic (input:471 tokens, output:491 tokens)
+Cost annotation: $0.005777
+Cost metric: clawdlinux_agent_cost_dollars{model="litellm/clawdlinux-anthropic",namespace="agentic-system",workload="booth-incident-investigation"} 0.005777
+Cost evidence: annotation_usd=0.005777 metric_usd=0.005777 route=litellm/clawdlinux-anthropic
+Narration pause: 6s
+
+==> SIMULATION / CONFIGURATION PROOF: gVisor admission mutation
+SIMULATION / CONFIGURATION PROOF: server-side dry-run injected runtimeClassName=gvisor. No pod was scheduled.
+
+==> NetworkPolicy object
+networkpolicy.networking.k8s.io/clawdlinux-demo-agentic-operator-default-deny-egress
+networkpolicy.networking.k8s.io/clawdlinux-demo-litellm-provider-egress
+NETWORKPOLICY OBJECT PRESENCE ONLY. Packet enforcement requires an enforcing CNI.
+Narration pause: 6s
+
+==> PRIOR-RUN HMAC-SIGNED AUDIT FIXTURE: offline verification
+PRIOR-RUN ARTIFACT: the current AgentWorkload did not generate this file.
+=== Clawdlinux Audit Verification ===
+Total entries:   6
+OK entries:      6
+Head seq:        6
+Head entry_hash: bde59a42737aebe133cf2f24e4a0dedb75be65439ef259a641d0c72e534a4029
+Head signer_kid: booth-demo-2026
+Checkpoints OK:  0
+Checkpoints bad: 0
+
+PASS — chain is intact and all checkpoints match.
+Narration pause: 6s
+=== Clawdlinux Audit Verification ===
+Total entries:   6
+OK entries:      3
+Head seq:        3
+Head entry_hash: adec3378dd4576ba2a9c6ae73179c3a33f1f4418016075dcc84c6824876839e1
+Head signer_kid: booth-demo-2026
+Checkpoints OK:  0
+Checkpoints bad: 0
+
+FAIL at seq=4: audit: seq=4 entry_hash mismatch: have=64a1d72027101c7f want=9dc704b8a22fa7f1
+[OK] Tampered prior-run artifact was rejected
+
+CURRENT --present EVIDENCE
+- Live Kubernetes state translated into ANF context for the AgentWorkload objective.
+- Claude completion with genuine input/output tokens and nonzero cost evidence.
+- Webhook mutation simulation/configuration proof for runtimeClassName=gvisor. No pod was scheduled.
+- NetworkPolicy object presence only. Packet enforcement was not tested.
+- Prior-run HMAC-signed audit fixture verification. Optional tamper failure.
+
+Run finished. Dashboard server stays up -- Ctrl+C to stop.
