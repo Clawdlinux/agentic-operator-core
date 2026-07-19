@@ -371,7 +371,7 @@ func estimateTokens(characters int) int {
 
 func validateLabel(name, value string, pattern *regexp.Regexp) error {
 	if !pattern.MatchString(value) {
-		return fmt.Errorf("%s is not compatible with the ANF summary contract", name)
+		return fmt.Errorf("%s %q is not compatible with the ANF summary contract", name, value)
 	}
 	return nil
 }

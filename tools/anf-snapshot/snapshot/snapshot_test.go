@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -247,8 +248,16 @@ func TestCaptureRejectsUnsafeSummaryLabels(t *testing.T) {
 		{Cluster: "showcase-cluster", Namespace: "bad-", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "showcase-cluster", Namespace: strings.Repeat("a", 64), Clock: func() time.Time { return fixtureNow }},
 	} {
-		if _, err := Capture(context.Background(), newStaticLister(fixtureSource()), options); err == nil {
+		_, err := Capture(context.Background(), newStaticLister(fixtureSource()), options)
+		if err == nil {
 			t.Fatalf("Capture accepted unsafe summary label in %#v", options)
+		}
+		rejectedValue := options.Cluster
+		if options.Cluster == "showcase-cluster" {
+			rejectedValue = options.Namespace
+		}
+		if !strings.Contains(err.Error(), strconv.Quote(rejectedValue)) {
+			t.Fatalf("Capture error %q does not include rejected value %q", err, rejectedValue)
 		}
 	}
 }
