@@ -228,19 +228,38 @@ func TestCaptureHonorsDeadline(t *testing.T) {
 	}
 }
 
-func TestCaptureRejectsWhitespace(t *testing.T) {
+func TestCaptureRejectsUnsafeSummaryLabels(t *testing.T) {
 	for _, options := range []Options{
 		{Cluster: "bad cluster", Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "bad\tcluster", Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "bad\ncluster", Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "bad/cluster", Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "-bad", Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "bad-", Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: strings.Repeat("a", 129), Namespace: "agentic-system", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "showcase-cluster", Namespace: "bad namespace", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "showcase-cluster", Namespace: "bad\tnamespace", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "showcase-cluster", Namespace: "bad\rnamespace", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "showcase-cluster", Namespace: "bad\x00namespace", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "showcase-cluster", Namespace: "Bad", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "showcase-cluster", Namespace: "bad_namespace", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "showcase-cluster", Namespace: "-bad", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "showcase-cluster", Namespace: "bad-", Clock: func() time.Time { return fixtureNow }},
+		{Cluster: "showcase-cluster", Namespace: strings.Repeat("a", 64), Clock: func() time.Time { return fixtureNow }},
 	} {
 		if _, err := Capture(context.Background(), newStaticLister(fixtureSource()), options); err == nil {
-			t.Fatalf("Capture accepted whitespace in %#v", options)
+			t.Fatalf("Capture accepted unsafe summary label in %#v", options)
 		}
+	}
+}
+
+func TestCaptureAcceptsVisualizerCompatibleSummaryLabels(t *testing.T) {
+	options := testOptions()
+	options.Cluster = "Kind.Demo_1"
+	options.Namespace = "agentic-system"
+
+	if _, err := Capture(context.Background(), newStaticLister(fixtureSource()), options); err != nil {
+		t.Fatalf("Capture rejected visualizer-compatible labels: %v", err)
 	}
 }
 

@@ -7,10 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/Clawdlinux/agent-native-format/pkg/anf"
 	anfkubernetes "github.com/Clawdlinux/agent-native-format/translators/kubernetes"
@@ -20,6 +20,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+)
+
+var (
+	summaryClusterPattern   = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$`)
+	summaryNamespacePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 )
 
 // Lister provides the five sequential Kubernetes reads used by a snapshot.
@@ -110,10 +115,10 @@ type Result struct {
 
 // Capture fetches every required list before producing a deterministic snapshot.
 func Capture(ctx context.Context, lister Lister, options Options) (*Result, error) {
-	if err := validateLabel("cluster", options.Cluster); err != nil {
+	if err := validateLabel("cluster", options.Cluster, summaryClusterPattern); err != nil {
 		return nil, err
 	}
-	if err := validateLabel("namespace", options.Namespace); err != nil {
+	if err := validateLabel("namespace", options.Namespace, summaryNamespacePattern); err != nil {
 		return nil, err
 	}
 
@@ -364,17 +369,9 @@ func estimateTokens(characters int) int {
 	return tokens
 }
 
-func validateLabel(name, value string) error {
-	if strings.TrimSpace(value) == "" {
-		return fmt.Errorf("%s must not be empty", name)
-	}
-	for _, character := range value {
-		if unicode.IsSpace(character) {
-			return fmt.Errorf("%s contains whitespace", name)
-		}
-		if unicode.IsControl(character) {
-			return fmt.Errorf("%s contains a control character", name)
-		}
+func validateLabel(name, value string, pattern *regexp.Regexp) error {
+	if !pattern.MatchString(value) {
+		return fmt.Errorf("%s is not compatible with the ANF summary contract", name)
 	}
 	return nil
 }

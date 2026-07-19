@@ -146,7 +146,7 @@ func TestWebhook_RejectObjectiveTooLong(t *testing.T) {
 
 	err := workload.ValidateCreate()
 	if err == nil {
-		t.Error("Expected validation error for objective > 32768 bytes, got nil")
+		t.Error("Expected validation error for objective > 32768 characters, got nil")
 	} else {
 		t.Logf("Correctly rejected: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestWebhook_AcceptsObjectiveAtLimit(t *testing.T) {
 	}
 
 	if err := workload.ValidateCreate(); err != nil {
-		t.Fatalf("objective at 32768-byte limit was rejected: %v", err)
+		t.Fatalf("objective at 32768-character limit was rejected: %v", err)
 	}
 }
 
