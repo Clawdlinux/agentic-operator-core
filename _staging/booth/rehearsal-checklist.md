@@ -29,13 +29,14 @@ Driver script: `scripts/demo-booth.sh`.
 
 ## 2. Present the 5-7 minute flow
 
-- [ ] Run `scripts/demo-booth.sh --present`.
-- [ ] **REAL:** AgentWorkload reaches `Completed` after one OpenAI-routed call.
+- [ ] Run `scripts/demo-booth.sh --present --scenario all`.
+- [ ] **REAL:** Success fixture reports `expected=Complete observed=Complete`.
+- [ ] **REAL:** Fault fixture reports `expected=Failed observed=Failed`.
+- [ ] **REAL:** Both AgentWorkloads reach `Completed` after Claude-routed calls.
 - [ ] **REAL:** Routing condition shows genuine input and output token counts.
 - [ ] **REAL:** Cost annotation is greater than zero.
 - [ ] **REAL:** `clawdlinux_agent_cost_dollars` is greater than zero.
-- [ ] **REAL:** Separate Anthropic request reports provider reachability.
-- [ ] Do not claim the AgentWorkload used Anthropic.
+- [ ] **REAL:** Each provider result reports the Claude route through LiteLLM.
 - [ ] **SIMULATION / CONFIGURATION PROOF:** Dry-run injects `runtimeClassName=gvisor`.
 - [ ] State that no gVisor pod was scheduled on kind/macOS.
 - [ ] **NETWORKPOLICY OBJECT PRESENCE ONLY:** Show the NetworkPolicy object.
@@ -47,7 +48,7 @@ Driver script: `scripts/demo-booth.sh`.
 
 - [ ] State that the current workload did not create the fixture.
 - [ ] **PRIOR-RUN ARTIFACT:** Verify the checked-in JSONL file offline.
-- [ ] Optionally run `scripts/demo-booth.sh --present --tamper-audit`.
+- [ ] Optionally run `scripts/demo-booth.sh --present --scenario all --tamper-audit`.
 - [ ] Confirm the altered temporary artifact fails verification.
 - [ ] State that audit recording is not wired into reconciliation yet.
 
@@ -70,6 +71,6 @@ Booth-ready bar: 5 consecutive runs under 7 minutes with every truth label spoke
 
 ## Optional: record a backup
 
-- [ ] `scripts/record-demo.sh` records the present path.
-- [ ] Set `DEMO_TAMPER_AUDIT=true` to include the tamper proof.
+- [ ] `scripts/record-demo.sh --scenario all --duration 120` records both scenarios.
+- [ ] The recorder includes the tamper proof by default.
 - [ ] Review the recording for accidental key output before sharing it.

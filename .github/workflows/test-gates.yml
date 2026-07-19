@@ -47,7 +47,10 @@ jobs:
         run: make scan-secrets
 
       - name: Run booth CLI smoke tests
-        run: bash tests/smoke/test_demo_booth_cli.sh
+        run: |
+          bash tests/smoke/test_demo_booth_cli.sh
+          bash tests/smoke/test_record_demo.sh
+          python3 -m unittest scripts.demo_visualizer_test
 
       - name: Set up Go
         uses: actions/setup-go@v5

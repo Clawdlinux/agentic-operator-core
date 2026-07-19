@@ -137,6 +137,33 @@
 
   .section-label { color: var(--clawd-text-muted); }
 
+  .source-process {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    color: var(--clawd-text-muted);
+    font-family: var(--clawd-font-evidence);
+    font-size: 10px;
+  }
+
+  .source-command {
+    overflow: hidden;
+    color: var(--clawd-text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .source-state {
+    color: var(--clawd-text-muted);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .source-state.running { color: var(--clawd-evidence-live); }
+  .source-state.failed { color: var(--console-danger); }
+
   .scope-label {
     display: inline-block;
     padding: 3px 5px;
@@ -181,6 +208,16 @@
     background: rgb(0 212 170 / 5%);
   }
 
+  .pipeline-node.controlled {
+    border-color: rgb(251 191 36 / 65%);
+    background: rgb(251 191 36 / 7%);
+  }
+
+  .pipeline-node.unexpected {
+    border-color: rgb(251 113 133 / 65%);
+    background: rgb(251 113 133 / 7%);
+  }
+
   .node-name {
     overflow: hidden;
     color: var(--clawd-text-primary);
@@ -202,6 +239,8 @@
   }
 
   .pipeline-node.verified .node-state { color: var(--clawd-evidence-live); }
+  .pipeline-node.controlled .node-state { color: var(--console-warning); }
+  .pipeline-node.unexpected .node-state { color: var(--console-danger); }
 
   .provider-model {
     color: var(--clawd-text-muted);
@@ -279,7 +318,79 @@
   .instrument-grid {
     display: grid;
     grid-template-columns: 1.05fr 0.82fr 1.13fr;
+    grid-template-rows: auto minmax(0, 1fr);
     min-height: 0;
+  }
+
+  .scenario-strip {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(92px, 0.6fr) minmax(92px, 0.7fr) minmax(150px, 1fr) minmax(0, 1.5fr) minmax(0, 1.5fr);
+    min-width: 0;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--clawd-border-strong);
+  }
+
+  .scenario-field {
+    display: grid;
+    align-content: start;
+    min-width: 0;
+    padding: 0 10px;
+    border-left: 1px solid var(--clawd-border-subtle);
+  }
+
+  .scenario-field:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .scenario-field:last-child { padding-right: 0; }
+
+  .scenario-field-label {
+    color: var(--clawd-text-muted);
+    font-family: var(--clawd-font-evidence);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .scenario-value {
+    min-width: 0;
+    margin-top: 4px;
+    overflow: hidden;
+    color: var(--clawd-text-secondary);
+    font-family: var(--clawd-font-evidence);
+    font-size: 12px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .scenario-observed.matched-complete { color: var(--clawd-evidence-live); }
+  .scenario-observed.matched-failed { color: var(--console-warning); }
+  .scenario-observed.mismatch { color: var(--console-danger); }
+
+  .scenario-yaml {
+    width: 100%;
+    height: 44px;
+    margin-top: 3px;
+    padding: 3px 5px;
+    resize: none;
+    overflow: auto;
+    color: var(--clawd-text-secondary);
+    background: rgb(2 4 10 / 64%);
+    border: 1px solid var(--clawd-border-subtle);
+    border-radius: 2px;
+    font-family: var(--clawd-font-evidence);
+    font-size: 9px;
+    line-height: 1.25;
+    white-space: pre;
+  }
+
+  .scenario-yaml:focus {
+    outline: 1px solid var(--clawd-color-signal);
+    outline-offset: 1px;
   }
 
   .instrument {
@@ -348,6 +459,9 @@
 
   .metric dd.verified,
   .audit-verdict.pass { color: var(--clawd-evidence-live); }
+
+  .metric dd.controlled { color: var(--console-warning); }
+  .metric dd.unexpected { color: var(--console-danger); }
 
   .control dd.configured { color: var(--clawd-evidence-config); }
 
@@ -479,6 +593,11 @@
     .anf-metric { padding-top: 5px; padding-bottom: 5px; }
     .anf-metric dd { font-size: 10px; }
 
+    .scenario-strip { padding: 5px 0; }
+    .scenario-field { padding-right: 7px; padding-left: 7px; }
+    .scenario-value { margin-top: 2px; font-size: 10px; }
+    .scenario-yaml { height: 34px; font-size: 8px; }
+
     .instrument { padding-top: 12px; padding-bottom: 8px; }
 
     .instrument-heading { margin-bottom: 8px; }
@@ -550,6 +669,12 @@
     .anf-metric { padding: 4px 5px; }
     .anf-metric dt { font-size: 8px; }
     .anf-metric dd { font-size: 9px; }
+
+    .scenario-strip { padding: 4px 0; }
+    .scenario-field { padding-right: 6px; padding-left: 6px; }
+    .scenario-field-label { font-size: 8px; }
+    .scenario-value { margin-top: 1px; font-size: 9px; }
+    .scenario-yaml { height: 30px; margin-top: 2px; font-size: 8px; }
 
     .instrument { padding-top: 9px; padding-bottom: 6px; }
 
@@ -646,6 +771,22 @@
 
     .instrument-grid { grid-template-columns: 1fr; }
 
+    .scenario-strip {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 18px 0;
+    }
+
+    .scenario-field:nth-child(4),
+    .scenario-field:nth-child(5) {
+      grid-column: 1 / -1;
+      padding: 12px 0 0;
+      margin-top: 12px;
+      border-top: 1px solid var(--clawd-border-subtle);
+      border-left: 0;
+    }
+
+    .scenario-yaml { height: 86px; }
+
     .instrument {
       padding: 22px 0;
       border-right: 0;
@@ -663,6 +804,23 @@
   }
 
   @media (max-width: 600px) {
+    .scenario-strip { grid-template-columns: 1fr; }
+
+    .scenario-field,
+    .scenario-field:first-child {
+      padding: 9px 0;
+      border-top: 1px solid var(--clawd-border-subtle);
+      border-left: 0;
+    }
+
+    .scenario-field:first-child { border-top: 0; }
+
+    .scenario-field:nth-child(4),
+    .scenario-field:nth-child(5) {
+      padding-top: 9px;
+      margin-top: 0;
+    }
+
     .anf-metrics { grid-template-columns: 1fr; }
 
     .anf-metric,
@@ -704,7 +862,11 @@
   </header>
 
   <section class="provider" aria-labelledby="providerHeading">
-    <div class="section-label" id="providerHeading">Typed ANF pipeline / verified from LIVE detail events</div>
+    <div class="source-process">
+      <span class="section-label" id="providerHeading">Source process</span>
+      <code class="source-command" id="sourceCommand">$ awaiting demo command</code>
+      <span class="source-state" id="sourceState">idle</span>
+    </div>
     <div class="provider-path" aria-label="Kubernetes to ANF to AgentWorkload to LiteLLM to Claude" aria-live="polite">
       <div class="pipeline-node" id="kubernetesNode">
         <span class="node-name">Kubernetes</span>
@@ -752,6 +914,29 @@
   </section>
 
   <div class="instrument-grid">
+    <section class="scenario-strip" aria-labelledby="scenarioHeading">
+      <div class="scenario-field">
+        <span class="scenario-field-label" id="scenarioHeading">Scenario</span>
+        <strong class="scenario-value" id="scenarioId">awaiting selection</strong>
+      </div>
+      <div class="scenario-field">
+        <span class="scenario-field-label">Expected</span>
+        <strong class="scenario-value" id="scenarioExpected">pending</strong>
+      </div>
+      <div class="scenario-field">
+        <span class="scenario-field-label">Observed</span>
+        <strong class="scenario-value scenario-observed" id="scenarioObserved">pending</strong>
+      </div>
+      <label class="scenario-field">
+        <span class="scenario-field-label">Fixture YAML path</span>
+        <textarea class="scenario-yaml" id="fixtureYaml" aria-label="Fixture YAML path" spellcheck="false" readonly># awaiting scenario</textarea>
+      </label>
+      <label class="scenario-field">
+        <span class="scenario-field-label">Workload YAML path</span>
+        <textarea class="scenario-yaml" id="workloadYaml" aria-label="Workload YAML path" spellcheck="false" readonly># awaiting scenario</textarea>
+      </label>
+    </section>
+
     <section class="instrument" aria-labelledby="evidenceHeading">
       <div class="instrument-heading">
         <h2 id="evidenceHeading">Model evidence</h2>
@@ -806,6 +991,8 @@ const elements = {
   connectionDot: byId('connectionDot'),
   connectionText: byId('connectionText'),
   providerModel: byId('providerModel'),
+  sourceCommand: byId('sourceCommand'),
+  sourceState: byId('sourceState'),
   stageLine: byId('stageLine'),
   kubernetesNode: byId('kubernetesNode'),
   kubernetesState: byId('kubernetesState'),
@@ -832,6 +1019,11 @@ const elements = {
   anfTokens: byId('anfTokens'),
   anfReduction: byId('anfReduction'),
   anfTopLevelEntities: byId('anfTopLevelEntities'),
+  scenarioId: byId('scenarioId'),
+  scenarioExpected: byId('scenarioExpected'),
+  scenarioObserved: byId('scenarioObserved'),
+  fixtureYaml: byId('fixtureYaml'),
+  workloadYaml: byId('workloadYaml'),
   completion: byId('completionValue'),
   inputTokens: byId('inputTokens'),
   outputTokens: byId('outputTokens'),
@@ -871,8 +1063,49 @@ function setRunMode(mode) {
   elements.runMode.textContent = 'AWAITING RUN';
 }
 
-function resetRun(mode) {
+function sourceCommandForRun(mode, args) {
+  if (mode === 'replay') {
+    return '$ python3 scripts/demo-visualizer.py --replay [local recording]';
+  }
+  const valueFlags = new Set(['--pace', '--scenario', '--cluster', '--profile']);
+  const switchFlags = new Set([
+    '--present', '--prepare', '--tamper-audit', '--with-swarm', '--skip-argo',
+    '--full', '--record', '--cleanup',
+  ]);
+  const safeArgs = [];
+  const inputArgs = Array.isArray(args) ? args : [];
+  for (let index = 0; index < inputArgs.length; index += 1) {
+    const argument = inputArgs[index];
+    if (switchFlags.has(argument)) {
+      safeArgs.push(argument);
+    } else if (valueFlags.has(argument)) {
+      const value = inputArgs[index + 1];
+      if (typeof value === 'string' && /^[A-Za-z0-9._-]{1,64}$/.test(value)) {
+        safeArgs.push(argument, value);
+        index += 1;
+      }
+    }
+  }
+  return `$ python3 scripts/demo-visualizer.py ${safeArgs.join(' ')}`.trimEnd();
+}
+
+function resetRun(mode, args = []) {
   setRunMode(mode);
+  elements.sourceCommand.textContent = sourceCommandForRun(mode, args);
+  elements.sourceState.textContent = mode ? 'running' : 'idle';
+  elements.sourceState.classList.toggle('running', Boolean(mode));
+  elements.sourceState.classList.remove('failed');
+  resetScenarioVisualState();
+  elements.stageLine.textContent = mode === 'replay'
+    ? 'Playing captured evidence. This is not a live cluster connection.'
+    : 'Waiting for live cluster evidence.';
+  elements.scenarioId.textContent = 'awaiting selection';
+  elements.scenarioExpected.textContent = 'pending';
+  elements.fixtureYaml.value = '# awaiting scenario';
+  elements.workloadYaml.value = '# awaiting scenario';
+}
+
+function resetScenarioVisualState() {
   elements.providerModel.textContent = 'Claude';
   elements.providerModel.classList.remove('resolved');
   const nodeDefaults = [
@@ -884,6 +1117,7 @@ function resetRun(mode) {
   ];
   for (const [node, state, text] of nodeDefaults) {
     node.classList.remove('verified');
+    node.classList.remove('controlled', 'unexpected');
     state.textContent = text;
   }
   const anfValues = [
@@ -904,11 +1138,8 @@ function resetRun(mode) {
     elements.anfTopLevelEntities,
   ];
   for (const value of anfValues) value.textContent = 'pending';
-  elements.stageLine.textContent = mode === 'replay'
-    ? 'Playing captured evidence. This is not a live cluster connection.'
-    : 'Waiting for live cluster evidence.';
   elements.completion.textContent = 'pending';
-  elements.completion.classList.remove('verified');
+  elements.completion.classList.remove('verified', 'controlled', 'unexpected');
   elements.inputTokens.textContent = 'pending';
   elements.outputTokens.textContent = 'pending';
   elements.cost.textContent = 'pending';
@@ -922,6 +1153,8 @@ function resetRun(mode) {
   elements.auditEntries.textContent = 'pending';
   elements.auditSigner.textContent = 'pending';
   elements.auditHash.textContent = 'pending';
+  elements.scenarioObserved.textContent = 'pending';
+  elements.scenarioObserved.classList.remove('matched-complete', 'matched-failed', 'mismatch');
   meaningfulEvents = [];
   elements.eventList.replaceChildren();
 }
@@ -980,6 +1213,53 @@ function applySourceLabel(via) {
   return labels[via] || via;
 }
 
+function formatYamlProof(value) {
+  if (typeof value === 'string') return value;
+  if (value == null) return '# unavailable';
+  return JSON.stringify(value, null, 2);
+}
+
+function normalizeScenarioState(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'completed') return 'complete';
+  if (normalized === 'fail') return 'failed';
+  return normalized;
+}
+
+function handleScenarioSelected(event) {
+  resetScenarioVisualState();
+  elements.scenarioId.textContent = event.id || 'unnamed scenario';
+  elements.scenarioExpected.textContent = event.expected || 'pending';
+  elements.fixtureYaml.value = formatYamlProof(event.fixture);
+  elements.workloadYaml.value = formatYamlProof(event.workload);
+  elements.stageLine.textContent = `Scenario ${elements.scenarioId.textContent} selected. Waiting for evidence.`;
+}
+
+function handleScenarioResult(event) {
+  const expected = normalizeScenarioState(event.expected);
+  const observed = normalizeScenarioState(event.observed);
+  const matched = expected !== '' && expected === observed;
+
+  if (event.id) elements.scenarioId.textContent = event.id;
+  elements.scenarioExpected.textContent = event.expected || 'pending';
+  elements.scenarioObserved.classList.remove('matched-complete', 'matched-failed', 'mismatch');
+
+  if (matched && observed === 'complete') {
+    elements.scenarioObserved.textContent = 'Complete | matched';
+    elements.scenarioObserved.classList.add('matched-complete');
+    elements.stageLine.textContent = `Fixture ${elements.scenarioId.textContent} matched Complete.`;
+  } else if (matched && observed === 'failed') {
+    elements.scenarioObserved.textContent = 'Failed | controlled fault matched';
+    elements.scenarioObserved.classList.add('matched-failed');
+    elements.stageLine.textContent = `Fixture ${elements.scenarioId.textContent} matched Failed as a controlled fault.`;
+  } else {
+    const observedLabel = event.observed || 'unknown';
+    elements.scenarioObserved.textContent = `${observedLabel} | expected ${event.expected || 'unknown'}`;
+    elements.scenarioObserved.classList.add('mismatch');
+    elements.stageLine.textContent = `Fixture ${elements.scenarioId.textContent} did not match its expected state.`;
+  }
+}
+
 function handleANFSummary(event) {
   verifyNode(elements.kubernetesNode, elements.kubernetesState, 'captured');
   verifyNode(elements.anfNode, elements.anfState, 'encoded');
@@ -1001,7 +1281,11 @@ function handleANFSummary(event) {
 }
 
 function handleDetail(event) {
-  if (event.kind === 'anf-summary') {
+  if (event.kind === 'scenario-selected') {
+    handleScenarioSelected(event);
+  } else if (event.kind === 'scenario-result') {
+    handleScenarioResult(event);
+  } else if (event.kind === 'anf-summary') {
     handleANFSummary(event);
   } else if (event.kind === 'workload-render') {
     if (event.anf_injected) {
@@ -1076,9 +1360,21 @@ function handleReceipt(event) {
 }
 
 function handleRunEnd(event) {
+  elements.sourceState.textContent = event.exit_code === 0 ? 'complete' : 'failed';
+  elements.sourceState.classList.remove('running');
+  elements.sourceState.classList.toggle('failed', event.exit_code !== 0);
   elements.stageLine.textContent = event.exit_code === 0
     ? (runMode === 'replay' ? 'Recorded rehearsal complete.' : 'Live run complete.')
     : `Run ended with exit code ${event.exit_code}.`;
+}
+
+function handleRunReady(event) {
+  resetRun(event.mode, event.args);
+  elements.sourceState.textContent = 'queued';
+  elements.sourceState.classList.remove('running', 'failed');
+  elements.stageLine.textContent = event.mode === 'replay'
+    ? 'Recorded evidence is queued for replay.'
+    : 'Live command is queued. Waiting for the recording pre-roll.';
 }
 
 function dispatch(event) {
@@ -1093,7 +1389,8 @@ function dispatch(event) {
     seenSequences.add(event.seq);
   }
 
-  if (event.type === 'run-start') resetRun(event.mode);
+  if (event.type === 'run-ready') handleRunReady(event);
+  else if (event.type === 'run-start') resetRun(event.mode, event.args);
   else if (event.type === 'run-end') handleRunEnd(event);
   else if (event.type === 'stage') handleStage(event);
   else if (event.type === 'ok') handleOk(event);

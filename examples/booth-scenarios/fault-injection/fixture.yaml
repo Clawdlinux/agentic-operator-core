@@ -1,0 +1,42 @@
+# EDIT THIS FILE to change the controlled fault fixture.
+# demo-booth.sh injects the running operator image and node before apply.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: booth-fault-fixture
+  namespace: agentic-system
+  labels:
+    app.kubernetes.io/part-of: clawdlinux-booth-demo
+    demo.clawdlinux.org/scenario: fault-injection
+  annotations:
+    demo.clawdlinux.org/template: "true"
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 30
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: clawdlinux-booth-demo
+        demo.clawdlinux.org/scenario: fault-injection
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: fixture
+          image: demo.invalid/operator:replace-me
+          imagePullPolicy: IfNotPresent
+          command: ["/manager"]
+          args: ["--clawdlinux-controlled-fault"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true

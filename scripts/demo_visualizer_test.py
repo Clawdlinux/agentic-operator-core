@@ -5,7 +5,9 @@ import json
 import os
 import queue
 import re
+import signal
 import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -28,6 +30,20 @@ ANF_SUMMARY = (
     "document_json_bytes=4096 anf_bytes=2048 document_json_tokens_est=1024 "
     "anf_tokens_est=512 reduction=-50.0 top_level_entities=4"
 )
+SCENARIO_LINES = {
+    "success": (
+        "Scenario selected: id=success expected=Complete "
+        "fixture=examples/booth-scenarios/success/fixture.yaml "
+        "workload=examples/booth-scenarios/success/workload.template.yaml",
+        "Scenario result: id=success expected=Complete observed=Complete",
+    ),
+    "fault-injection": (
+        "Scenario selected: id=fault-injection expected=Failed "
+        "fixture=examples/booth-scenarios/fault-injection/fixture.yaml "
+        "workload=examples/booth-scenarios/fault-injection/workload.template.yaml",
+        "Scenario result: id=fault-injection expected=Failed observed=Failed",
+    ),
+}
 
 
 def extract_css_block(source, marker):
@@ -209,13 +225,19 @@ class RunModeTest(unittest.TestCase):
         events = []
         process = mock.Mock()
         process.stdout = io.StringIO("[OK] AgentWorkload reached Completed\n")
+        process.pid = 1234
         process.returncode = 0
-        demo_visualizer.run_process(
-            ["--present"],
-            broadcaster=events.append,
-            process_factory=lambda *args, **kwargs: process,
-            output=io.StringIO(),
-        )
+        process.poll.return_value = 0
+        with (
+            mock.patch.object(demo_visualizer.os, "killpg"),
+            mock.patch.object(demo_visualizer, "process_group_exists", return_value=False),
+        ):
+            demo_visualizer.run_process(
+                ["--present"],
+                broadcaster=events.append,
+                process_factory=lambda *args, **kwargs: process,
+                output=io.StringIO(),
+            )
 
         self.assertEqual(events[0]["type"], "run-start")
         self.assertEqual(events[0].get("mode"), "live")
@@ -225,14 +247,20 @@ class RunModeTest(unittest.TestCase):
         output = io.StringIO()
         process = mock.Mock()
         process.stdout = io.StringIO("upstream diagnostic without a known prefix\r\n")
+        process.pid = 1234
         process.returncode = 0
+        process.poll.return_value = 0
 
-        demo_visualizer.run_process(
-            ["--present"],
-            broadcaster=events.append,
-            process_factory=lambda *args, **kwargs: process,
-            output=output,
-        )
+        with (
+            mock.patch.object(demo_visualizer.os, "killpg"),
+            mock.patch.object(demo_visualizer, "process_group_exists", return_value=False),
+        ):
+            demo_visualizer.run_process(
+                ["--present"],
+                broadcaster=events.append,
+                process_factory=lambda *args, **kwargs: process,
+                output=output,
+            )
 
         self.assertEqual(
             [event["type"] for event in events],
@@ -241,6 +269,91 @@ class RunModeTest(unittest.TestCase):
         self.assertEqual(
             output.getvalue(),
             "upstream diagnostic without a known prefix\r\n",
+        )
+
+    def test_interruption_terminates_and_escalates_child_process_group(self):
+        class InterruptedOutput:
+            def __iter__(self):
+                raise KeyboardInterrupt
+
+        process = mock.Mock()
+        process.stdout = InterruptedOutput()
+        process.pid = 4321
+        process.poll.return_value = None
+        process.wait.return_value = 0
+
+        with (
+            mock.patch.object(demo_visualizer.os, "killpg") as killpg,
+            mock.patch.object(
+                demo_visualizer,
+                "process_group_exists",
+                side_effect=[True, True],
+            ),
+            mock.patch.object(demo_visualizer.time, "monotonic", side_effect=[0, 6]),
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                demo_visualizer.run_process(
+                    ["--present"],
+                    broadcaster=lambda _: None,
+                    process_factory=lambda *args, **kwargs: process,
+                    output=io.StringIO(),
+                )
+
+        self.assertEqual(
+            killpg.call_args_list,
+            [
+                mock.call(4321, signal.SIGTERM),
+                mock.call(4321, signal.SIGKILL),
+            ],
+        )
+        process.wait.assert_called_once_with(timeout=5)
+
+    def test_completed_leader_still_terminates_remaining_process_group(self):
+        process = mock.Mock()
+        process.stdout = io.StringIO("")
+        process.pid = 9876
+        process.returncode = 7
+        process.poll.return_value = 7
+
+        with (
+            mock.patch.object(demo_visualizer.os, "killpg") as killpg,
+            mock.patch.object(
+                demo_visualizer,
+                "process_group_exists",
+                side_effect=[False, False],
+            ),
+        ):
+            demo_visualizer.run_process(
+                ["--present"],
+                broadcaster=lambda _: None,
+                process_factory=lambda *args, **kwargs: process,
+                output=io.StringIO(),
+            )
+
+        killpg.assert_called_once_with(9876, signal.SIGTERM)
+
+    def test_completed_leader_escalates_stubborn_descendant(self):
+        process = mock.Mock()
+        process.pid = 2468
+        process.poll.return_value = 7
+
+        with (
+            mock.patch.object(demo_visualizer.os, "killpg") as killpg,
+            mock.patch.object(
+                demo_visualizer,
+                "process_group_exists",
+                side_effect=[True, True],
+            ),
+            mock.patch.object(demo_visualizer.time, "monotonic", side_effect=[0, 6]),
+        ):
+            demo_visualizer.terminate_process_group(process)
+
+        self.assertEqual(
+            killpg.call_args_list,
+            [
+                mock.call(2468, signal.SIGTERM),
+                mock.call(2468, signal.SIGKILL),
+            ],
         )
 
     def test_replay_pipeline_event_keeps_replay_mode_label(self):
@@ -436,6 +549,36 @@ class DashboardContractTest(unittest.TestCase):
             replay_branch,
         )
 
+    def test_dashboard_shows_allowlisted_source_process(self):
+        self.assertIn('id="sourceCommand"', self.dashboard)
+        self.assertIn('id="sourceState"', self.dashboard)
+        source_command = self.dashboard.split("function sourceCommandForRun", 1)[1]
+        source_command = source_command.split("function resetRun", 1)[0]
+        self.assertIn("'--present'", source_command)
+        self.assertIn("'--tamper-audit'", source_command)
+        self.assertIn("'--pace'", source_command)
+        self.assertIn("--replay [local recording]", source_command)
+        self.assertNotIn("inputArgs.join", source_command)
+
+        dispatch = self.dashboard.split("function dispatch(event)", 1)[1]
+        dispatch = dispatch.split("function connect()", 1)[0]
+        self.assertIn("resetRun(event.mode, event.args)", dispatch)
+
+        run_end = self.dashboard.split("function handleRunEnd(event)", 1)[1]
+        run_end = run_end.split("function dispatch(event)", 1)[0]
+        self.assertIn("elements.sourceState.textContent", run_end)
+        self.assertIn("'complete'", run_end)
+        self.assertIn("'failed'", run_end)
+
+        run_ready = self.dashboard.split("function handleRunReady(event)", 1)[1]
+        run_ready = run_ready.split("function dispatch(event)", 1)[0]
+        self.assertIn("resetRun(event.mode, event.args)", run_ready)
+        self.assertIn("'queued'", run_ready)
+
+        dispatch = self.dashboard.split("function dispatch(event)", 1)[1]
+        dispatch = dispatch.split("function connect()", 1)[0]
+        self.assertIn("event.type === 'run-ready'", dispatch)
+
     def test_typed_pipeline_has_five_stable_nodes(self):
         nodes = re.findall(r'<div class="pipeline-node" id="([^"]+)">', self.dashboard)
 
@@ -493,7 +636,7 @@ class DashboardContractTest(unittest.TestCase):
         self.assertEqual(rules[".anf-metric dd"]["text-overflow"], "clip")
 
     def test_reset_clears_pipeline_proof_and_anf_values(self):
-        reset = self.dashboard.split("function resetRun(mode) {", 1)[1]
+        reset = self.dashboard.split("function resetRun(mode, args = []) {", 1)[1]
         reset = reset.split("function renderEventTail", 1)[0]
 
         self.assertIn("node.classList.remove('verified');", reset)
@@ -969,6 +1112,26 @@ class SSERegistrationTest(unittest.TestCase):
 
 
 class CLIValidationTest(unittest.TestCase):
+    def test_invalid_start_delay_fails_before_server_bind(self):
+        server_factory = mock.Mock()
+        stderr = io.StringIO()
+
+        with (
+            mock.patch.dict(os.environ, {"DEMO_START_DELAY_SECONDS": "31"}),
+            mock.patch.object(sys, "stderr", stderr),
+        ):
+            exit_code = demo_visualizer.main(
+                ["--present"],
+                server_factory=server_factory,
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(
+            stderr.getvalue(),
+            "DEMO_START_DELAY_SECONDS must be an integer from 0 to 30\n",
+        )
+        server_factory.assert_not_called()
+
     def test_replay_without_path_fails_before_server_bind(self):
         server_factory = mock.Mock()
         stderr = io.StringIO()
@@ -1062,6 +1225,29 @@ class CLIValidationTest(unittest.TestCase):
         self.assertTrue(server.close_called)
 
 
+class ThreadingHTTPServerErrorTest(unittest.TestCase):
+    def test_expected_client_disconnect_errors_are_quiet(self):
+        server = object.__new__(demo_visualizer.ThreadingHTTPServer)
+        for error in (BrokenPipeError("closed"), ConnectionResetError("reset")):
+            with (
+                self.subTest(error=type(error).__name__),
+                mock.patch.object(sys, "exc_info", return_value=(type(error), error, None)),
+                mock.patch.object(http.server.HTTPServer, "handle_error") as parent,
+            ):
+                server.handle_error(None, ("127.0.0.1", 0))
+                parent.assert_not_called()
+
+    def test_unexpected_server_errors_reach_parent_handler(self):
+        server = object.__new__(demo_visualizer.ThreadingHTTPServer)
+        error = RuntimeError("unexpected")
+        with (
+            mock.patch.object(sys, "exc_info", return_value=(RuntimeError, error, None)),
+            mock.patch.object(http.server.HTTPServer, "handle_error") as parent,
+        ):
+            server.handle_error(None, ("127.0.0.1", 0))
+            parent.assert_called_once_with(None, ("127.0.0.1", 0))
+
+
 class ParserEvidenceScopeTest(unittest.TestCase):
     def test_parser_preserves_live_config_and_prior_run_boundaries(self):
         parser = demo_visualizer.Parser()
@@ -1102,6 +1288,116 @@ class ParserEvidenceScopeTest(unittest.TestCase):
 
         self.assertEqual(receipt["type"], "receipt")
         self.assertEqual(receipt.get("evidence_scope"), "PRIOR RUN")
+
+
+class StrictScenarioParserTest(unittest.TestCase):
+    def test_valid_scenarios_emit_exact_structured_fields(self):
+        for scenario_id, lines in SCENARIO_LINES.items():
+            with self.subTest(scenario_id=scenario_id):
+                parser = demo_visualizer.Parser()
+                selected = parser.parse(lines[0] + "\r\n")
+                result = parser.parse(lines[1] + "\n")
+                scenario = demo_visualizer.SCENARIOS[scenario_id]
+
+                self.assertEqual(
+                    selected,
+                    {
+                        "type": "detail",
+                        "kind": "scenario-selected",
+                        "id": scenario_id,
+                        **scenario,
+                    },
+                )
+                self.assertEqual(
+                    result,
+                    {
+                        "type": "detail",
+                        "kind": "scenario-result",
+                        "id": scenario_id,
+                        **scenario,
+                        "observed": scenario["expected"],
+                    },
+                )
+
+    def test_malformed_and_mismatched_near_matches_stay_generic_logs(self):
+        success_selected, success_result = SCENARIO_LINES["success"]
+        fault_selected, fault_result = SCENARIO_LINES["fault-injection"]
+        samples = (
+            (success_selected.replace("id=success", "id=unknown"),),
+            (success_selected.replace("expected=Complete", "expected=Failed"),),
+            (success_selected.replace("success/fixture", "fault-injection/fixture"),),
+            (success_selected.replace("success/workload", "fault-injection/workload"),),
+            (success_selected.replace(" fixture=", "  fixture="),),
+            (success_selected, success_result.replace("observed=Complete", "observed=Failed")),
+            (fault_selected, fault_result.replace("expected=Failed", "expected=Complete")),
+        )
+
+        for lines in samples:
+            with self.subTest(lines=lines):
+                parser = demo_visualizer.Parser()
+                events = [parser.parse(line) for line in lines]
+                event = events[-1]
+
+                self.assertEqual(event["type"], "log")
+                self.assertNotIn("kind", event)
+
+    def test_result_lines_parse_without_selected_line_for_replay_compatibility(self):
+        for scenario_id, (_, result_line) in SCENARIO_LINES.items():
+            with self.subTest(scenario_id=scenario_id):
+                event = demo_visualizer.Parser().parse(result_line)
+
+                self.assertEqual(event["kind"], "scenario-result")
+                self.assertEqual(event["id"], scenario_id)
+
+    def test_scenario_lines_enforce_256_byte_limit(self):
+        for lines in SCENARIO_LINES.values():
+            for line in lines:
+                with self.subTest(line=line):
+                    self.assertLessEqual(
+                        len(line.encode("utf-8")),
+                        demo_visualizer.SCENARIO_LINE_MAX_BYTES,
+                    )
+
+        prefix = "Scenario selected:"
+        oversized = prefix + "x" * (
+            demo_visualizer.SCENARIO_LINE_MAX_BYTES - len(prefix) + 1
+        )
+        event = demo_visualizer.Parser().parse(oversized)
+
+        self.assertEqual(len(oversized.encode("utf-8")), 257)
+        self.assertEqual(event["type"], "log")
+        self.assertNotIn("kind", event)
+        self.assertLessEqual(
+            len(event["text"].encode("utf-8")),
+            demo_visualizer.EVENT_TEXT_MAX_BYTES,
+        )
+
+    def test_replay_preserves_scenario_order_in_one_run_lifecycle(self):
+        events = []
+        ordered_lines = (
+            *SCENARIO_LINES["success"],
+            *SCENARIO_LINES["fault-injection"],
+        )
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as replay:
+            replay.write("\n".join(ordered_lines) + "\n")
+            replay.flush()
+            demo_visualizer.run_replay(
+                replay.name,
+                broadcaster=events.append,
+                sleeper=lambda _: None,
+            )
+
+        self.assertEqual(
+            [(event["type"], event.get("kind"), event.get("id")) for event in events],
+            [
+                ("run-start", None, None),
+                ("detail", "scenario-selected", "success"),
+                ("detail", "scenario-result", "success"),
+                ("detail", "scenario-selected", "fault-injection"),
+                ("detail", "scenario-result", "fault-injection"),
+                ("run-end", None, None),
+            ],
+        )
 
 
 class StrictANFPipelineParserTest(unittest.TestCase):
@@ -1192,6 +1488,14 @@ class StrictANFPipelineParserTest(unittest.TestCase):
                 self.assertLessEqual(len(event["text"].encode("utf-8")), 160)
                 for field, expected_value in expected_fields.items():
                     self.assertEqual(event[field], expected_value)
+
+    def test_zero_cost_evidence_stays_generic_log(self):
+        event = demo_visualizer.Parser().parse(
+            "Cost evidence: annotation_usd=0 metric_usd=0 "
+            "route=litellm/clawdlinux-anthropic"
+        )
+
+        self.assertIsNone(event)
 
     def test_render_objective_accepts_only_inclusive_byte_bounds(self):
         template = (
