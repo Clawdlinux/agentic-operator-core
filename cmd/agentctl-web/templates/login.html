@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — agentctl</title>
+    <title>Login | Clawdlinux</title>
+    <link rel="stylesheet" href="/theme/clawdlinux-theme.css">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body class="login-body">
     <div class="login-card">
         <div class="login-header">
-            <span class="logo">⚙</span>
-            <h1>agentctl</h1>
-            <p>Agentic Operator Web UI</p>
+            <img class="brand-wordmark" src="/theme/clawdlinux-wordmark.svg" alt="Clawdlinux">
+            <h1>Governance evidence console</h1>
+            <p>Authenticate to inspect cluster evidence.</p>
         </div>
         {{if .Error}}
         <div class="alert alert-error">
@@ -35,5 +36,8 @@
             It is never stored on disk — only in an HttpOnly session cookie.
         </p>
     </div>
+    <footer class="footer login-footer">
+        <span>Clawdlinux</span>
+    </footer>
 </body>
 </html>

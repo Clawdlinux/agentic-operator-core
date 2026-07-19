@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -132,25 +133,59 @@ func TestWebhook_RejectEmptyAgents(t *testing.T) {
 }
 
 func TestWebhook_RejectObjectiveTooLong(t *testing.T) {
-	longObjective := ""
-	for i := 0; i < 1001; i++ {
-		longObjective += "a"
-	}
+	longObjective := strings.Repeat("a", 32769)
 
 	workload := &AgentWorkload{
 		Spec: AgentWorkloadSpec{
 			WorkloadType:      stringPtr("generic"),
 			MCPServerEndpoint: stringPtr("https://localhost:8000"),
-			Objective:         &longObjective, // > 1000 chars
+			Objective:         &longObjective,
 			Agents:            []string{"agent1"},
 		},
 	}
 
 	err := workload.ValidateCreate()
 	if err == nil {
-		t.Error("Expected validation error for objective > 1000 chars, got nil")
+		t.Error("Expected validation error for objective > 32768 characters, got nil")
 	} else {
-		t.Logf("✅ Correctly rejected: %v", err)
+		t.Logf("Correctly rejected: %v", err)
+	}
+}
+
+func TestWebhook_AcceptsObjectiveAtLimit(t *testing.T) {
+	objective := strings.Repeat("a", 32768)
+	workload := &AgentWorkload{
+		Spec: AgentWorkloadSpec{
+			WorkloadType:      stringPtr("generic"),
+			MCPServerEndpoint: stringPtr("https://localhost:8000"),
+			Objective:         &objective,
+			Agents:            []string{"agent1"},
+		},
+	}
+
+	if err := workload.ValidateCreate(); err != nil {
+		t.Fatalf("objective at 32768-character limit was rejected: %v", err)
+	}
+}
+
+func TestWebhook_ObjectiveLimitCountsUnicodeCharacters(t *testing.T) {
+	objective := strings.Repeat("é", 32768)
+	workload := &AgentWorkload{
+		Spec: AgentWorkloadSpec{
+			WorkloadType:      stringPtr("generic"),
+			MCPServerEndpoint: stringPtr("https://localhost:8000"),
+			Objective:         &objective,
+			Agents:            []string{"agent1"},
+		},
+	}
+
+	if err := workload.ValidateCreate(); err != nil {
+		t.Fatalf("32768-character multibyte objective was rejected: %v", err)
+	}
+
+	objective += "é"
+	if err := workload.ValidateCreate(); err == nil {
+		t.Fatal("32769-character multibyte objective was accepted")
 	}
 }
 

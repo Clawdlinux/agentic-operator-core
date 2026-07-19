@@ -2,7 +2,7 @@
 <div class="detail-card">
     <div class="detail-header">
         <h3>{{.Detail.Name}}</h3>
-        <span class="badge badge-{{lower .Detail.Phase}}">{{phaseIcon .Detail.Phase}} {{.Detail.Phase}}</span>
+        <span class="badge badge-{{lower .Detail.Phase}}">{{.Detail.Phase}}</span>
     </div>
     <div class="detail-meta">
         <span><strong>Namespace:</strong> {{.Detail.Namespace}}</span>
@@ -15,7 +15,7 @@
               hx-target="#workload-table" hx-swap="innerHTML"
               style="display:inline">
             <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-            <button type="submit" class="btn btn-approve">✓ Approve</button>
+            <button type="submit" class="btn btn-approve" title="Approve">Approve</button>
         </form>
         <form method="POST" action="/workloads/{{.Detail.Namespace}}/{{.Detail.Name}}/reject"
               hx-post="/workloads/{{.Detail.Namespace}}/{{.Detail.Name}}/reject"
@@ -24,7 +24,7 @@
             <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
             <input type="text" name="rule" placeholder="OPA rule" class="input-sm">
             <input type="text" name="reason" placeholder="Reason" class="input-sm">
-            <button type="submit" class="btn btn-reject">✗ Reject</button>
+            <button type="submit" class="btn btn-reject" title="Reject">Submit rejection</button>
         </form>
     </div>
     {{end}}

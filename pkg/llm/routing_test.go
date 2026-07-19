@@ -13,6 +13,62 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/routing"
 )
 
+type legacyProvider struct {
+	calledOperationID string
+	calledModel       string
+	calledPrompt      string
+}
+
+var _ Provider = (*legacyProvider)(nil)
+
+func (p *legacyProvider) CallModel(_ context.Context, operationID, model, prompt string) (*ModelResponse, error) {
+	p.calledOperationID = operationID
+	p.calledModel = model
+	p.calledPrompt = prompt
+	return &ModelResponse{Content: "legacy response", Model: model, Provider: p.Name()}, nil
+}
+
+func (p *legacyProvider) Name() string { return "legacy-provider" }
+
+func (p *legacyProvider) Type() string { return "legacy" }
+
+func TestModelRouter_PreservesLegacyProviderContract(t *testing.T) {
+	t.Parallel()
+
+	legacy := &legacyProvider{}
+	registry := NewProviderRegistry()
+	registry.Register(legacy)
+	router := NewModelRouter(registry, routing.NewDefaultClassifier())
+	objective := "Parse this untrusted ANF context"
+	spec := &v1alpha1.AgentWorkloadSpec{
+		Providers: []v1alpha1.LLMProvider{{Name: legacy.Name(), Type: "custom"}},
+		ModelMapping: map[string]string{
+			"validation": legacy.Name() + "/legacy-model",
+		},
+	}
+
+	response, _, err := router.RouteAndCall(
+		context.Background(),
+		fake.NewClientBuilder().WithScheme(scheme.Scheme).Build(),
+		"default",
+		spec,
+		objective,
+		"legacy-operation",
+	)
+	if err != nil {
+		t.Fatalf("RouteAndCall failed: %v", err)
+	}
+	if response.Content != "legacy response" {
+		t.Fatalf("response content = %q, want legacy response", response.Content)
+	}
+	if legacy.calledOperationID != "legacy-operation" || legacy.calledModel != "legacy-model" {
+		t.Fatalf("legacy call = operation %q model %q", legacy.calledOperationID, legacy.calledModel)
+	}
+	if legacy.calledPrompt != objective {
+		t.Fatalf("legacy prompt = %q, want exact objective %q", legacy.calledPrompt, objective)
+	}
+}
+
 // TestModelRouterWithMockProvider tests the full routing flow with a mock provider
 func TestModelRouterWithMockProvider(t *testing.T) {
 	// Register AgentWorkload type

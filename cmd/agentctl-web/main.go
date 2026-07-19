@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/webtheme"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -60,15 +61,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		mux := http.NewServeMux()
-		mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(StaticFS()))))
-		mux.HandleFunc("GET /healthz", handleHealthz)
-		mux.HandleFunc("GET /readyz", handleHealthz)
-		mux.HandleFunc("GET /", srv.handleDemo)
-		mux.HandleFunc("GET /{$}", srv.handleDemo)
-		mux.HandleFunc("GET /demo", srv.handleDemo)
-
-		runHTTPServer(addr, RequestIDMiddleware(AuditMiddleware(mux)))
+		runHTTPServer(addr, demoHandler(srv))
 		return
 	}
 
@@ -114,6 +107,7 @@ func main() {
 
 	// Static files
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(StaticFS()))))
+	mux.Handle("GET /theme/", http.StripPrefix("/theme/", http.FileServer(http.FS(webtheme.FS()))))
 
 	// Health endpoints
 	mux.HandleFunc("GET /healthz", handleHealthz)
@@ -147,6 +141,18 @@ func main() {
 	handler = RequestIDMiddleware(handler)
 
 	runHTTPServer(addr, handler)
+}
+
+func demoHandler(srv *Server) http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(StaticFS()))))
+	mux.Handle("GET /theme/", http.StripPrefix("/theme/", http.FileServer(http.FS(webtheme.FS()))))
+	mux.HandleFunc("GET /healthz", handleHealthz)
+	mux.HandleFunc("GET /readyz", handleHealthz)
+	mux.HandleFunc("GET /", srv.handleDemo)
+	mux.HandleFunc("GET /{$}", srv.handleDemo)
+	mux.HandleFunc("GET /demo", srv.handleDemo)
+	return RequestIDMiddleware(AuditMiddleware(mux))
 }
 
 func runHTTPServer(addr string, handler http.Handler) {

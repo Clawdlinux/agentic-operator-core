@@ -18,7 +18,7 @@ SETUP_ENVTEST := $(LOCALBIN)/setup-envtest
 STATICCHECK := $(LOCALBIN)/staticcheck
 CONTROLLER_GEN := $(LOCALBIN)/controller-gen
 
-.PHONY: help test validate test-unit test-go test-python setup-envtest test-controller fmt fmt-check vet lint build build-agentctl build-agentctl-web install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
+.PHONY: help test validate test-unit test-go test-anf-snapshot vet-anf-snapshot verify-anf-snapshot test-python setup-envtest test-controller fmt fmt-anf-snapshot fmt-check fmt-check-anf-snapshot vet lint staticcheck-anf-snapshot build build-agentctl build-agentctl-web build-anf-snapshot install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
 
 .DEFAULT_GOAL := help
 
@@ -27,15 +27,21 @@ help:
 	@echo "  make test           - Run go + python tests"
 	@echo "  make validate       - Run canonical validation sequence"
 	@echo "  make test-go        - Run go tests (excluding envtest controller)"
+	@echo "  make test-anf-snapshot - Run nested ANF snapshot tests"
+	@echo "  make vet-anf-snapshot - Run nested ANF snapshot vet checks"
 	@echo "  make test-python    - Run python agent tests (creates .venv automatically)"
 	@echo "  make test-controller - Run envtest controller suite"
 	@echo "  make fmt            - Format go code"
+	@echo "  make fmt-anf-snapshot - Format nested ANF snapshot go code"
 	@echo "  make fmt-check      - Fail if go files are not formatted"
+	@echo "  make fmt-check-anf-snapshot - Check nested ANF snapshot formatting"
 	@echo "  make vet            - Run go vet"
 	@echo "  make lint           - Run lint checks"
+	@echo "  make staticcheck-anf-snapshot - Run nested ANF snapshot staticcheck"
 	@echo "  make manifests      - Generate CRD manifests"
 	@echo "  make generate       - Generate code (deepcopy + go generate)"
 	@echo "  make build          - Build go binaries"
+	@echo "  make build-anf-snapshot - Build the live ANF namespace snapshot CLI"
 	@echo "  make helm-lint      - Lint the Helm chart"
 	@echo "  make scan-secrets   - Run repository secret scan"
 	@echo ""
@@ -44,9 +50,9 @@ help:
 	@echo "  make test-smoke     - Smoke tests only (cluster must be pre-installed)"
 	@echo "  make test-e2e-cluster - E2E tests only (cluster must be pre-installed)"
 
-test: test-go test-python
+test: test-go test-anf-snapshot test-python
 
-validate: fmt-check lint test-controller test-go test-python helm-lint
+validate: fmt-check lint test-controller test-go test-anf-snapshot vet-anf-snapshot test-python helm-lint
 
 test-unit: test
 
@@ -58,6 +64,16 @@ test-go:
 		exit 1; \
 	fi; \
 	$(GO) test $$pkgs $(GO_TEST_FLAGS)
+
+test-anf-snapshot:
+	@echo "Running nested ANF snapshot tests..."
+	@cd tools/anf-snapshot && $(GO) test ./... $(GO_TEST_FLAGS)
+
+vet-anf-snapshot:
+	@echo "Running nested ANF snapshot vet checks..."
+	@cd tools/anf-snapshot && $(GO) vet ./...
+
+verify-anf-snapshot: test-anf-snapshot vet-anf-snapshot
 
 check-python-version:
 	@$(PYTHON) -c 'import sys; assert sys.version_info < (3, 13), "test-python requires Python <= 3.12 due dependency pins; run with PYTHON=python3.12"'
@@ -116,11 +132,18 @@ test-controller: $(SETUP_ENVTEST)
 	@assets="$$( $(SETUP_ENVTEST) use -p path $(ENVTEST_K8S_VERSION) )"; \
 	KUBEBUILDER_ASSETS="$$assets" $(GO) test ./internal/controller/... $(GO_TEST_FLAGS)
 
-fmt:
+fmt: fmt-anf-snapshot
 	@echo "Formatting Go code..."
 	@$(GO) fmt ./...
 
-fmt-check:
+fmt-anf-snapshot:
+	@echo "Formatting nested ANF snapshot Go code..."
+	@files="$$(find tools/anf-snapshot -type f -name '*.go' -print)"; \
+	if [[ -n "$$files" ]]; then \
+		gofmt -w $$files; \
+	fi
+
+fmt-check: fmt-check-anf-snapshot
 	@echo "Checking Go formatting..."
 	@unformatted="$$(gofmt -l $$(git ls-files '*.go'))"; \
 	if [[ -n "$$unformatted" ]]; then \
@@ -129,11 +152,24 @@ fmt-check:
 		exit 1; \
 	fi
 
+fmt-check-anf-snapshot:
+	@echo "Checking nested ANF snapshot Go formatting..."
+	@unformatted="$$(gofmt -l $$(find tools/anf-snapshot -type f -name '*.go' -print))"; \
+	if [[ -n "$$unformatted" ]]; then \
+		echo "The following nested ANF snapshot files are not gofmt-formatted:"; \
+		echo "$$unformatted"; \
+		exit 1; \
+	fi
+
 vet:
 	@echo "Running go vet..."
 	@$(GO) vet ./...
 
-lint: vet fmt-check $(STATICCHECK)
+staticcheck-anf-snapshot: $(STATICCHECK)
+	@echo "Running nested ANF snapshot staticcheck..."
+	@cd tools/anf-snapshot && PATH="$(LOCALBIN):$$PATH" $(STATICCHECK) ./...
+
+lint: vet fmt-check staticcheck-anf-snapshot $(STATICCHECK)
 	@echo "Running staticcheck..."
 	@PATH="$(LOCALBIN):$$PATH" $(STATICCHECK) ./...
 
@@ -150,6 +186,11 @@ build-agentctl-web:
 	@echo "Building agentctl-web binary..."
 	@mkdir -p bin
 	@$(GO) build -o bin/agentctl-web ./cmd/agentctl-web/...
+
+build-anf-snapshot:
+	@echo "Building anf-snapshot binary..."
+	@mkdir -p bin
+	@cd tools/anf-snapshot && $(GO) build -o ../../bin/anf-snapshot .
 
 install-agentctl: build-agentctl
 	@if [[ ! -f bin/agentctl ]]; then \

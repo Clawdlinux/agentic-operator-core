@@ -56,6 +56,9 @@ manager
 manager
 bin/
 
+# Portable Agentic Summit fallback. Other logs remain ignored.
+!demos/demo-claude-anf.log
+
 # Strategic documents (pitch decks, large media)
 *.mp4
 *.pptx

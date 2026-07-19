@@ -75,7 +75,13 @@ func (r *Registry) ResolveType(w *agenticv1alpha1.AgentWorkload) string {
 // errors when no adapter is registered for that type, listing what is
 // available so the caller can surface an actionable message.
 func (r *Registry) For(w *agenticv1alpha1.AgentWorkload) (RuntimeAdapter, error) {
-	t := r.ResolveType(w)
+	return r.ForType(r.ResolveType(w))
+}
+
+// ForType returns the adapter registered for a runtime type name. The name is
+// normalized using the same rule as registration and workload resolution.
+func (r *Registry) ForType(name string) (RuntimeAdapter, error) {
+	t := normalizeType(name)
 	adapter, ok := r.adapters[t]
 	if !ok {
 		return nil, fmt.Errorf("no runtime adapter registered for type %q (registered: %s)",

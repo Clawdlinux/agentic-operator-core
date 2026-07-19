@@ -14,10 +14,12 @@ import (
 	agentv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 )
 
+const maxProviderErrorBodyDrainBytes int64 = 1 << 20
+
 // Provider defines the interface for LLM providers
 type Provider interface {
-	// CallModel sends a prompt to the model and returns the response. Providers
-	// receive a stable operation ID for upstream idempotency support.
+	// CallModel sends a user prompt to the model. Providers receive a stable
+	// operation ID for upstream idempotency.
 	CallModel(ctx context.Context, operationID, model, prompt string) (*ModelResponse, error)
 
 	// Name returns the provider name
@@ -25,6 +27,12 @@ type Provider interface {
 
 	// Type returns the provider type
 	Type() string
+}
+
+// RoleAwareProvider can keep operator-owned system instructions separate from
+// untrusted user content without changing the public Provider contract.
+type RoleAwareProvider interface {
+	CallModelWithSystem(ctx context.Context, operationID, model, systemPrompt, userPrompt string) (*ModelResponse, error)
 }
 
 // ModelResponse represents the response from an LLM API call
@@ -46,6 +54,41 @@ type ModelResponse struct {
 
 	// Raw contains the raw response (useful for debugging)
 	Raw map[string]interface{}
+}
+
+// ProviderHTTPError reports a provider HTTP failure without retaining response content.
+type ProviderHTTPError struct {
+	StatusCode int
+	RequestID  string
+}
+
+func (e *ProviderHTTPError) Error() string {
+	if e.RequestID != "" {
+		return fmt.Sprintf("provider returned HTTP status %d (request_id=%s)", e.StatusCode, e.RequestID)
+	}
+	return fmt.Sprintf("provider returned HTTP status %d", e.StatusCode)
+}
+
+func safeProviderRequestID(value string) string {
+	if value == "" || len(value) > 128 {
+		return ""
+	}
+	for _, char := range value {
+		if !((char >= 'a' && char <= 'z') ||
+			(char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') ||
+			char == '-' || char == '_' || char == '.' || char == ':') {
+			return ""
+		}
+	}
+	return value
+}
+
+func drainProviderErrorBody(body io.Reader) bool {
+	// Reaching EOF permits connection reuse. Bodies over the cap remain unread,
+	// so closing the response body retires that connection.
+	drained, _ := io.Copy(io.Discard, io.LimitReader(body, maxProviderErrorBodyDrainBytes+1))
+	return drained > maxProviderErrorBodyDrainBytes
 }
 
 // OpenAICompatibleProvider implements the Provider interface for OpenAI-compatible APIs
@@ -74,8 +117,14 @@ func (p *OpenAICompatibleProvider) Type() string {
 	return "openai-compatible"
 }
 
-// CallModel sends a request to the OpenAI-compatible API
+// CallModel sends a user-only request to the OpenAI-compatible API.
 func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, operationID, model, prompt string) (*ModelResponse, error) {
+	return p.CallModelWithSystem(ctx, operationID, model, "", prompt)
+}
+
+// CallModelWithSystem sends operator-owned system instructions separately from
+// untrusted user content.
+func (p *OpenAICompatibleProvider) CallModelWithSystem(ctx context.Context, operationID, model, systemPrompt, userPrompt string) (*ModelResponse, error) {
 	// Cloudflare Workers AI requires model names prefixed with "@cf/"
 	// If provider is Cloudflare and model doesn't already have the prefix, add it.
 	if (strings.Contains(p.name, "cloudflare") || strings.Contains(p.name, "workers-ai")) &&
@@ -83,10 +132,16 @@ func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, operationID, m
 		model = "@cf/meta/" + model
 	}
 
+	messages := make([]map[string]string, 0, 2)
+	if systemPrompt != "" {
+		messages = append(messages, map[string]string{"role": "system", "content": systemPrompt})
+	}
+	messages = append(messages, map[string]string{"role": "user", "content": userPrompt})
+
 	// Prepare request body
 	reqBody := map[string]interface{}{
 		"model":       model,
-		"messages":    []map[string]string{{"role": "user", "content": prompt}},
+		"messages":    messages,
 		"max_tokens":  2048,
 		"temperature": 0.7,
 	}
@@ -118,8 +173,14 @@ func (p *OpenAICompatibleProvider) CallModel(ctx context.Context, operationID, m
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+		// The bounded drain reaches EOF for small bodies, enabling connection reuse.
+		// For oversized bodies, deferred Body.Close discards the connection because
+		// unread bytes remain. Setting resp.Close after receipt would be too late.
+		_ = drainProviderErrorBody(resp.Body)
+		return nil, &ProviderHTTPError{
+			StatusCode: resp.StatusCode,
+			RequestID:  safeProviderRequestID(resp.Header.Get("X-Request-ID")),
+		}
 	}
 
 	// Parse response

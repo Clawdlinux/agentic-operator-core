@@ -85,6 +85,30 @@ func TestRegistry_For_ReturnsRegisteredAdapter(t *testing.T) {
 	}
 }
 
+func TestRegistry_ForType_NormalizesAndReturnsRegisteredAdapter(t *testing.T) {
+	r := NewRegistry()
+	r.Register("argo", stubAdapter{name: "argo"})
+
+	a, err := r.ForType("  ArGo ")
+	if err != nil {
+		t.Fatalf("ForType(argo) error: %v", err)
+	}
+	st, _ := a.Status(context.Background(), &agenticv1alpha1.AgentWorkload{})
+	if st.Name != "argo" {
+		t.Errorf("dispatched to wrong adapter: got %q, want argo", st.Name)
+	}
+}
+
+func TestRegistry_ForType_UnknownTypeErrors(t *testing.T) {
+	r := NewRegistry()
+	r.Register("argo", stubAdapter{name: "argo"})
+
+	_, err := r.ForType("does-not-exist")
+	if err == nil {
+		t.Fatal("ForType(unknown) should error, got nil")
+	}
+}
+
 func TestRegistry_For_DefaultsWhenTypeUnset(t *testing.T) {
 	r := NewRegistry()
 	r.Register("argo", stubAdapter{name: "argo"})

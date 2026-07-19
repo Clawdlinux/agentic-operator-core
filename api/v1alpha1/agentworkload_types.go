@@ -35,9 +35,9 @@ type AgentWorkloadSpec struct {
 	// +optional
 	MCPServerEndpoint *string `json:"mcpServerEndpoint,omitempty"`
 
-	// objective is the high-level goal for the agent (e.g. "optimize cluster performance")
+	// objective is the user task plus compact structured context for the agent.
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=1000
+	// +kubebuilder:validation:MaxLength=32768
 	// +optional
 	Objective *string `json:"objective,omitempty"`
 
@@ -163,9 +163,9 @@ type AgentPersona struct {
 	// +optional
 	MemoryScope string `json:"memoryScope,omitempty"`
 
-	// SystemPromptAppend is injected at the END of the base system prompt.
-	// Use this to encode persona-specific instructions without overriding
-	// the operator's base safety and governance prompt.
+	// SystemPromptAppend is a user-controlled runtime persona preference.
+	// Runtime adapters may append it to prompts they construct. The built-in direct
+	// model-routing path treats it as labeled, untrusted user content, never system content.
 	// +optional
 	SystemPromptAppend string `json:"systemPromptAppend,omitempty"`
 
@@ -304,9 +304,13 @@ type Action struct {
 	Approved *bool `json:"approved,omitempty"`
 }
 
-// ArgoWorkflowRef references an Argo Workflow CR
-// Used to track the associated workflow for this AgentWorkload
+// ArgoWorkflowRef references a runtime execution. The historical name remains
+// for API compatibility.
 type ArgoWorkflowRef struct {
+	// runtime is the adapter key used to create the execution.
+	// +optional
+	Runtime string `json:"runtime,omitempty"`
+
 	// name is the name of the Argo Workflow CR
 	Name string `json:"name,omitempty"`
 
@@ -342,8 +346,8 @@ type AgentWorkloadStatus struct {
 	// +optional
 	ExecutedActions []Action `json:"executedActions,omitempty"`
 
-	// argoWorkflow references the associated Argo Workflow CR
-	// Set when the operator creates a workflow for Argo orchestration
+	// argoWorkflow references the runtime execution created for this workload.
+	// The historical field name remains for API compatibility.
 	// +optional
 	ArgoWorkflow *ArgoWorkflowRef `json:"argoWorkflow,omitempty"`
 

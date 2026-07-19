@@ -19,6 +19,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Test boundary scanner
+        shell: bash
+        run: bash tests/smoke/test_oss_private_boundary.sh
+
       - name: Validate OSS/private boundary policy
         shell: bash
         run: |
