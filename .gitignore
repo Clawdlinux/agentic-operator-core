@@ -20,6 +20,12 @@ profile.cov
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
+# Node / frontend build + deps (landing/ and agentctl-web have their own package.json)
+node_modules/
+landing/dist/
+landing/.vercel/
+*.tsbuildinfo
+
 # Go workspace file
 go.work
 go.work.sum
