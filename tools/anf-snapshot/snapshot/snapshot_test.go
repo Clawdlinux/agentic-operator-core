@@ -256,9 +256,26 @@ func TestCaptureRejectsUnsafeSummaryLabels(t *testing.T) {
 		if options.Cluster == "showcase-cluster" {
 			rejectedValue = options.Namespace
 		}
-		if !strings.Contains(err.Error(), strconv.Quote(rejectedValue)) {
+		if len([]rune(rejectedValue)) <= rejectedLabelPreviewRunes && !strings.Contains(err.Error(), strconv.Quote(rejectedValue)) {
 			t.Fatalf("Capture error %q does not include rejected value %q", err, rejectedValue)
 		}
+	}
+}
+
+func TestValidateLabelBoundsRejectedValue(t *testing.T) {
+	value := strings.Repeat("a", 10_000)
+	err := validateLabel("cluster", value, summaryClusterPattern)
+	if err == nil {
+		t.Fatal("validateLabel accepted oversized cluster")
+	}
+	if len(err.Error()) > 256 {
+		t.Fatalf("error length = %d, want at most 256: %q", len(err.Error()), err)
+	}
+	if !strings.Contains(err.Error(), "characters=10000") {
+		t.Fatalf("error does not include original character count: %q", err)
+	}
+	if strings.Contains(err.Error(), value) {
+		t.Fatal("error includes the full rejected value")
 	}
 }
 
