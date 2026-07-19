@@ -25,6 +25,7 @@ if (!fs.existsSync(chromePath)) {
 }
 
 const outputDirectory = path.dirname(outputPath);
+fs.mkdirSync(outputDirectory, { recursive: true, mode: 0o700 });
 const temporaryDirectory = fs.mkdtempSync(path.join(outputDirectory, '.playwright-video-'));
 
 (async () => {

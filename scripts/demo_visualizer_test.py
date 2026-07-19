@@ -1489,7 +1489,7 @@ class StrictANFPipelineParserTest(unittest.TestCase):
                 for field, expected_value in expected_fields.items():
                     self.assertEqual(event[field], expected_value)
 
-    def test_zero_cost_evidence_stays_generic_log(self):
+    def test_zero_cost_evidence_is_not_sent_over_sse(self):
         event = demo_visualizer.Parser().parse(
             "Cost evidence: annotation_usd=0 metric_usd=0 "
             "route=litellm/clawdlinux-anthropic"

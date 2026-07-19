@@ -55,6 +55,7 @@ done
 grep -Fq 'record-dashboard.js' "${RECORDER}"
 grep -Fq 'umask 077' "${RECORDER}"
 grep -Fq 'recordVideo' "${REPO_ROOT}/scripts/record-dashboard.js"
+grep -Fq 'fs.mkdirSync(outputDirectory, { recursive: true, mode: 0o700 })' "${REPO_ROOT}/scripts/record-dashboard.js"
 grep -Fq "stage === 'Live run complete.'" "${REPO_ROOT}/scripts/record-dashboard.js"
 grep -Fq 'AgentWorkload reached Completed' "${RECORDER}"
 grep -Fq 'Tampered prior-run artifact was rejected' "${RECORDER}"
