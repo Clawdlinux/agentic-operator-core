@@ -1,0 +1,42 @@
+# EDIT THIS FILE to change the fault-analysis objective.
+# TEMPLATE ONLY. demo-booth.sh injects live ANF and clears the annotation.
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: booth-fault-analysis
+  labels:
+    app.kubernetes.io/part-of: clawdlinux-booth-demo
+    demo.clawdlinux.org/scenario: fault-injection
+  annotations:
+    demo.clawdlinux.org/template: "true"
+    demo.clawdlinux.org/provider-proof: "Live fault ANF is routed through in-cluster LiteLLM to Claude Haiku 4.5."
+spec:
+  objective: |
+    Diagnose the controlled Kubernetes Job failure in this live Agent Native Format.
+    Separate direct evidence from inference. State the failed object, likely cause,
+    containment action, and 3 follow-up checks for a regulated platform team.
+    Do not invent pod logs or claim controls that were not observed.
+    BEGIN ANF CONTEXT
+    ANF_CONTEXT_INSERT_HERE
+    END ANF CONTEXT
+  workloadType: kubernetes
+  agents:
+    - fault-investigator
+  collaborationMode: solo
+  opaPolicy: strict
+  autoApproveThreshold: "0.95"
+  modelStrategy: cost-aware
+  taskClassifier: default
+  providers:
+    - name: litellm
+      type: openai-compatible
+      endpoint: http://clawdlinux-demo-litellm.agentic-system.svc.cluster.local:4000/v1
+      apiKeySecret:
+        name: clawdlinux-demo-litellm
+        key: api-key
+  modelMapping:
+    validation: litellm/clawdlinux-anthropic
+    analysis: litellm/clawdlinux-anthropic
+    reasoning: litellm/clawdlinux-anthropic
+  timeouts:
+    execution: 180

@@ -15,7 +15,7 @@ CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.17.2}"
 DEMO_RELEASE="${DEMO_RELEASE:-clawdlinux-demo}"
 DEMO_SECRET="${DEMO_SECRET:-clawdlinux-demo-litellm}"
 DEMO_ENV_FILE="${DEMO_ENV_FILE:-${REPO_ROOT}/.env}"
-RESEARCH_MANIFEST="${REPO_ROOT}/examples/research-agent.template.yaml"
+SCENARIO_ROOT="${REPO_ROOT}/examples/booth-scenarios"
 AUDIT_FIXTURE="${REPO_ROOT}/_staging/booth/attestation-fallback.jsonl"
 # Committed demo fixture key. Never use it as a production secret.
 AUDIT_DEMO_KEY="booth-demo-2026=bmluZXZpZ2lsLWJvb3RoLWRlbW8tYXR0ZXN0YXRpb24ta2V5LTMyYg=="
@@ -27,6 +27,7 @@ EVIDENCE_DIR="${EVIDENCE_DIR:-${REPO_ROOT}/tests/harness/evidence/booth-$(date +
 
 DEMO_PROFILE="${DEMO_PROFILE:-platform}"
 DEMO_STAGE_DELAY_SECONDS="${DEMO_STAGE_DELAY_SECONDS:-6}"
+DEMO_SCENARIO="${DEMO_SCENARIO:-success}"
 WITH_SWARM=false
 RECORD=false
 CLEANUP=false
@@ -61,6 +62,7 @@ Options:
   --prepare         Create and prepare the real-provider kind demo cluster.
   --present         Run the 5-7 minute real-provider booth presentation.
   --tamper-audit    Tamper with the prior-run audit fixture and prove rejection.
+  --scenario NAME   Workload scenario: success, fault-injection, or all. Default: ${DEMO_SCENARIO}
   --pace SECONDS    Pause between evidence stages. Default: ${DEMO_STAGE_DELAY_SECONDS}
   --cluster NAME    kind cluster name. Default: ${CLUSTER_NAME}
   --profile NAME    Deployment profile: platform or lean. Default: ${DEMO_PROFILE}
@@ -80,6 +82,7 @@ Environment:
   CERT_MANAGER_VERSION Pinned cert-manager chart version. Default: ${CERT_MANAGER_VERSION}
   DEMO_ENV_FILE     Credential file. Default: ${REPO_ROOT}/.env
   DEMO_STAGE_DELAY_SECONDS Narration delay. Default: 6
+  DEMO_SCENARIO     Default workload scenario. Default: success
   FORCE_COLOR       Set to 1 to preserve ANSI colors through a recorder or pipe.
 EOF
 }
@@ -101,6 +104,13 @@ emit_contract_line() {
 
 validate_pace() {
   [[ "$1" =~ ^([0-9]|[1-5][0-9]|60)$ ]] || die "pace must be an integer from 0 to 60"
+}
+
+validate_scenario() {
+  case "$1" in
+    success|fault-injection|all) ;;
+    *) die "scenario must be success, fault-injection, or all" ;;
+  esac
 }
 
 narration_pause() {
@@ -127,6 +137,12 @@ parse_args() {
       --tamper-audit)
         TAMPER_AUDIT=true
         shift
+        ;;
+      --scenario)
+        [[ $# -ge 2 ]] || die "--scenario requires a value"
+        DEMO_SCENARIO="$2"
+        validate_scenario "${DEMO_SCENARIO}"
+        shift 2
         ;;
       --pace)
         [[ $# -ge 2 ]] || die "--pace requires a value"
@@ -177,6 +193,10 @@ parse_args() {
     esac
   done
   validate_pace "${DEMO_STAGE_DELAY_SECONDS}"
+  validate_scenario "${DEMO_SCENARIO}"
+  if [[ "${DEMO_MODE}" != "present" && "${DEMO_SCENARIO}" != "success" ]]; then
+    die "--scenario is supported only with --present"
+  fi
 }
 
 quote_command() {
@@ -618,7 +638,23 @@ ANF_OUTPUT_TEMP_FILE=""
 ANF_SANITIZED_TEMP_FILE=""
 WORKLOAD_TEMP_FILE=""
 WORKLOAD_SOURCE_TEMP_FILE=""
+FIXTURE_TEMP_FILE=""
+FIXTURE_SOURCE_TEMP_FILE=""
+WORKLOAD_IDENTITY_TEMP_FILE=""
 AUDIT_TEMP_FILE=""
+CURRENT_SCENARIO=""
+SCENARIO_EXPECTED_RESULT=""
+SCENARIO_EXPECTED_EXIT_CODE=""
+SCENARIO_EXPECTED_EXIT_REASON=""
+SCENARIO_EXPECTED_ANF_STATE=""
+SCENARIO_FIXTURE_REL=""
+SCENARIO_WORKLOAD_REL=""
+SCENARIO_FIXTURE_FILE=""
+SCENARIO_WORKLOAD_FILE=""
+FIXTURE_NAME=""
+WORKLOAD_RENDER_NAME=""
+WORKLOAD_RENDER_NAMESPACE=""
+WORKLOAD_RENDER_OBJECTIVE_BYTES=""
 
 cleanup_showcase_temp_files() {
   [[ -z "${ANF_TEMP_FILE}" ]] || rm -f "${ANF_TEMP_FILE}"
@@ -626,13 +662,30 @@ cleanup_showcase_temp_files() {
   [[ -z "${ANF_SANITIZED_TEMP_FILE}" ]] || rm -f "${ANF_SANITIZED_TEMP_FILE}"
   [[ -z "${WORKLOAD_TEMP_FILE}" ]] || rm -f "${WORKLOAD_TEMP_FILE}"
   [[ -z "${WORKLOAD_SOURCE_TEMP_FILE}" ]] || rm -f "${WORKLOAD_SOURCE_TEMP_FILE}"
+  [[ -z "${FIXTURE_TEMP_FILE}" ]] || rm -f "${FIXTURE_TEMP_FILE}"
+  [[ -z "${FIXTURE_SOURCE_TEMP_FILE}" ]] || rm -f "${FIXTURE_SOURCE_TEMP_FILE}"
+  [[ -z "${WORKLOAD_IDENTITY_TEMP_FILE}" ]] || rm -f "${WORKLOAD_IDENTITY_TEMP_FILE}"
   [[ -z "${AUDIT_TEMP_FILE}" ]] || rm -f "${AUDIT_TEMP_FILE}"
   ANF_TEMP_FILE=""
   ANF_OUTPUT_TEMP_FILE=""
   ANF_SANITIZED_TEMP_FILE=""
   WORKLOAD_TEMP_FILE=""
   WORKLOAD_SOURCE_TEMP_FILE=""
+  FIXTURE_TEMP_FILE=""
+  FIXTURE_SOURCE_TEMP_FILE=""
+  WORKLOAD_IDENTITY_TEMP_FILE=""
   AUDIT_TEMP_FILE=""
+}
+
+cleanup_current_scenario_resources() {
+  if [[ -n "${FIXTURE_NAME}" ]]; then
+    kubectl -n "${NS_OPERATOR}" delete job "${FIXTURE_NAME}" \
+      --ignore-not-found --wait=true --timeout=30s >/dev/null 2>&1 || true
+  fi
+  if [[ -n "${WORKLOAD_RENDER_NAME}" ]]; then
+    kubectl -n "${WORKLOAD_RENDER_NAMESPACE:-${NS_OPERATOR}}" delete agentworkload "${WORKLOAD_RENDER_NAME}" \
+      --ignore-not-found --wait=true --timeout=30s >/dev/null 2>&1 || true
+  fi
 }
 
 cleanup_port_forward() {
@@ -645,7 +698,168 @@ cleanup_port_forward() {
 
 cleanup_showcase_resources() {
   cleanup_port_forward
+  cleanup_current_scenario_resources
   cleanup_showcase_temp_files
+}
+
+select_scenario() {
+  CURRENT_SCENARIO="$1"
+  case "${CURRENT_SCENARIO}" in
+    success)
+      SCENARIO_EXPECTED_RESULT="Complete"
+      SCENARIO_EXPECTED_EXIT_CODE="0"
+      SCENARIO_EXPECTED_EXIT_REASON="Completed"
+      SCENARIO_EXPECTED_ANF_STATE="completed"
+      ;;
+    fault-injection)
+      SCENARIO_EXPECTED_RESULT="Failed"
+      SCENARIO_EXPECTED_EXIT_CODE="2"
+      SCENARIO_EXPECTED_EXIT_REASON="Error"
+      SCENARIO_EXPECTED_ANF_STATE="failing"
+      ;;
+    *)
+      die "unsupported scenario: ${CURRENT_SCENARIO}"
+      ;;
+  esac
+  SCENARIO_FIXTURE_REL="examples/booth-scenarios/${CURRENT_SCENARIO}/fixture.yaml"
+  SCENARIO_WORKLOAD_REL="examples/booth-scenarios/${CURRENT_SCENARIO}/workload.template.yaml"
+  SCENARIO_FIXTURE_FILE="${REPO_ROOT}/${SCENARIO_FIXTURE_REL}"
+  SCENARIO_WORKLOAD_FILE="${REPO_ROOT}/${SCENARIO_WORKLOAD_REL}"
+  [[ -f "${SCENARIO_FIXTURE_FILE}" ]] || die "missing ${SCENARIO_FIXTURE_REL}"
+  [[ -f "${SCENARIO_WORKLOAD_FILE}" ]] || die "missing ${SCENARIO_WORKLOAD_REL}"
+}
+
+resolve_scenario_resource_identities() {
+  local identities
+  FIXTURE_SOURCE_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-fixture-source.XXXXXX.json")"
+  WORKLOAD_IDENTITY_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-workload-identity.XXXXXX.json")"
+  chmod 600 "${FIXTURE_SOURCE_TEMP_FILE}" "${WORKLOAD_IDENTITY_TEMP_FILE}"
+  kubectl apply --dry-run=client -f "${SCENARIO_FIXTURE_FILE}" -o json >"${FIXTURE_SOURCE_TEMP_FILE}"
+  kubectl apply --dry-run=client -f "${SCENARIO_WORKLOAD_FILE}" -o json >"${WORKLOAD_IDENTITY_TEMP_FILE}"
+  identities="$(python3 - "${FIXTURE_SOURCE_TEMP_FILE}" "${WORKLOAD_IDENTITY_TEMP_FILE}" "${CURRENT_SCENARIO}" <<'PY'
+import json
+import sys
+
+fixture_path, workload_path, scenario = sys.argv[1:]
+with open(fixture_path, encoding="utf-8") as source:
+    fixture = json.load(source)
+with open(workload_path, encoding="utf-8") as source:
+    workload = json.load(source)
+
+if fixture.get("kind") != "Job":
+    raise SystemExit("scenario fixture must be a Job")
+if workload.get("kind") != "AgentWorkload":
+    raise SystemExit("scenario workload must be an AgentWorkload")
+for document, label in ((fixture, "fixture"), (workload, "workload")):
+    actual = document.get("metadata", {}).get("labels", {}).get("demo.clawdlinux.org/scenario")
+    if actual != scenario:
+        raise SystemExit(f"{label} scenario label must equal {scenario}")
+
+fixture_name = fixture.get("metadata", {}).get("name")
+workload_name = workload.get("metadata", {}).get("name")
+if not fixture_name or not workload_name:
+    raise SystemExit("scenario resource name is missing")
+print(f"{fixture_name}\t{workload_name}")
+PY
+)"
+  rm -f "${FIXTURE_SOURCE_TEMP_FILE}" "${WORKLOAD_IDENTITY_TEMP_FILE}"
+  FIXTURE_SOURCE_TEMP_FILE=""
+  WORKLOAD_IDENTITY_TEMP_FILE=""
+  IFS=$'\t' read -r FIXTURE_NAME WORKLOAD_RENDER_NAME <<<"${identities}"
+  WORKLOAD_RENDER_NAMESPACE="${NS_OPERATOR}"
+  [[ -n "${FIXTURE_NAME}" && -n "${WORKLOAD_RENDER_NAME}" ]] || die "scenario resource identity is missing"
+}
+
+delete_stale_scenario_resources() {
+  kubectl -n "${NS_OPERATOR}" delete job "${FIXTURE_NAME}" \
+    --ignore-not-found --wait=true --timeout=30s >/dev/null
+  kubectl -n "${WORKLOAD_RENDER_NAMESPACE}" delete agentworkload "${WORKLOAD_RENDER_NAME}" \
+    --ignore-not-found --wait=true --timeout=30s >/dev/null
+}
+
+delete_completed_scenario_resources() {
+  kubectl -n "${NS_OPERATOR}" delete job "${FIXTURE_NAME}" \
+    --ignore-not-found --wait=true --timeout=30s >/dev/null ||
+    die "failed to delete fixture ${FIXTURE_NAME}"
+  kubectl -n "${WORKLOAD_RENDER_NAMESPACE}" delete agentworkload "${WORKLOAD_RENDER_NAME}" \
+    --ignore-not-found --wait=true --timeout=30s >/dev/null ||
+    die "failed to delete AgentWorkload ${WORKLOAD_RENDER_NAME}"
+  FIXTURE_NAME=""
+  WORKLOAD_RENDER_NAME=""
+  WORKLOAD_RENDER_NAMESPACE=""
+  WORKLOAD_RENDER_OBJECTIVE_BYTES=""
+}
+
+render_and_apply_scenario_fixture() {
+  step "LIVE: Apply ${CURRENT_SCENARIO} Kubernetes fixture"
+  local operator_pod render_values
+  operator_pod="$(operator_pod_name)"
+  [[ -n "${operator_pod}" ]] || die "operator pod not found"
+  render_values="$(kubectl -n "${NS_OPERATOR}" get pod "${operator_pod}" \
+    -o jsonpath='{.spec.containers[0].image}{"\t"}{.spec.nodeName}')"
+  local operator_image operator_node
+  IFS=$'\t' read -r operator_image operator_node <<<"${render_values}"
+  [[ -n "${operator_image}" && -n "${operator_node}" ]] || die "operator image or node is missing"
+
+  FIXTURE_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-fixture.XXXXXX.json")"
+  FIXTURE_SOURCE_TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/clawdlinux-fixture-source.XXXXXX.json")"
+  chmod 600 "${FIXTURE_TEMP_FILE}"
+  chmod 600 "${FIXTURE_SOURCE_TEMP_FILE}"
+  kubectl apply --dry-run=client -f "${SCENARIO_FIXTURE_FILE}" -o json >"${FIXTURE_SOURCE_TEMP_FILE}"
+  python3 - "${FIXTURE_SOURCE_TEMP_FILE}" "${FIXTURE_TEMP_FILE}" "${NS_OPERATOR}" "${operator_image}" "${operator_node}" <<'PY'
+import json
+import os
+import sys
+
+source_path, output_path, namespace, image, node = sys.argv[1:]
+with open(source_path, encoding="utf-8") as source:
+    manifest = json.load(source)
+manifest.setdefault("metadata", {})["namespace"] = namespace
+annotations = manifest["metadata"].setdefault("annotations", {})
+if annotations.get("demo.clawdlinux.org/template") != "true":
+    raise SystemExit("fixture template annotation must be true")
+annotations["demo.clawdlinux.org/template"] = "false"
+pod_spec = manifest["spec"]["template"]["spec"]
+containers = pod_spec.get("containers", [])
+if len(containers) != 1:
+    raise SystemExit("fixture must define exactly one container")
+containers[0]["image"] = image
+pod_spec["nodeName"] = node
+fd = os.open(output_path, os.O_WRONLY | os.O_TRUNC, 0o600)
+with os.fdopen(fd, "w", encoding="utf-8") as output:
+    json.dump(manifest, output, separators=(",", ":"))
+    output.write("\n")
+PY
+  rm -f "${FIXTURE_SOURCE_TEMP_FILE}"
+  FIXTURE_SOURCE_TEMP_FILE=""
+  kubectl apply -f "${FIXTURE_TEMP_FILE}" >/dev/null
+  ok "Applied ${CURRENT_SCENARIO} fixture"
+}
+
+wait_for_scenario_fixture() {
+  local deadline condition_types observed="" termination_evidence
+  deadline=$(( $(date +%s) + 60 ))
+  while (( $(date +%s) < deadline )); do
+    condition_types="$(kubectl -n "${NS_OPERATOR}" get job "${FIXTURE_NAME}" \
+      -o jsonpath='{range .status.conditions[?(@.status=="True")]}{.type}{"\n"}{end}' 2>/dev/null || true)"
+    if grep -Fxq "Failed" <<<"${condition_types}"; then
+      observed="Failed"
+    elif grep -Fxq "Complete" <<<"${condition_types}"; then
+      observed="Complete"
+    fi
+    if [[ -n "${observed}" ]]; then
+      [[ "${observed}" == "${SCENARIO_EXPECTED_RESULT}" ]] ||
+        die "scenario ${CURRENT_SCENARIO} expected ${SCENARIO_EXPECTED_RESULT}, observed ${observed}"
+      termination_evidence="$(kubectl -n "${NS_OPERATOR}" get pods -l "job-name=${FIXTURE_NAME}" \
+        -o jsonpath='{range .items[*].status.containerStatuses[*]}{.state.terminated.reason}{"\t"}{.state.terminated.exitCode}{"\n"}{end}')"
+      [[ "${termination_evidence}" == "${SCENARIO_EXPECTED_EXIT_REASON}"$'\t'"${SCENARIO_EXPECTED_EXIT_CODE}" ]] ||
+        die "scenario ${CURRENT_SCENARIO} container termination evidence did not match the fixture contract"
+      emit_contract_line "Scenario result: id=${CURRENT_SCENARIO} expected=${SCENARIO_EXPECTED_RESULT} observed=${observed}"
+      return
+    fi
+    sleep 1
+  done
+  die "scenario ${CURRENT_SCENARIO} fixture did not reach a terminal state"
 }
 
 find_anf_snapshot() {
@@ -665,6 +879,14 @@ measure_file_bytes() {
   printf '%s' "${size}"
 }
 
+assert_anf_fixture_state() {
+  local anf_file="$1"
+  awk -v expected_name="${FIXTURE_NAME}" -v expected_state="${SCENARIO_EXPECTED_ANF_STATE}" '
+    $1 == "job" && $2 == expected_name && $3 == "[" expected_state "]" { found = 1 }
+    END { exit !found }
+  ' "${anf_file}" || die "ANF context is missing the expected fixture Job state"
+}
+
 capture_anf_context() {
   step "LIVE: Kubernetes state translated to Agent Native Format"
   local snapshot size summary
@@ -680,6 +902,9 @@ capture_anf_context() {
   size="$(measure_file_bytes "${ANF_TEMP_FILE}" "ANF context")"
   ((size > 0)) || die "ANF context is empty"
   ((size <= 32768)) || die "ANF context exceeds 32 KiB demo limit"
+  if [[ -n "${FIXTURE_NAME}" ]]; then
+    assert_anf_fixture_state "${ANF_TEMP_FILE}"
+  fi
 }
 
 sanitize_anf_context() {
@@ -732,13 +957,13 @@ build_research_workload_json() {
   sanitized_size="$(measure_file_bytes "${ANF_SANITIZED_TEMP_FILE}" "sanitized ANF context")"
   ((sanitized_size > 0)) || die "sanitized ANF context is empty"
   ((sanitized_size <= 32768)) || die "sanitized ANF context exceeds 32 KiB demo limit"
-  kubectl apply --dry-run=client -f "${RESEARCH_MANIFEST}" -o json >"${WORKLOAD_SOURCE_TEMP_FILE}"
-  render_proof="$(python3 - "${WORKLOAD_SOURCE_TEMP_FILE}" "${ANF_SANITIZED_TEMP_FILE}" "${WORKLOAD_TEMP_FILE}" <<'PY'
+  kubectl apply --dry-run=client -f "${SCENARIO_WORKLOAD_FILE}" -o json >"${WORKLOAD_SOURCE_TEMP_FILE}"
+  render_proof="$(python3 - "${WORKLOAD_SOURCE_TEMP_FILE}" "${ANF_SANITIZED_TEMP_FILE}" "${WORKLOAD_TEMP_FILE}" "${NS_OPERATOR}" "${DEMO_RELEASE}" <<'PY'
 import json
 import os
 import sys
 
-source_path, anf_path, output_path = sys.argv[1:]
+source_path, anf_path, output_path, namespace, release = sys.argv[1:]
 with open(source_path, encoding="utf-8") as source:
     manifest = json.load(source)
 with open(anf_path, encoding="utf-8") as anf_source:
@@ -759,6 +984,12 @@ annotations = manifest.setdefault("metadata", {}).setdefault("annotations", {})
 if annotations.get("demo.clawdlinux.org/template") != "true":
     raise SystemExit("AgentWorkload template annotation must be true")
 annotations["demo.clawdlinux.org/template"] = "false"
+manifest["metadata"]["namespace"] = namespace
+providers = manifest.get("spec", {}).get("providers", [])
+litellm_providers = [provider for provider in providers if provider.get("name") == "litellm"]
+if len(litellm_providers) != 1:
+  raise SystemExit("AgentWorkload must define exactly one litellm provider")
+litellm_providers[0]["endpoint"] = f"http://{release}-litellm.{namespace}.svc.cluster.local:4000/v1"
 
 name = manifest.get("metadata", {}).get("name")
 namespace = manifest.get("metadata", {}).get("namespace")
@@ -784,9 +1015,6 @@ PY
 
 apply_research_workload() {
   step "LIVE: Claude-routed AgentWorkload through in-cluster LiteLLM"
-  kubectl -n "${NS_OPERATOR}" delete agentworkload booth-incident-investigation \
-    --ignore-not-found --wait=true --timeout=30s >/dev/null
-
   capture_anf_context
   narration_pause
   build_research_workload_json
@@ -830,7 +1058,7 @@ wait_for_research_completion() {
   local deadline phase
   deadline=$(( $(date +%s) + 240 ))
   while (( $(date +%s) < deadline )); do
-    phase="$(kubectl -n "${NS_OPERATOR}" get agentworkload booth-incident-investigation \
+    phase="$(kubectl -n "${WORKLOAD_RENDER_NAMESPACE}" get agentworkload "${WORKLOAD_RENDER_NAME}" \
       -o jsonpath='{.status.phase}' 2>/dev/null || true)"
     case "${phase}" in
       Completed)
@@ -867,13 +1095,13 @@ assert_claude_routing() {
 show_real_routing_and_cost() {
   step "LIVE: Claude routing, token, and cost evidence"
   local routing_message cost_annotation metric_output metric_line metric_value
-  routing_message="$(kubectl -n "${NS_OPERATOR}" get agentworkload booth-incident-investigation \
+  routing_message="$(kubectl -n "${WORKLOAD_RENDER_NAMESPACE}" get agentworkload "${WORKLOAD_RENDER_NAME}" \
     -o jsonpath='{range .status.conditions[?(@.type=="ModelRoutingSucceeded")]}{.message}{end}')"
   [[ -n "${routing_message}" ]] || die "ModelRoutingSucceeded condition is missing"
   assert_claude_routing "${routing_message}"
   printf 'Model routing: %s\n' "${routing_message}"
 
-  cost_annotation="$(kubectl -n "${NS_OPERATOR}" get agentworkload booth-incident-investigation \
+  cost_annotation="$(kubectl -n "${WORKLOAD_RENDER_NAMESPACE}" get agentworkload "${WORKLOAD_RENDER_NAME}" \
     -o go-template='{{index .metadata.annotations "agentworkload.clawdlinux.io/cost-usd-today"}}')"
   [[ "${cost_annotation}" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "cost annotation is not a decimal"
   awk -v cost="${cost_annotation}" 'BEGIN { exit !(cost + 0 > 0) }' || die "cost annotation is missing or zero"
@@ -898,8 +1126,8 @@ show_real_routing_and_cost() {
 
   metric_line="$(printf '%s\n' "${metric_output}" |
     grep '^clawdlinux_agent_cost_dollars{' |
-    grep -E '[{,]workload="booth-incident-investigation"([,}])' |
-    grep -E '[{,]namespace="'"${NS_OPERATOR}"'"([,}])' |
+    grep -E '[{,]workload="'"${WORKLOAD_RENDER_NAME}"'"([,}])' |
+    grep -E '[{,]namespace="'"${WORKLOAD_RENDER_NAMESPACE}"'"([,}])' |
     grep -E '[{,]model="litellm/clawdlinux-anthropic"([,}])' |
     head -1 || true)"
   [[ -n "${metric_line}" ]] || die "Claude cost metric is missing for the booth workload"
@@ -1002,20 +1230,37 @@ CURRENT --present EVIDENCE
 EOF
 }
 
+run_present_scenario() {
+  select_scenario "$1"
+  resolve_scenario_resource_identities
+  emit_contract_line "Scenario selected: id=${CURRENT_SCENARIO} expected=${SCENARIO_EXPECTED_RESULT} fixture=${SCENARIO_FIXTURE_REL} workload=${SCENARIO_WORKLOAD_REL}"
+  delete_stale_scenario_resources
+  render_and_apply_scenario_fixture
+  wait_for_scenario_fixture
+  narration_pause
+  apply_research_workload
+  wait_for_research_completion
+  show_real_routing_and_cost
+  delete_completed_scenario_resources
+  cleanup_showcase_temp_files
+}
+
 present_real_demo() {
   require_command kubectl
   require_command curl
   require_command python3
   require_demo_context
-  [[ -f "${RESEARCH_MANIFEST}" ]] || die "missing ${RESEARCH_MANIFEST}"
   assert_runtime_secret_shape
   trap cleanup_showcase_resources EXIT
   trap 'cleanup_showcase_resources; exit 129' HUP
   trap 'cleanup_showcase_resources; exit 130' INT
   trap 'cleanup_showcase_resources; exit 143' TERM
-  apply_research_workload
-  wait_for_research_completion
-  show_real_routing_and_cost
+  if [[ "${DEMO_SCENARIO}" == "all" ]]; then
+    run_present_scenario success
+    run_present_scenario fault-injection
+  else
+    run_present_scenario "${DEMO_SCENARIO}"
+  fi
   show_gvisor_configuration_proof
   show_network_policy_presence
   run_prior_run_audit "${TAMPER_AUDIT}"

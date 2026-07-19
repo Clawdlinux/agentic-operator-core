@@ -45,6 +45,10 @@ manager
 # Logs and test outputs
 *.log
 demos/*.cast
+demos/*.gif
+demos/*.mov
+demos/*.webm
+demos/local/
 demos/live/*.typescript
 # Build artifacts
 *.log
@@ -55,9 +59,6 @@ manager
 *.log
 manager
 bin/
-
-# Portable Agentic Summit fallback. Other logs remain ignored.
-!demos/demo-claude-anf.log
 
 # Strategic documents (pitch decks, large media)
 *.mp4

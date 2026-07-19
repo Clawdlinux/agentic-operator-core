@@ -17,8 +17,9 @@ Run preparation once after rebuilding the operator image. Do not prepare during 
 - [ ] Keep `http://127.0.0.1:8765` closed until the visualizer starts its countdown.
 - [ ] During the countdown, open that URL and make the browser full-screen.
 - [ ] Mute notifications, close secrets, and keep one terminal ready at the repository root.
-- [ ] Know the fallback log path: `demos/demo-claude-anf.log`.
-- [ ] Keep `demos/clawdlinux-claude-anf.gif` available as a no-server fallback.
+- [ ] Record one local end-to-end run with `scripts/record-demo.sh --scenario all --pace 3 --duration 120 --no-open`.
+- [ ] Know the fallback log path: `demos/local/latest.log`.
+- [ ] Keep `demos/local/latest.webm` available as a no-server fallback.
 
 These commands do not print credential values.
 
@@ -76,7 +77,7 @@ Clawdlinux is an in-cluster governance and evidence plane around Kubernetes agen
 **Operator action:** Run this command:
 
 ```bash
-python3 scripts/demo-visualizer.py --present --tamper-audit --pace 6
+python3 scripts/demo-visualizer.py --present --scenario all --tamper-audit --pace 6
 ```
 
 Open `http://127.0.0.1:8765` during the countdown. Make it full-screen.
@@ -85,7 +86,7 @@ Open `http://127.0.0.1:8765` during the countdown. Make it full-screen.
 
 **Exact words to say:**
 
-"I started one command. This dashboard is a passive view of the script's stdout. It does not create evidence. The terminal remains the source stream."
+"I started one command. This dashboard stays connected while success and controlled-fault YAML run in sequence. The terminal remains the source stream."
 
 ### 1:05-2:30. Live Kubernetes, ANF, workload, and Claude
 
@@ -95,11 +96,13 @@ Open `http://127.0.0.1:8765` during the countdown. Make it full-screen.
 
 **Exact words to say:**
 
-"This starts from live Kubernetes state. Clawdlinux projects 7 observed objects into 5 ANF entities. Omitted facts are counted separately. They are not called compression.
+"The selected fixture and workload paths are visible above the pipeline. Platform teams can review or edit those YAML files before a run.
 
-The exact projected document is 1,339 JSON bytes and 621 ANF bytes. That is a 53.6 percent reduction.
+The success fixture exits cleanly. The controlled-fault fixture exits with an invalid flag. Each observed result must match its declared expectation before analysis starts.
 
-The script injects this ANF context into a rendered AgentWorkload. It applies the workload through the repo-local agentctl. In-cluster LiteLLM routes it to Claude Haiku 4.5. Completion, token counts, and estimated cost come from this live workload. The product remains provider-independent. Claude is the hero route for this booth."
+Clawdlinux captures live Kubernetes state after each fixture reaches its terminal state. It projects that state into ANF and reports omitted facts separately.
+
+The script injects this ANF into the scenario AgentWorkload. In-cluster LiteLLM routes analysis to Claude Haiku 4.5. Completion, token counts, and estimated cost come from the live workload."
 
 ### 2:30-3:10. Configuration evidence and limits
 
@@ -119,7 +122,7 @@ The script injects this ANF context into a rendered AgentWorkload. It applies th
 
 **Exact words to say:**
 
-"This receipt is a prior-run HMAC audit fixture. The current workload did not generate it. First, the verifier accepts the unchanged artifact. Then the demo modifies a temporary copy. Verification rejects that copy, proving recorded evidence cannot be changed without detection."
+"This receipt is a prior-run HMAC audit fixture. The current workload did not generate it. First, the verifier accepts the unchanged artifact. Then the demo modifies a temporary copy without recomputing its MAC. Verification rejects that copy. Anyone with this committed demo key could re-sign a modified fixture, so this is not production key custody."
 
 ### 4:05-4:40. Product and current proof
 
@@ -153,7 +156,7 @@ Press `Ctrl+C` in the live terminal. Then run:
 
 ```bash
 DEMO_REPLAY_DELAY_SECONDS=0.5 \
-	python3 scripts/demo-visualizer.py --replay demos/demo-claude-anf.log
+	python3 scripts/demo-visualizer.py --replay demos/local/latest.log
 ```
 
 Open or refresh `http://127.0.0.1:8765` during its countdown. Confirm the screen says RECORDED REHEARSAL.
@@ -164,8 +167,8 @@ Resume at the panel where the live run stopped. Never call the replay live.
 
 If the browser fails, return to the terminal. Say: "The terminal is the source stream, so I will continue there."
 
-If the replay server fails, open `demos/clawdlinux-claude-anf.gif` full-screen.
-Say: "This is a 41-second recording of the successful replay. It is not live."
+If the replay server fails, open `demos/local/latest.webm` full-screen.
+Say: "This is a recording of a successful live run. It is not the current live run."
 
 Never swap to replay silently.
 

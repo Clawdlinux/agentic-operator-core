@@ -9,9 +9,9 @@ watching the terminal would.
 
 Usage:
     python3 scripts/demo-visualizer.py --present
-    python3 scripts/demo-visualizer.py --present --tamper-audit
+    python3 scripts/demo-visualizer.py --present --scenario all --tamper-audit
     DEMO_REPLAY_DELAY_SECONDS=0.5 python3 scripts/demo-visualizer.py \
-        --replay demos/demo-claude-anf.log
+        --replay demos/local/latest.log
 
 The --replay mode plays back a captured log file at readable speed with no
 cluster required -- use it to rehearse the dashboard itself before the real
@@ -26,12 +26,14 @@ import json
 import os
 import queue
 import re
+import signal
 import socketserver
 import subprocess
 import sys
 import threading
 import time
 import uuid
+from decimal import Decimal
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DASHBOARD_HTML = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo-dashboard.html")
@@ -47,6 +49,7 @@ CLIENT_QUEUE_SIZE = 256
 HEARTBEAT_INTERVAL = 10.0
 STREAM_WRITE_TIMEOUT = 5.0
 DEFAULT_REPLAY_DELAY_SECONDS = 0.12
+DEFAULT_START_DELAY_SECONDS = 5
 CLIENT_CLOSED = object()
 
 clients = []
@@ -61,7 +64,35 @@ CLUSTER_IDENTIFIER = r'[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?'
 UINT = r'[0-9]{1,10}'
 COST_DECIMAL = r'(?:0|[1-9][0-9]{0,5})(?:\.[0-9]{1,9})?'
 PIPELINE_LINE_MAX_BYTES = 1024
+SCENARIO_LINE_MAX_BYTES = 256
 EVENT_TEXT_MAX_BYTES = 160
+
+SCENARIOS = {
+    "success": {
+        "expected": "Complete",
+        "fixture": "examples/booth-scenarios/success/fixture.yaml",
+        "workload": "examples/booth-scenarios/success/workload.template.yaml",
+    },
+    "fault-injection": {
+        "expected": "Failed",
+        "fixture": "examples/booth-scenarios/fault-injection/fixture.yaml",
+        "workload": "examples/booth-scenarios/fault-injection/workload.template.yaml",
+    },
+}
+SCENARIO_SELECTED_RE = re.compile(
+    r'^Scenario selected: id=(?P<id>success|fault-injection) '
+    r'expected=(?P<expected>Complete|Failed) fixture=(?P<fixture>\S+) '
+    r'workload=(?P<workload>\S+)$'
+)
+SCENARIO_RESULT_RE = re.compile(
+    r'^Scenario result: id=(?P<id>success|fault-injection) '
+    r'expected=(?P<expected>Complete|Failed) '
+    r'observed=(?P<observed>Complete|Failed)$'
+)
+SCENARIO_PREFIXES = (
+    'Scenario selected:',
+    'Scenario result:',
+)
 
 ANF_SUMMARY_RE = re.compile(
     rf'^ANF context: source=(?P<source>kubernetes/(?P<cluster>{CLUSTER_IDENTIFIER})) '
@@ -226,6 +257,52 @@ class Parser:
             "LIVE",
         )
 
+    def _parse_scenario_event(self, line):
+        if len(line.encode("utf-8")) > SCENARIO_LINE_MAX_BYTES:
+            return None
+
+        match = SCENARIO_SELECTED_RE.fullmatch(line)
+        if match:
+            scenario_id = match.group("id")
+            scenario = SCENARIOS[scenario_id]
+            if any(
+                match.group(field) != scenario[field]
+                for field in ("expected", "fixture", "workload")
+            ):
+                return None
+            return {
+                "type": "detail",
+                "kind": "scenario-selected",
+                "id": scenario_id,
+                **scenario,
+            }
+
+        match = SCENARIO_RESULT_RE.fullmatch(line)
+        if match:
+            scenario_id = match.group("id")
+            scenario = SCENARIOS[scenario_id]
+            if (
+                match.group("expected") != scenario["expected"]
+                or match.group("observed") != scenario["expected"]
+            ):
+                return None
+            return {
+                "type": "detail",
+                "kind": "scenario-result",
+                "id": scenario_id,
+                **scenario,
+                "observed": match.group("observed"),
+            }
+
+        return None
+
+    def _generic_log(self, line):
+        return {
+            "type": "log",
+            "text": self._tail_text(line),
+            "raw": line,
+        }
+
     def _parse_pipeline_event(self, line):
         if len(line.encode("utf-8")) > PIPELINE_LINE_MAX_BYTES:
             return None
@@ -305,6 +382,8 @@ class Parser:
         if match:
             annotation_usd = match.group("annotation_usd")
             metric_usd = match.group("metric_usd")
+            if Decimal(annotation_usd) <= 0 or Decimal(metric_usd) <= 0:
+                return None
             return self._detail(
                 "cost-evidence",
                 (
@@ -322,6 +401,12 @@ class Parser:
         line = ANSI_RE.sub('', raw_line).rstrip("\r\n")
         if not line.strip():
             return None
+
+        scenario_event = self._parse_scenario_event(line)
+        if scenario_event is not None:
+            return scenario_event
+        if line.startswith(SCENARIO_PREFIXES):
+            return self._generic_log(line)
 
         pipeline_event = self._parse_pipeline_event(line)
         if pipeline_event is not None:
@@ -429,16 +514,53 @@ def run_process(args, broadcaster=None, process_factory=None, output=None):
     cmd = [os.path.join(REPO_ROOT, "scripts", "demo-booth.sh")] + args
     proc = process_factory(
         cmd, cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1,
+        text=True, bufsize=1, start_new_session=True,
     )
-    for raw_line in proc.stdout:
-        evt = parser.parse(raw_line)
-        if evt:
-            broadcaster(evt)
-        output.write(raw_line)
-        output.flush()
-    proc.wait()
-    broadcaster({"type": "run-end", "exit_code": proc.returncode})
+    try:
+        for raw_line in proc.stdout:
+            evt = parser.parse(raw_line)
+            if evt:
+                broadcaster(evt)
+            output.write(raw_line)
+            output.flush()
+        proc.wait()
+        broadcaster({"type": "run-end", "exit_code": proc.returncode})
+    finally:
+        terminate_process_group(proc)
+
+
+def process_group_exists(process_group_id):
+    try:
+        os.killpg(process_group_id, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def terminate_process_group(proc, timeout_seconds=5):
+    process_group_id = proc.pid
+    try:
+        os.killpg(process_group_id, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+
+    deadline = time.monotonic() + timeout_seconds
+    while process_group_exists(process_group_id) and time.monotonic() < deadline:
+        time.sleep(0.05)
+
+    if process_group_exists(process_group_id):
+        try:
+            os.killpg(process_group_id, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+    if proc.poll() is None:
+        try:
+            proc.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            pass
 
 
 def run_replay(path, broadcaster=None, sleeper=None, delay_seconds=None):
@@ -541,6 +663,12 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
+    def handle_error(self, request, client_address):
+        error = sys.exc_info()[1]
+        if isinstance(error, (BrokenPipeError, ConnectionResetError)):
+            return
+        super().handle_error(request, client_address)
+
 
 def parse_replay_delay(value):
     try:
@@ -552,6 +680,20 @@ def parse_replay_delay(value):
     if not 0 <= delay <= 5:
         raise ValueError(
             "DEMO_REPLAY_DELAY_SECONDS must be a number from 0 to 5"
+        )
+    return delay
+
+
+def parse_start_delay(value):
+    try:
+        delay = int(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "DEMO_START_DELAY_SECONDS must be an integer from 0 to 30"
+        ) from error
+    if not 0 <= delay <= 30:
+        raise ValueError(
+            "DEMO_START_DELAY_SECONDS must be an integer from 0 to 30"
         )
     return delay
 
@@ -571,6 +713,12 @@ def parse_cli_args(args):
 def main(argv=None, server_factory=ThreadingHTTPServer):
     try:
         args = parse_cli_args(sys.argv[1:] if argv is None else argv)
+        start_delay = parse_start_delay(
+            os.environ.get(
+                "DEMO_START_DELAY_SECONDS",
+                DEFAULT_START_DELAY_SECONDS,
+            )
+        )
         replay_delay = None
         if args and args[0] == "--replay":
             replay_delay = parse_replay_delay(
@@ -592,26 +740,41 @@ def main(argv=None, server_factory=ThreadingHTTPServer):
         print(f"\nDashboard:  http://127.0.0.1:{PORT}")
         print("Open that URL now (full-screen it on the showcase display).\n")
 
-        if not (args and args[0] == "--replay"):
-            for i in range(5, 0, -1):
+        replay_mode = bool(args and args[0] == "--replay")
+        run_args = args if args else ["--present"]
+        broadcast({
+            "type": "run-ready",
+            "mode": "replay" if replay_mode else "live",
+            "args": run_args,
+        })
+
+        if not replay_mode:
+            for i in range(start_delay, 0, -1):
                 print(f"  starting in {i}...", end="\r")
                 time.sleep(1)
             print(" " * 30, end="\r")
         else:
-            for i in range(5, 0, -1):
+            for i in range(start_delay, 0, -1):
                 print(f"  replay starting in {i}...", end="\r")
                 time.sleep(1)
             print(" " * 30, end="\r")
 
-        if args and args[0] == "--replay":
-            run_replay(args[1], delay_seconds=replay_delay)
-        else:
-            run_process(args if args else ["--present"])
-
-        print("\nRun finished. Dashboard server stays up -- Ctrl+C to stop.")
         try:
-            while True:
-                time.sleep(1)
+            previous_sigterm = signal.signal(
+                signal.SIGTERM,
+                lambda signum, frame: (_ for _ in ()).throw(KeyboardInterrupt()),
+            )
+            try:
+                if args and args[0] == "--replay":
+                    run_replay(args[1], delay_seconds=replay_delay)
+                else:
+                    run_process(run_args)
+
+                print("\nRun finished. Dashboard server stays up -- Ctrl+C to stop.")
+                while True:
+                    time.sleep(1)
+            finally:
+                signal.signal(signal.SIGTERM, previous_sigterm)
         except KeyboardInterrupt:
             pass
     finally:
