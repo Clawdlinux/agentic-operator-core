@@ -27,6 +27,8 @@ var (
 	summaryNamespacePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 )
 
+const rejectedLabelPreviewRunes = 80
+
 // Lister provides the five sequential Kubernetes reads used by a snapshot.
 // The result is best-effort across calls rather than a transactional cluster view.
 type Lister interface {
@@ -371,7 +373,17 @@ func estimateTokens(characters int) int {
 
 func validateLabel(name, value string, pattern *regexp.Regexp) error {
 	if !pattern.MatchString(value) {
-		return fmt.Errorf("%s is not compatible with the ANF summary contract", name)
+		characters := []rune(value)
+		preview := value
+		if len(characters) > rejectedLabelPreviewRunes {
+			preview = string(characters[:rejectedLabelPreviewRunes]) + "..."
+		}
+		return fmt.Errorf(
+			"%s %q (characters=%d) is not compatible with the ANF summary contract",
+			name,
+			preview,
+			len(characters),
+		)
 	}
 	return nil
 }
