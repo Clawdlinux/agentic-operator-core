@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -247,9 +248,34 @@ func TestCaptureRejectsUnsafeSummaryLabels(t *testing.T) {
 		{Cluster: "showcase-cluster", Namespace: "bad-", Clock: func() time.Time { return fixtureNow }},
 		{Cluster: "showcase-cluster", Namespace: strings.Repeat("a", 64), Clock: func() time.Time { return fixtureNow }},
 	} {
-		if _, err := Capture(context.Background(), newStaticLister(fixtureSource()), options); err == nil {
+		_, err := Capture(context.Background(), newStaticLister(fixtureSource()), options)
+		if err == nil {
 			t.Fatalf("Capture accepted unsafe summary label in %#v", options)
 		}
+		rejectedValue := options.Cluster
+		if options.Cluster == "showcase-cluster" {
+			rejectedValue = options.Namespace
+		}
+		if len([]rune(rejectedValue)) <= rejectedLabelPreviewRunes && !strings.Contains(err.Error(), strconv.Quote(rejectedValue)) {
+			t.Fatalf("Capture error %q does not include rejected value %q", err, rejectedValue)
+		}
+	}
+}
+
+func TestValidateLabelBoundsRejectedValue(t *testing.T) {
+	value := strings.Repeat("a", 10_000)
+	err := validateLabel("cluster", value, summaryClusterPattern)
+	if err == nil {
+		t.Fatal("validateLabel accepted oversized cluster")
+	}
+	if len(err.Error()) > 256 {
+		t.Fatalf("error length = %d, want at most 256: %q", len(err.Error()), err)
+	}
+	if !strings.Contains(err.Error(), "characters=10000") {
+		t.Fatalf("error does not include original character count: %q", err)
+	}
+	if strings.Contains(err.Error(), value) {
+		t.Fatal("error includes the full rejected value")
 	}
 }
 
