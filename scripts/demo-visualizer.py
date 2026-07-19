@@ -10,7 +10,8 @@ watching the terminal would.
 Usage:
     python3 scripts/demo-visualizer.py --present
     python3 scripts/demo-visualizer.py --present --tamper-audit
-    python3 scripts/demo-visualizer.py --replay demos/demo-20260713.log
+    DEMO_REPLAY_DELAY_SECONDS=0.5 python3 scripts/demo-visualizer.py \
+        --replay demos/demo-claude-anf.log
 
 The --replay mode plays back a captured log file at readable speed with no
 cluster required -- use it to rehearse the dashboard itself before the real
@@ -45,6 +46,7 @@ STREAM_ID = uuid.uuid4().hex
 CLIENT_QUEUE_SIZE = 256
 HEARTBEAT_INTERVAL = 10.0
 STREAM_WRITE_TIMEOUT = 5.0
+DEFAULT_REPLAY_DELAY_SECONDS = 0.12
 CLIENT_CLOSED = object()
 
 clients = []
@@ -439,9 +441,18 @@ def run_process(args, broadcaster=None, process_factory=None, output=None):
     broadcaster({"type": "run-end", "exit_code": proc.returncode})
 
 
-def run_replay(path, broadcaster=None, sleeper=None):
+def run_replay(path, broadcaster=None, sleeper=None, delay_seconds=None):
     broadcaster = broadcaster or broadcast
     sleeper = sleeper or time.sleep
+    if delay_seconds is None:
+        delay_seconds = parse_replay_delay(
+            os.environ.get(
+                "DEMO_REPLAY_DELAY_SECONDS",
+                DEFAULT_REPLAY_DELAY_SECONDS,
+            )
+        )
+    else:
+        delay_seconds = parse_replay_delay(delay_seconds)
     parser = Parser()
     broadcaster({"type": "run-start", "mode": "replay", "args": ["--replay", path]})
     with open(path, encoding="utf-8") as f:
@@ -449,7 +460,7 @@ def run_replay(path, broadcaster=None, sleeper=None):
             evt = parser.parse(raw_line)
             if evt:
                 broadcaster(evt)
-            sleeper(0.12)
+            sleeper(delay_seconds)
     broadcaster({"type": "run-end", "exit_code": 0})
 
 
@@ -531,6 +542,20 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
+def parse_replay_delay(value):
+    try:
+        delay = float(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "DEMO_REPLAY_DELAY_SECONDS must be a number from 0 to 5"
+        ) from error
+    if not 0 <= delay <= 5:
+        raise ValueError(
+            "DEMO_REPLAY_DELAY_SECONDS must be a number from 0 to 5"
+        )
+    return delay
+
+
 def parse_cli_args(args):
     if args and args[0] == "--replay" and len(args) < 2:
         raise ValueError("usage: demo-visualizer.py --replay PATH")
@@ -546,6 +571,14 @@ def parse_cli_args(args):
 def main(argv=None, server_factory=ThreadingHTTPServer):
     try:
         args = parse_cli_args(sys.argv[1:] if argv is None else argv)
+        replay_delay = None
+        if args and args[0] == "--replay":
+            replay_delay = parse_replay_delay(
+                os.environ.get(
+                    "DEMO_REPLAY_DELAY_SECONDS",
+                    DEFAULT_REPLAY_DELAY_SECONDS,
+                )
+            )
     except ValueError as error:
         print(error, file=sys.stderr)
         return 2
@@ -564,9 +597,14 @@ def main(argv=None, server_factory=ThreadingHTTPServer):
                 print(f"  starting in {i}...", end="\r")
                 time.sleep(1)
             print(" " * 30, end="\r")
+        else:
+            for i in range(5, 0, -1):
+                print(f"  replay starting in {i}...", end="\r")
+                time.sleep(1)
+            print(" " * 30, end="\r")
 
         if args and args[0] == "--replay":
-            run_replay(args[1])
+            run_replay(args[1], delay_seconds=replay_delay)
         else:
             run_process(args if args else ["--present"])
 

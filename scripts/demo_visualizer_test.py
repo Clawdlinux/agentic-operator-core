@@ -2,6 +2,7 @@ import http.client
 import importlib.util
 import io
 import json
+import os
 import queue
 import re
 import socket
@@ -152,6 +153,57 @@ class RunModeTest(unittest.TestCase):
 
         self.assertEqual(events[0]["type"], "run-start")
         self.assertEqual(events[0].get("mode"), "replay")
+
+    def test_replay_uses_configurable_bounded_delay(self):
+        delays = []
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as replay:
+            replay.write("[OK] AgentWorkload reached Completed\n")
+            replay.flush()
+            demo_visualizer.run_replay(
+                replay.name,
+                broadcaster=lambda _: None,
+                sleeper=delays.append,
+                delay_seconds=0.5,
+            )
+
+        self.assertEqual(delays, [0.5])
+
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as replay:
+            replay.write("event\n")
+            replay.flush()
+            with self.assertRaisesRegex(
+                ValueError,
+                "DEMO_REPLAY_DELAY_SECONDS must be a number from 0 to 5",
+            ):
+                demo_visualizer.run_replay(
+                    replay.name,
+                    broadcaster=lambda _: None,
+                    sleeper=lambda _: None,
+                    delay_seconds=5.1,
+                )
+
+    def test_invalid_replay_delay_fails_before_server_bind(self):
+        server_factory = mock.Mock()
+        stderr = io.StringIO()
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as replay:
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"DEMO_REPLAY_DELAY_SECONDS": "not-a-number"},
+                ),
+                mock.patch.object(sys, "stderr", stderr),
+            ):
+                exit_code = demo_visualizer.main(
+                    ["--replay", replay.name],
+                    server_factory=server_factory,
+                )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(
+            stderr.getvalue(),
+            "DEMO_REPLAY_DELAY_SECONDS must be a number from 0 to 5\n",
+        )
+        server_factory.assert_not_called()
 
     def test_live_run_emits_live_mode_without_kubernetes(self):
         events = []
