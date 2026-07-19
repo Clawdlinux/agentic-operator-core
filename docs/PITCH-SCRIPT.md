@@ -57,15 +57,16 @@ It creates one runtime Secret without printing values. Helm receives only the Se
 Run the 5-7 minute path:
 
 ```bash
-scripts/demo-booth.sh --present
+scripts/demo-booth.sh --present --scenario all
 ```
 
 ### CURRENT BOOTH PROOF
 
 Say each proof label aloud. Do not blend target behavior into the current demo.
 
-**LIVE ANF, CLAUDE ROUTING, AND COST.** `examples/research-agent.template.yaml` is not directly deployable.
-The script captures live Kubernetes state as ANF and injects it into a rendered AgentWorkload.
+**LIVE SCENARIOS, ANF, CLAUDE ROUTING, AND COST.** Scenario YAML lives under `examples/booth-scenarios/`.
+Use `--scenario success`, `--scenario fault-injection`, or `--scenario all`.
+The script verifies each fixture result, captures live Kubernetes state, and injects ANF into its AgentWorkload.
 Every task category maps to `clawdlinux-anthropic` through in-cluster LiteLLM.
 The status condition shows genuine token counts. The annotation and metric show nonzero cost.
 
@@ -78,8 +79,9 @@ Say: "Packet enforcement requires an enforcing CNI." This iteration installs no 
 **PRIOR-RUN HMAC AUDIT FIXTURE.** The checked-in JSONL fixture passes HMAC verification offline.
 The current workload did not generate it. Do not call it a current-run artifact or asymmetric signature.
 
-Add `--tamper-audit` to alter a temporary copy and show verification failure.
-Use `scripts/record-demo.sh` to record the present path.
+Add `--tamper-audit` to alter a temporary copy without recomputing its MAC.
+The committed demo key is not production key custody.
+Use `scripts/record-demo.sh --scenario all --duration 120` to record both scenarios.
 
 **OPA IS LEGACY OR TARGET ONLY.** The legacy default flow retains its OPA allow/deny development path.
 The target product contract also includes policy evaluation. `--present` executes neither path.

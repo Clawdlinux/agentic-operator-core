@@ -1,39 +1,48 @@
-# Booth Replay Artifacts
+# Local Booth Recordings
 
-These files provide the offline fallback for the Agentic Summit booth.
+Generated recordings are local booth assets. They are not source artifacts and are ignored by Git.
 
-## Artifacts
+## Record the End-to-End Flow
 
-- `demo-claude-anf.log` is stdout from a successful live run on July 18, 2026.
-- `clawdlinux-claude-anf.gif` is a 41-second browser recording of that replay.
-- The GIF is 1152 by 720 pixels and loops continuously.
+Run this from the repository root on macOS:
 
-The live run used `--present --tamper-audit --pace 6` against `kind-clawdlinux-demo`.
-It routed the rendered AgentWorkload through LiteLLM to Claude.
-No credential values are present in either artifact.
+```bash
+scripts/record-demo.sh --scenario all --pace 3 --duration 120 --no-open
+```
 
-## Replay
+Install the local recording dependencies once:
 
-Run this from the repository root:
+```bash
+npm install -g playwright
+playwright install ffmpeg
+```
+
+The recorder starts the real visualizer command and records an isolated 1920 by 1080 dashboard as WebM.
+It records both editable scenarios through one dashboard connection.
+It verifies scenario results, ANF, completion, Claude, cost, audit, and tamper evidence.
+
+Scenario source files live under `examples/booth-scenarios/`.
+Edit the fixture and workload YAML before recording when you need another use case.
+
+Generated files live under `demos/local/`:
+
+- `latest.webm` points to the newest end-to-end browser recording.
+- `latest.log` points to stdout from the same real run.
+
+## Replay the Recorded Stdout
 
 ```bash
 DEMO_REPLAY_DELAY_SECONDS=0.5 \
-  python3 scripts/demo-visualizer.py --replay demos/demo-claude-anf.log
+  python3 scripts/demo-visualizer.py --replay demos/local/latest.log
 ```
 
 Open `http://127.0.0.1:8765` during the countdown.
 The dashboard must say `RECORDED REHEARSAL`.
-Never present this replay as a live cluster run.
+Never present replayed stdout or `latest.webm` as the current live cluster run.
 
 ## Evidence Boundaries
 
-- `LIVE` events were live when the source log was recorded.
+- `LIVE` events were live when the local source log was recorded.
 - `CONFIG ONLY` proves mutation and object presence, not runtime enforcement.
-- `PRIOR RUN` verifies the checked-in HMAC fixture and rejects a modified copy.
+- `PRIOR RUN` verifies the HMAC fixture and rejects a modified copy without a recomputed MAC.
 - The current AgentWorkload did not generate the prior-run audit fixture.
-
-Verify artifact integrity locally with:
-
-```bash
-shasum -a 256 demos/demo-claude-anf.log demos/clawdlinux-claude-anf.gif
-```

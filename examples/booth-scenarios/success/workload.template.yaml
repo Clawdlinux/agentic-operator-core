@@ -1,30 +1,27 @@
-# TEMPLATE ONLY. Do not apply this file directly.
-# scripts/demo-booth.sh replaces ANF_CONTEXT_INSERT_HERE and clears the template annotation.
+# EDIT THIS FILE to change the successful analysis objective.
+# TEMPLATE ONLY. demo-booth.sh injects live ANF and clears the annotation.
 apiVersion: agentic.clawdlinux.org/v1alpha1
 kind: AgentWorkload
 metadata:
-  name: booth-incident-investigation
-  namespace: agentic-system
+  name: booth-success-analysis
   labels:
-    app.kubernetes.io/name: booth-incident-investigation
     app.kubernetes.io/part-of: clawdlinux-booth-demo
-    demo.clawdlinux.org/evidence: live-anf-via-litellm-to-claude
+    demo.clawdlinux.org/scenario: success
   annotations:
     demo.clawdlinux.org/template: "true"
     demo.clawdlinux.org/provider-proof: "Live ANF context is routed through in-cluster LiteLLM to Claude Haiku 4.5."
 spec:
   objective: |
-    Investigate a production checkout latency incident from these facts:
-    p95 rose from 280ms to 2.4s after a database connection-pool change,
-    error rate reached 7%, and rollback restored normal service in 6 minutes.
-    Produce a concise incident assessment with the likely cause, evidence,
-    immediate containment, and 3 follow-up checks. Do not invent missing telemetry.
+    Review the successful Kubernetes fixture in this live Agent Native Format.
+    Explain the evidence that proves success and list 3 controls a regulated
+    platform team should retain before promoting this workload. Do not invent
+    missing telemetry or claim runtime enforcement that is not in the evidence.
     BEGIN ANF CONTEXT
     ANF_CONTEXT_INSERT_HERE
     END ANF CONTEXT
   workloadType: kubernetes
   agents:
-    - incident-investigator
+    - platform-evidence-reviewer
   collaborationMode: solo
   opaPolicy: strict
   autoApproveThreshold: "0.95"
