@@ -310,7 +310,7 @@ func fixtureClient() *fake.Clientset {
 		"example.com/source": "live-cluster-fixture",
 	}
 
-	return fake.NewSimpleClientset(
+	return fake.NewClientset(
 		&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "operator", Namespace: "agentic-system", CreationTimestamp: metav1.NewTime(fixtureNow.Add(-49 * time.Hour)), Annotations: commonAnnotations,
