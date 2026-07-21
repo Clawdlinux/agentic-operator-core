@@ -8,14 +8,17 @@ Enterprises in regulated industries cannot ship AI agents to production. Not bec
 
 ## The vision
 
-Every agent run on Kubernetes leaves a signed, tamper-evident, offline-verifiable attestation artifact, and runs inside a declared egress boundary, regardless of which runtime executes it. Clawdlinux is that governance plane: air-gapped by default, runtime-agnostic by design, delivered as one Helm chart.
+The target product makes each governed Kubernetes agent run leave signed, offline-verifiable evidence and execute inside a declared egress boundary. Clawdlinux is building that runtime-agnostic governance plane for customer-owned clusters.
+
+The current repository ships separate audit, admission, network-policy, runtime,
+and cost components. Same-run capture and enforcement parity are not complete.
 
 ## How we got here
 
 - **Feb 2026.** Project started as an enterprise agent-swarm orchestration platform (operator, AgentWorkload CRD, Argo DAGs, multi-tenancy, licensing, cost tracking). Initial wedge idea: visual market analysis for hedge funds needing zero data leakage.
 - **Mar to Apr 2026.** Core platform hardened: Cilium FQDN egress generation, LiteLLM routing, MinIO artifacts, Python LangGraph runtime with A2A, full-cycle integration tests, Helm umbrella chart.
 - **May 2026.** ACP (Agent Contract Protocol) spun out as its own repo and spec. Benchmarks landed: 64.7% to 97.4% token reduction vs raw MCP, one round trip. Briefly explored a consumer AgentOS direction; reversed within the month. Enterprise K8s is the business.
-- **Jun 2026.** Positioning locked: we sell the attestation and governance plane, not a runtime. CNCF runtimes are supported, not competed with. Runtime adapter interface shipped so AgentWorkload, BYO pods, and external runtimes get the same seal and attestation. ACP repositioned from token compression to governed execution contracts. gVisor RuntimeClass injector and offline audit-verify shipped.
+- **Jun 2026.** Positioning locked: we sell the governance and evidence plane, not a runtime. Runtime adapters, gVisor mutation, and offline JSONL verification primitives shipped. Governance parity and same-run capture remained incomplete.
 - **Jul 2026.** Demo gate (`scripts/demo-booth.sh`) reproducible on kind. Focus: validation conversations and the Jul 22 Agentic Summit booth. Fintech is the anchor vertical.
 
 ## Scope note
@@ -32,7 +35,7 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 - [x] Multi-tenant namespace isolation with quota enforcement
 - [x] Python agent runtime with tool integrations
 - [x] A2A (Agent-to-Agent) communication protocol
-- [x] Production hardening: staticcheck, secret scanning, CI gates
+- [x] Quality gates: staticcheck, secret scanning, and CI checks
 - [x] Helm chart with subchart dependencies
 - [x] Full-cycle integration test suite
 
@@ -40,10 +43,10 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 
 - [x] `agentctl` CLI for workload management
 - [x] MCP server (`agentctl mcp serve`) for agent-callable provisioning ([#140](https://github.com/Clawdlinux/agentic-operator-core/issues/140))
-- [x] Tamper-evident audit chain with offline `audit-verify`
+- [x] HMAC hash-chain and offline JSONL `audit-verify`
 - [x] gVisor RuntimeClass + pod admission injector for labeled agent pods
 - [x] Runtime adapter interface (AgentWorkload, BYO pods, external runtimes)
-- [x] OPA policy library for common agent guardrails
+- [x] Rego policy samples and an in-process Go action evaluator
 - [x] Grafana observability and per-workload cost dashboards
 - [x] Reproducible booth demo gate on kind
 
@@ -51,11 +54,13 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 
 Priority order. Validation before features.
 
-- [ ] 10 real conversations with named platform/security engineers by Jul 15 (kill criterion for everything below it)
+- [ ] 10 qualified platform/security conversations by Sep 15, including 3 active production-review blockers and 1 scoped design-partner engagement. This is the one-time reset of the missed Jul 15 criterion.
 - [ ] Jul 22 Agentic Summit booth demo, fintech use case
 - [ ] Air-gapped install smoke test in CI
 - [ ] Webhook admission controller for CRD validation
 - [ ] Per-runtime sandbox label guide
+- [ ] Same-run audit capture with durable storage and production key custody
+- [ ] Runtime governance-label parity and enforcing-CNI packet tests
 - [ ] ACP RemoteMCPServer wrapper example
 - [ ] Homebrew tap for agentctl
 

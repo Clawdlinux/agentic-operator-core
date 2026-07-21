@@ -5,11 +5,11 @@
 <h1 align="center">Clawdlinux Operator</h1>
 
 <p align="center">
-  <strong>Air-gapped governance and attestation for AI agents on Kubernetes.</strong>
+  <strong>In-cluster governance for AI agents on Kubernetes.</strong>
 </p>
 
 <p align="center">
-  A tamper-evident attestation artifact and a zero-egress seal for every agent run. Air-gapped, verifiable offline, runtime-agnostic. Plus gVisor isolation, audit trails, and FinOps.
+  Runtime-agnostic workload contracts, isolation and egress configuration, model-cost evidence, and offline-verifiable audit primitives.
 </p>
 
 <p align="center">
@@ -47,37 +47,40 @@ Platform teams running AI agents on Kubernetes face the same regulated-ops quest
 
 Who can the agent call? Which runtime isolates it? What did it cost? What did it do? Can an auditor replay it later?
 
-Clawdlinux is a governance plane that answers those questions. It adds regulated controls around any agent workload.
+Clawdlinux is building the in-cluster governance boundary around those workloads. It does not replace the agent runtime.
 
-The wedge: Clawdlinux emits a signed, tamper-evident attestation artifact for each run and applies a zero-egress seal at the network boundary. The artifact is hash-chained and verifiable offline with `audit-verify`, so an auditor can replay what an agent did months later inside an air-gapped cluster. The same seal and attestation contract applies to a Clawdlinux AgentWorkload, a CNCF runtime, or your own labeled pods. This is the part most agent runtimes leave to you. Clawdlinux ships it in-cluster.
+The repository currently ships the `AgentWorkload` lifecycle, runtime adapters, admission mutation, generated network-policy objects, model routing and cost paths, and HMAC hash-chain verification primitives. These components have different integration depth. The current controller does not yet emit a complete signed artifact from each run.
 
-| Capability | What Clawdlinux provides |
+The target contract connects caller identity, declared access, action policy, approval, cost, outcome, and independently verifiable evidence in one transaction. That target is the product direction, not a claim about the current end-to-end path.
+
+| Capability | Current repository state |
 |---|---|
-| Runtime isolation | gVisor `RuntimeClass` injection for labeled pods |
-| Audit | Tamper-evident audit chain |
-| Cost | Per-workload budget and chargeback hooks |
+| Runtime isolation | gVisor `RuntimeClass` mutation for labeled pods; nodes must provide `runsc` |
+| Network controls | Default-deny and allow-list policy generation; enforcement depends on the cluster CNI |
+| Audit | HMAC hash-chain and JSONL verifier; automatic same-run capture is not connected |
+| Cost | Per-workload usage and estimated-cost paths plus chargeback hooks |
 | Context | ANF view snapshots (internal tooling): `agentctl` renders token-minimal Kubernetes and agent state for the model |
-| Delivery | Air-gapped install path and offline licensing |
+| Delivery | Helm packaging and offline JWT validation; full air-gapped install testing remains a release gate |
 | Orchestration | Argo Workflows DAG orchestration |
 
 ### Supported runtimes
 
-Clawdlinux works with any Kubernetes agent runtime:
+Clawdlinux currently registers 3 Kubernetes runtime adapters:
 
 - **Clawdlinux AgentWorkload** (built-in CRD)
 - **CNCF agent runtimes** like kagent
 - **Custom agent pods** with the right labels
 
-The runtime handles agent lifecycle, tools, and model dispatch. Clawdlinux handles isolation, audit, spend, and compliance. Use both.
+The runtime handles agent lifecycle, tools, and model dispatch. Clawdlinux supplies workload, policy, isolation, cost, and evidence primitives around it. A production integration must map those controls to the customer's identity, network, storage, and compliance program.
 
 | Problem | Clawdlinux |
 |---------|-----------------|
 | Agent sprawl across namespaces | Single `AgentWorkload` CRD per agent |
-| No network boundaries | Cilium FQDN egress policies auto-applied |
+| No network boundaries | Kubernetes and optional Cilium policy objects generated from reviewed configuration |
 | Invisible costs | Per-workload token metering + cost attribution |
 | Manual DAG wiring | Argo Workflows orchestrates agent steps |
 | Vendor lock-in | Any LLM via LiteLLM proxy routing |
-| Cloud-only runtimes | Full air-gapped, offline-first deployment |
+| Cloud-only control planes | Self-managed, in-cluster deployment with offline licensing support |
 
 ### Runtime sandbox for labeled pods
 
@@ -99,24 +102,14 @@ No fork required. No custom build required. Works with any pod that carries the 
 
 ## Demo
 
+```bash
+kubectl apply -f config/samples/agentworkload_demo.yaml
+kubectl -n agentic-system get agentworkloads -w
 ```
-$ kubectl apply -f agentworkload.yaml
-agentworkload.agentic.clawdlinux.org/research-run created
 
-$ kubectl get agentworkload research-run -w
-NAME           PHASE       AGE
-research-run   Pending     0s
-research-run   Isolating   2s    # namespace + cilium policy applied
-research-run   Running     5s    # argo workflow launched
-research-run   Completed   47s   # artifacts retained in minio
-
-$ kubectl logs -n aw-research-run agent-pod --tail=5
-[agent] analyzing Q1 2026 technology trends...
-[agent] sources: arxiv, github trending, HN front page
-[agent] cost: $0.0023 (gpt-4o-mini) | tokens: 1,847 in / 892 out
-[agent] output written to minio://research-run/report.md
-[agent] run complete — 42s wall time
-```
+For the reproducible evidence demo, use
+[`docs/SHOWCASE-DEMO-WALKTHROUGH.md`](docs/SHOWCASE-DEMO-WALKTHROUGH.md).
+It labels current-run, configuration-only, and prior-run evidence separately.
 
 ---
 
@@ -160,7 +153,11 @@ kind create cluster --name agentic-operator
 kubectl apply -f config/crd/agentworkload_crd.yaml
 helm dependency build ./charts
 helm upgrade --install agentic-operator ./charts \
-  --namespace agentic-system --create-namespace
+  --namespace agentic-system --create-namespace \
+  --set license.key=dev-only-not-a-valid-license
+
+# The development license value is packaging-only in OSS mode.
+# Do not use it in production.
 
 # Deploy your first agent
 kubectl apply -f config/agentworkload_example.yaml
@@ -177,52 +174,27 @@ kubectl -n agentic-system get agentworkloads -w
 
 ```mermaid
 flowchart LR
-    subgraph clients["Users"]
-        PE["Platform Engineer<br/>(kubectl / agentctl)"]
-        AUD["Auditor<br/>(audit-verify, offline)"]
-    end
-
-    API["Kubernetes<br/>API Server"]
-
-    subgraph plane["Clawdlinux governance plane"]
-        OP["Clawdlinux Operator<br/>(license, OPA, cost)"]
-        RT["Runtime Adapter<br/>(spec.orchestration.type)"]
-        ARGO["Argo Workflows"]
-        POD["BYO Pod"]
-        KAGENT["kagent Agent"]
-        PODS["Agent Pods<br/>(gVisor, egress-sealed)"]
-        PROXY["LiteLLM Proxy"]
-    end
-
-    LLMEP["Approved<br/>LLM Endpoint"]
-    MINIO[("MinIO<br/>Artifact Store")]
-    CHAIN[("Audit Chain<br/>WORM, hash-chained")]
-    REKOR["Sigstore Rekor<br/>(optional)"]
-
-    PE -->|Applies AgentWorkload| API
-    AUD -->|Fetches chain checkpoint| API
-    API -->|Watch events| OP
-    OP -->|Selects runtime| RT
-    RT -->|argo| ARGO
-    RT -->|pod| POD
-    RT -->|kagent| KAGENT
-    OP -->|Injects gVisor, seals egress| PODS
-    ARGO --> PODS
-    POD --> PODS
-    KAGENT --> PODS
-    PODS -->|LLM calls| PROXY
-    PROXY -.->|LLM: inference| LLMEP
-    PODS -->|Writes artifacts| MINIO
-    OP -->|Appends signed events| CHAIN
-    OP -.->|Rekor: mirrors head| REKOR
-
-    classDef plane fill:#ede9fe,stroke:#7c3aed,color:#1e1b4b;
-    classDef clients fill:#dcfce7,stroke:#16a34a,color:#052e16;
-    class OP,RT,ARGO,POD,KAGENT,PODS,PROXY plane;
-    class PE,AUD clients;
+  USER["Platform engineer or orchestrator"] --> API["Kubernetes API"]
+  API --> OP["Clawdlinux operator"]
+  OP --> REG["Runtime registry"]
+  REG --> ARGO["Argo adapter"]
+  REG --> POD["Pod adapter"]
+  REG --> KAGENT["kagent adapter"]
+  OP --> COST["CostReporter interface"]
+  OP --> STATUS["AgentWorkload status"]
+  LABELS["Governance labels"] --> ADMISSION["gVisor admission mutation"]
+  LABELS --> NETPOL["Network-policy objects"]
+  AUDIT["Audit hash-chain primitives"] --> VERIFY["audit-verify JSONL verifier"]
 ```
 
-The operator picks the execution runtime from `spec.orchestration.type` (Argo, a BYO pod, or a kagent Agent) through a pluggable adapter, then seals every agent pod (gVisor sandbox, default-deny egress to an approved allow-list) and appends a signed, hash-chained record of every run. The seal and attestation are identical across runtimes because they are enforced at the pod and network layer, not the scheduler. An auditor verifies the record offline, months later, with `audit-verify`.
+The operator selects `argo`, `pod`, or `kagent` through `pkg/runtime.Registry`.
+Adapters stamp shared governance labels. The admission webhook and network-policy
+templates consume those labels. Actual sandboxing requires gVisor on the nodes.
+Network enforcement depends on the cluster CNI.
+
+The audit package and offline JSONL verifier are implemented. The controller does
+not yet append each run event into that chain. Durable storage, production signing
+keys, and independently verified checkpoints remain integration work.
 
 ---
 
@@ -233,39 +205,36 @@ The operator picks the execution runtime from `spec.orchestration.type` (Argo, a
 | **AgentWorkload CRD** | Declarative spec for agent objective, model, quotas, egress rules |
 | **Controller** | Reconciles workloads → namespaces, network policies, workflows, artifacts |
 | **Argo Integration** | Agent steps execute as DAG nodes with retries and timeouts |
-| **Cilium Policies** | FQDN-based egress lock-down auto-generated per workload |
-| **LiteLLM Routing** | Cost-aware model selection across providers (OpenAI, Anthropic, Cloudflare) |
-| **MinIO Artifacts** | Per-workload bucket for prompts, logs, outputs, audit trails |
+| **Network policy** | Default-deny and allow-list policy templates; optional Cilium FQDN policy |
+| **Model Routing** | Operator classifier plus optional LiteLLM multi-provider proxy |
+| **MinIO** | Optional in-cluster object storage subchart; same-run audit bundling is not connected |
 | **Multi-tenancy** | Namespace isolation with quota enforcement per tenant |
-| **Cost Attribution** | Per-workload usage metering and cost-attribution hooks for chargeback reporting |
+| **Cost Attribution** | CostReporter interface, no-op default, and in-memory demo reporter |
 | **Python Agent Runtime** | Batteries-included agent framework with tool integrations |
 
 ---
 
-## Product Editions
+## Project Status
 
-| | Community | Enterprise |
-|---|---|---|
-| **License** | Apache 2.0 — free forever | Contact for pricing |
-| **Deployment** | Self-managed | Managed + self-managed |
-| **Air-gapped support** | ✅ | ✅ |
-| **AgentWorkload CRD** | ✅ | ✅ |
-| **Argo DAG orchestration** | ✅ | ✅ |
-| **Cilium egress policies** | ✅ | ✅ |
-| **Cost attribution hooks** | ✅ | ✅ |
-| **Managed upgrades** | — | ✅ |
-| **Dedicated control plane** | — | ✅ |
-| **Private registry & SSO** | — | ✅ |
-| **SLA + incident response** | — | ✅ |
-| **FedRAMP / HIPAA advisory** | — | ✅ |
+| Available in this repository | Target product work |
+|---|---|
+| AgentWorkload CRD and runtime adapters | Actor identity propagated into every run |
+| Argo DAG and BYO pod execution | Universal tool-call mediation |
+| Admission mutation and policy-object generation | Enforcing-cluster packet tests |
+| Model routing and cost-reporting interfaces | Durable cost and chargeback integration |
+| Audit hashing, signing, and JSONL verification | Same-run capture, durable storage, and external checkpoints |
 
-Enterprise inquiries: [shreyanshsancheti09@gmail.com](mailto:shreyanshsancheti09@gmail.com?subject=Enterprise%20Inquiry)
+Clawdlinux does not claim compliance certification. It provides technical
+controls that customers can map into their own security and compliance program.
 
 ---
 
 ## Security & Sandbox
 
-Clawdlinux ships **default-deny egress NetworkPolicies** for every agent namespace (Helm-toggleable via `networkPolicy.enabled`, default true). It can also create a gVisor `RuntimeClass` and register a pod mutating webhook for labeled agent pods. See [docs/07-security.md](docs/07-security.md) for details.
+The Helm chart renders default-deny egress NetworkPolicies for selected pods
+when `networkPolicy.enabled=true`. It can also create a gVisor `RuntimeClass`
+and register a mutating webhook for labeled pods. The cluster must provide an
+enforcing CNI and install `runsc`. See [docs/07-security.md](docs/07-security.md).
 
 ---
 
@@ -303,13 +272,18 @@ assets/                 Branding assets (logo, etc.)
 
 ## Open Source Boundary
 
-This repository is the **open-source core**. It contains everything needed to run agent workloads on Kubernetes, including full air-gapped support.
+This repository is the **open-source core**. It supports self-managed Kubernetes
+deployment and offline JWT validation. A reproducible full air-gap installation
+test remains a release gate.
 
 The [private companion](https://github.com/Clawdlinux/agentic-operator-private) adds enterprise features built on top of the core's cost-attribution primitives:
 - License validation and trial enforcement
 - External billing system integrations (e.g. OpenMeter, Stripe, internal chargebacks)
 - Production DOKS deployment overlays
-- FedRAMP / HIPAA compliance overlays
+- Customer-specific security and compliance integrations
+
+Neither repository alone makes a deployment compliant with a named framework.
+Scope, controls, operations, and independent assessment remain customer-specific.
 
 ---
 

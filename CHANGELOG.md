@@ -16,10 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-04-25
 
-Production-ready agent orchestration release with multi-agent demos, pluggable workflows, CLI onboarding, and landing page overhaul.
+Agent orchestration release with multi-agent examples, pluggable workflows, CLI onboarding, and landing page updates.
 
 ### Added
-- **Multi-Agent Swarm Example** — A2A agent discovery, OPA budget enforcement, autoApproveThreshold gating, Docker Compose with ollama local overlay (#60)
+- **Multi-Agent Swarm Example** — A2A agent discovery, persona tool checks, approval-threshold inputs, and Docker Compose with an Ollama overlay (#60)
 - **SRE Incident Response Example** — collaborationMode: delegation, 3-tier cost-aware model routing, adversarial tone remediator, hierarchical memory (#62)
 - **Pluggable Workflow Registry** — `@register_workflow` decorator, auto-discovery from built-in + custom dirs, `WORKFLOW_NAME` env var selection (#64)
 - **Code Review Workflow** — Fan-out security/performance/style analysis agents
@@ -47,7 +47,7 @@ Production-ready agent orchestration release with multi-agent demos, pluggable w
 - Merge conflicts in multi-agent-swarm files after squash merge
 ## [0.1.1] - 2026-03-31
 
-Customer-ready release of Agentic Operator — Kubernetes-native multi-agent orchestration framework.
+Initial Kubernetes-native multi-agent orchestration feature release.
 
 ### Added
 - **AgentPersona CRD** — First-class Kubernetes resource for agent identity (Role, Tone, MemoryScope, SystemPrompt, ToolProfile)

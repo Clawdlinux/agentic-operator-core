@@ -1,87 +1,83 @@
-# Configuration Guide
+# Configuration
 
-Configure Clawdlinux for your environment.
+Use [`charts/values.yaml`](../charts/values.yaml) and
+[`charts/values.schema.json`](../charts/values.schema.json) as the source of
+truth for Helm settings.
 
-## Helm Values
+## Runtime Selection
 
-```yaml
-# values.yaml
-operator:
-  replicas: 1
-  image:
-    repository: ghcr.io/Clawdlinux/agentic-operator-core
-    tag: latest
-  resources:
-    requests:
-      cpu: 500m
-      memory: 512Mi
-    limits:
-      cpu: 2
-      memory: 2Gi
+`AgentWorkload.spec.orchestration.type` selects a registered runtime:
 
-metrics:
-  enabled: true
-  serviceMonitor:
-    enabled: true
+- `argo`: default multi-step DAG execution.
+- `pod`: bring-your-own single pod.
+- `kagent`: unstructured `kagent.dev/v1alpha2` Agent adapter.
 
-license:
-  # Set to your license key (optional)
-  key: ""
-  # Check license validity interval
-  validationInterval: 24h
+Adding a runtime requires a `runtime.RuntimeAdapter` implementation and registry
+registration. Do not add runtime-specific branches to the reconciler.
 
-opa:
-  # Default policy for workloads
-  defaultPolicy: strict
+## Runtime Sandbox
 
-providers:
-  # Configure available LLM providers
-  cloudflare:
-    enabled: true
-    endpoint: https://api.cloudflare.com/client/v4
-  openai:
-    enabled: true
-    endpoint: https://api.openai.com/v1
-```
-
-## Environment Variables
-
-```bash
-# Operator configuration
-AGENTIC_LOG_LEVEL=info
-AGENTIC_RECONCILE_INTERVAL=30s
-AGENTIC_METRICS_PORT=8080
-
-# License validation
-AGENTIC_LICENSE_KEY=<your-key>
-AGENTIC_LICENSE_CHECK_INTERVAL=24h
-```
-
-## Provider Configuration
-
-Configure LLM providers:
+The admission webhook mutates labeled pods:
 
 ```yaml
-apiVersion: v1
-kind: ConfigMap
 metadata:
-  name: agentic-providers
-  namespace: agentic-system
-data:
-  providers.yaml: |
-    providers:
-      - name: cloudflare-workers-ai
-        type: openai-compatible
-        endpoint: https://api.cloudflare.com/client/v4/accounts/...
-        models:
-          - llama-2-7b-chat-int8
-          - mistral-7b-instruct
-      - name: openai
-        type: openai
-        endpoint: https://api.openai.com/v1
-        models:
-          - gpt-4
-          - gpt-4-turbo
+  labels:
+    agentic.clawdlinux.org/runtime-sandbox: gvisor
 ```
 
-For details on each provider, see `Configuration`.
+The pod receives `runtimeClassName: gvisor` when it does not already specify a
+runtime class. The nodes must have a working `runsc` installation.
+
+## Network Policy
+
+The umbrella chart renders a default-deny egress policy when
+`networkPolicy.enabled=true`. It selects pods in the release namespace by label.
+
+Optional Cilium FQDN policy requires:
+
+```yaml
+networkPolicy:
+  cilium:
+    enabled: true
+```
+
+Policy objects are configuration. Packet enforcement depends on the cluster CNI.
+
+## Action Policy
+
+`AgentWorkload.spec.opaPolicy` selects strict or permissive behavior in the
+legacy in-process Go evaluator. The direct action path does not execute Rego.
+
+Rego samples under `pkg/opa` and `config/policies` are integration assets.
+
+## Model Routing
+
+Provider endpoints and Secret references belong in the AgentWorkload spec.
+LiteLLM may be enabled as an in-cluster multi-provider proxy.
+
+Never place provider keys in a ConfigMap or committed values file.
+
+## Cost Reporting
+
+The open-source operator defaults to `NoOpCostReporter`.
+Enable the in-memory reporter only for local evaluation:
+
+```text
+AGENTIC_COST_TRACKING=memory
+```
+
+The in-memory reporter is volatile and unsuitable for billing or chargeback.
+
+## Licensing
+
+Offline JWT validation is available when a production validator is configured.
+The open-source reconciler defaults to a no-op validator.
+
+## Observability
+
+The optional observability chart deploys OTel Collector, Tempo, Prometheus,
+Grafana, ClickHouse, and Qdrant components. Audit table creation does not mean
+the controller writes same-run audit rows.
+
+See [Security](./07-security.md), [Cost Management](./06-cost-management.md),
+and [Architecture](./04-architecture.md) before production use.

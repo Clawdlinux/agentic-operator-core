@@ -1,169 +1,86 @@
-# Quick Start Guide
+# Quick Start
 
-Get the Agentic Kubernetes Operator running in your cluster in under 5 minutes.
+Install Clawdlinux from the local umbrella chart and inspect one workload.
 
 ## Prerequisites
 
-- Kubernetes cluster (1.28+)
-- Helm 3.x
-- `kubectl` configured for your cluster
-- A Cloudflare account (free tier works) OR any OpenAI-compatible API
+- Kubernetes 1.27 or later.
+- Helm 3.
+- `kubectl` configured for the target cluster.
+- A container registry or locally loaded operator image.
+- Optional model credentials for workloads that call an external provider.
 
-## 1. Install the Operator
+## 1. Clone And Validate
 
 ```bash
-# Clone and install from local chart
 git clone https://github.com/Clawdlinux/agentic-operator-core.git
 cd agentic-operator-core
 
-# Install with default config (license key optional for OSS)
-helm install agentic-operator ./charts/agentic-operator \
+helm dependency build ./charts
+helm lint ./charts
+```
+
+## 2. Install
+
+```bash
+helm upgrade --install clawdlinux ./charts \
   --namespace agentic-system \
-  --create-namespace
+  --create-namespace \
+  --set license.key=dev-only-not-a-valid-license
 ```
 
-## 2. Configure an LLM Provider
+The chart currently requires a nonempty packaging value. The open-source
+reconciler uses a no-op validator, so this development value is not a license or
+security control. Never use it for a production deployment.
 
-### Option A: Cloudflare Workers AI (Free Tier Available)
+## 3. Verify Components
 
 ```bash
-# Create secret with your Cloudflare credentials
-kubectl create secret generic cloudflare-workers-ai-token \
-  --namespace agentic-system \
-  --from-literal=api-token="$CF_API_TOKEN"
-
-# Install with Cloudflare enabled
-helm upgrade agentic-operator agentic/agentic-operator \
-  --namespace agentic-system \
-  --set cloudflareAI.enabled=true \
-  --set cloudflareAI.accountId="$CF_ACCOUNT_ID"
+kubectl -n agentic-system get deployments,pods
+kubectl get crd agentworkloads.agentic.clawdlinux.org
+kubectl -n agentic-system get deployments
 ```
 
-### Option B: OpenAI
+Deployment names depend on the Helm release name. Select the operator deployment
+from the final command before reading its logs.
+
+## 4. Review A Workload Contract
+
+Start with a sample and inspect it before applying:
 
 ```bash
-kubectl create secret generic openai-api-key \
-  --namespace agentic-system \
-  --from-literal=api-key="$OPENAI_API_KEY"
+kubectl apply --dry-run=server \
+  -f config/samples/agentworkload_demo.yaml
 ```
 
-### Option C: Any OpenAI-Compatible API (vLLM, LocalAI, Ollama)
+Check these fields:
+
+- `spec.objective`
+- `spec.orchestration.type`
+- `spec.providers` and `spec.modelMapping`
+- `spec.persona.toolProfile`
+- resource and timeout limits
+- policy mode and approval settings
+
+Apply only after configuring the referenced provider endpoint and Secret:
 
 ```bash
-kubectl create secret generic custom-llm-key \
-  --namespace agentic-system \
-  --from-literal=api-key="$API_KEY"
+kubectl apply -f config/samples/agentworkload_demo.yaml
+kubectl -n agentic-system get agentworkloads -w
 ```
 
-## 3. Deploy Your First Workload
+## What This Proves
 
-```yaml
-# Save as my-first-workload.yaml
-apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: AgentWorkload
-metadata:
-  name: market-analysis
-  namespace: agentic-system
-spec:
-  modelStrategy: cost-aware
-  taskClassifier: default
-  
-  providers:
-    - name: my-llm
-      type: openai-compatible
-      endpoint: https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT_ID/ai/v1
-      apiKeySecret:
-        name: cloudflare-workers-ai-token
-        key: api-token
-  
-  modelMapping:
-    validation: my-llm/@cf/meta/llama-2-7b-chat-int8
-    analysis: my-llm/@cf/meta/llama-2-7b-chat-int8
-    reasoning: my-llm/@cf/meta/llama-2-7b-chat-int8
-  
-  objective: "Analyze Q1 2026 technology sector trends for AAPL, MSFT, GOOGL."
-```
+The quickstart proves chart installation, CRD availability, admission, and the
+selected runtime path. It does not prove packet enforcement, full air-gap
+operation, same-run signed evidence, or compliance with a named framework.
 
-```bash
-kubectl apply -f my-first-workload.yaml
-```
-
-## 4. Monitor
-
-```bash
-# Watch workload status
-kubectl get agentworkload -n agentic-system -w
-
-# View operator logs
-kubectl logs -f -n agentic-system -l app=agentic-operator
-
-# Check evaluation metrics (Phase 4)
-# Quality scores, success rates, cost tracking — all in Prometheus
-kubectl port-forward -n monitoring svc/prometheus 9090:9090
-# Open http://localhost:9090 and query:
-#   agentic_eval_quality_score
-#   agentic_eval_success_total
-#   agentic_eval_cost_usd_total
-```
-
-## 5. View in Grafana
-
-```bash
-kubectl port-forward -n monitoring svc/grafana 3000:3000
-# Open http://localhost:3000 (admin / admin)
-# Import dashboard from: config/grafana/agent-performance-dashboard.json
-```
-
-## What Happens Under the Hood
-
-```
-1. You create an AgentWorkload CR
-2. Operator detects it and starts reconciliation
-3. Task classifier analyzes your objective (validation/analysis/reasoning)
-4. Model router selects the best model for the task type
-5. Provider makes the API call (with retry + circuit breaker protection)
-6. Quality scorer evaluates the response (relevance, hallucination, completeness)
-7. Metrics are recorded to Prometheus
-8. Workload status is updated with results
-```
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│ Your Kubernetes Cluster                     │
-├─────────────────────────────────────────────┤
-│                                             │
-│  AgentWorkload CR → Operator                │
-│                     ├─ License Check        │
-│                     ├─ Task Classification   │
-│                     ├─ Model Routing         │
-│                     ├─ LLM API Call          │
-│                     │  (with retry + CB)     │
-│                     ├─ Quality Evaluation    │
-│                     └─ Prometheus Metrics    │
-│                                             │
-│  Providers: Cloudflare │ OpenAI │ Custom    │
-│  Monitoring: Prometheus + Grafana           │
-│  Logging: Loki + Promtail                   │
-│                                             │
-└─────────────────────────────────────────────┘
-```
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Workload stuck in "Reconciling" | No LLM provider configured | Add provider + secret |
-| 401 Authentication error | Invalid API token | Regenerate token, update secret |
-| 400 "No such model" | Wrong model name | Use full model ID (e.g. `@cf/meta/llama-2-7b-chat-int8`) |
-| Circuit breaker open | Provider failing repeatedly | Wait 60s, check provider health |
-| Quality score < 50 | Poor LLM response | Try a larger model or refine objective |
+For the evidence demo, follow
+[SHOWCASE-DEMO-WALKTHROUGH.md](./SHOWCASE-DEMO-WALKTHROUGH.md).
 
 ## Next Steps
 
-- [Architecture overview](./04-architecture.md)
-- [Cost-aware model routing](./06-cost-management.md)
-- [Security & threat model](./security/threat-model.md)
-- [Helm values reference](../charts/values.yaml)
-- [Project README](../README.md)
+- [Configuration](./03-configuration.md)
+- [Architecture](./04-architecture.md)
+- [Security](./07-security.md)
+- [Cost Management](./06-cost-management.md)

@@ -13,7 +13,7 @@ Times are targets. If she interrupts with questions, good, let her. The deck is 
 "Agents work now. What does not work is getting them past a security review. These are not my numbers." Walk the rings left to right. Land on: "Gartner says 40 percent of these projects die, and names inadequate risk controls as a reason. Only 11 percent of production agents pass an independent security bar. The demand curve and the controls curve have a gap. That gap is the company."
 
 **Slide 3, Why now (90s).**
-"Four things happened at once. Strong open runtimes became available, so we no longer need to rebuild that layer. Incidents went from hypothetical to a bank self-reporting to its regulator. Fed guidance explicitly excludes agentic AI, so auditors are improvising. The buyers who need verifiable evidence most are also the ones that often cannot use a hosted control plane. We start with self-hosted and air-gapped deployments."
+"Four things happened at once. Strong open runtimes became available, so we no longer need to rebuild that layer. Incidents moved from hypothetical to reported operational failures. Platform and security teams now need identity, authorization, action control, cost, and evidence around agent workloads. We start with customer-owned Kubernetes deployments."
 
 **Slide 4, What we built (90s).**
 "Our target product is an in-cluster governance and attestation plane. The booth captures a live ANF snapshot and injects it into an AgentWorkload objective. That workload routes through LiteLLM to the Claude alias. It shows genuine tokens and nonzero cost evidence. It also shows webhook mutation simulation, NetworkPolicy object presence, and prior-run HMAC audit verification. The current path does not execute OPA. It does not prove packet enforcement, a scheduled gVisor workload, or current-run audit generation."
@@ -28,7 +28,7 @@ Walk the six target steps quickly. Say: "This slide describes the target product
 "Everything on this slide is in a public repo you can read tonight. 180 commits since February. The execution runtime numbers are measured, checked-in benchmarks, not projections: 64 to 97 percent context reduction against raw MCP, one round trip instead of up to 21."
 
 **Slide 8, Where we are (60s). Do not rush this one.**
-"Honest state: built but not validated. Pre-revenue, zero customers, and I have a kill criterion: ten real conversations with named platform and security engineers by July 15, or I stop building features until I have them. I am telling you this because if you join, your first job is making sure we never ship into a vacuum again."
+"Honest state: built but not validated. Pre-revenue, zero customers. The July 15 validation criterion passed without sufficient evidence, so it has been reset once: ten qualified conversations by September 15, with at least three active production-review blockers and one scoped design-partner engagement. We do not extend it again without a written decision review."
 
 **Slide 9, Roadmap (45s).**
 "The roadmap has gates, not wishes. SPIFFE federation, SOC 2, managed offering: all of it waits for a customer to pull it. The only committed work is validation and the July 22 booth."
@@ -100,14 +100,14 @@ These are product acceptance criteria. They are not outcomes from the current bo
 
 The demo is not the product. The demo is bait for a specific conversation. The high-value signal is not "cool demo", it is evidence someone would deploy or pay.
 
-**Signal ladder, weakest to strongest.** Compliment < asks technical questions < describes their own environment unprompted < names a specific blocked project < agrees to a follow-up with a named colleague < asks for the install bundle < agrees to a scoped pilot with dates. Everything below "describes their own environment" counts toward nothing. Your Jul 15 kill criterion counts only conversations where they talk about THEIR stack, not yours.
+**Signal ladder, weakest to strongest.** Compliment < asks technical questions < describes their own environment unprompted < names a specific blocked project < agrees to a follow-up with a named colleague < asks for the install bundle < agrees to a scoped pilot with dates. Everything below "describes their own environment" counts toward nothing. The Sep 15 validation criterion counts only conversations where they talk about THEIR stack, not yours.
 
 **The three questions to ask everyone who sees the demo.** Ask, then shut up:
 1. "Do you have an agent project that is stuck right now? What is it stuck on?" (Discovers whether the pain is real and whether it is governance-shaped.)
 2. "Who in your org would have to say yes to something like this, and what would they need to see?" (Maps the buying committee and gives you the artifact list for the pilot.)
-3. "If I gave you the air-gapped bundle Monday, what would stop you from installing it?" (Surfaces the real objection: procurement, priority, missing feature, or no actual pain.)
+3. "If we scoped one workload on one cluster Monday, what would stop you from testing it?" (Surfaces the real objection: procurement, priority, missing control, or no actual pain.)
 
-**The one CTA.** Free design-partner pilot for regulated enterprises, already on the website. Scope it tight when you offer it: "30 days, one use case, your cluster, we help install, you give us a weekly 30-minute call and an honest verdict." A tight scope is easier to say yes to and produces a reference or a lesson either way.
+**The one CTA.** Scope one design-partner evaluation tightly: "30 days, one use case, one cluster, explicit pass and fail criteria, and a weekly 30-minute review." Pricing and commercial terms follow qualified discovery. Do not promise full compliance or arbitrary agent coverage.
 
 **Disqualify fast.** No Kubernetes, no regulated pressure, or no stuck project: be polite, take nothing, move on. A pipeline of unqualified enthusiasm is how the last two engineering-over-validation cycles happened.
 
