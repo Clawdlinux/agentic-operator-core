@@ -1,100 +1,102 @@
 # Troubleshooting
 
-Common issues and solutions.
+## Start With Resource State
 
-## Tenant Provisioning Fails
+```bash
+kubectl -n agentic-system get deployments,pods
+kubectl -n agentic-system get agentworkloads
+kubectl -n agentic-system describe agentworkload <name>
+kubectl -n agentic-system get events --sort-by=.lastTimestamp
+```
 
-**Symptom:** Tenant status stuck in "Provisioning"
+Use the actual Helm release labels when selecting operator logs:
 
-**Diagnosis:**
+```bash
+kubectl -n agentic-system get deployments --show-labels
+kubectl -n agentic-system logs deployment/<operator-deployment>
+```
+
+## Tenant Stuck In Provisioning
+
+The Tenant controller reads provider Secrets from `agentic-system` using the name
+`<provider>-token` and copies them into the tenant namespace.
+
 ```bash
 kubectl describe tenant <name>
-kubectl logs -n agentic-system -l app=agentic-operator
+kubectl -n agentic-system get secret <provider>-token
+kubectl auth can-i create namespaces \
+  --as=system:serviceaccount:agentic-system:<operator-service-account>
 ```
 
-**Solutions:**
+Also verify permission to create ServiceAccounts, Roles, RoleBindings, Secrets,
+and ResourceQuotas.
 
-1. **Namespace creation permission**
-   ```bash
-   kubectl auth can-i create namespaces --as=system:serviceaccount:agentic-system:agentic-operator
-   ```
+## Workload Stuck Or Failed
 
-2. **Secret not found in agentic-system**
-   ```bash
-   kubectl get secrets -n agentic-system | grep cloudflare
-   ```
-   → Create missing secrets
-
-3. **RBAC role creation failed**
-   ```bash
-   kubectl get roles -n agentic-customer-*
-   ```
-   → Check operator logs for permission errors
-
-## Workload Never Completes
-
-**Symptom:** AgentWorkload stays in "Pending"
-
-**Diagnosis:**
 ```bash
-kubectl describe agentworkload <name> -n <namespace>
+kubectl -n <namespace> describe agentworkload <name>
+kubectl -n <namespace> get agentworkload <name> -o yaml
 ```
 
-**Solutions:**
+Check:
 
-1. **Provider secret missing**
-   ```bash
-   kubectl get secrets -n <namespace> | grep api-token
-   ```
+- referenced provider Secret and key;
+- `spec.orchestration.type`;
+- `CLAWDLINUX_AGENT_IMAGE` for pod and kagent adapters;
+- Argo or kagent installation when selected;
+- provider endpoint and model mapping;
+- `status.conditions`, `status.argoWorkflow`, and `status.argoPhase`.
 
-2. **License expired**
-   - Check operator logs for license validation errors
-   - Update license key
+## Policy Denial Or Pending Approval
 
-3. **Quality threshold too high**
-   - Lower `autoApproveThreshold`
-   - Check evaluation logs
+The legacy direct-action path may set `PolicyDenied` or `PendingApproval`.
+`opaPolicy` uses an in-process Go evaluator, not Rego execution.
 
-## High Costs
+Inspect proposed actions and conditions:
 
-**Symptom:** Token usage exceeds expectations
-
-**Solutions:**
-
-1. **Switch to cost-aware routing**
-   ```yaml
-   modelStrategy: cost-aware
-   ```
-
-2. **Lower quality threshold**
-   ```yaml
-   autoApproveThreshold: 0.7  # From 0.95
-   ```
-
-3. **Monitor per-workload costs**
-   ```bash
-   kubectl get agentworkload -A -o json | \
-     jq '.items[] | .status.conditions[0].message'
-   ```
-
-## Quota Exceeded
-
-**Symptom:** "Monthly token budget exceeded"
-
-**Solution:**
 ```bash
-# Increase quota
-kubectl patch tenant <name> --type merge -p \
-  '{"spec":{"quotas":{"maxMonthlyTokens":50000000}}}'
+kubectl -n <namespace> get agentworkload <name> \
+  -o jsonpath='{.status.proposedActions}{"\n"}{.status.conditions}{"\n"}'
 ```
 
-## Common Errors
+Direct MCP approval continuation is not connected end to end.
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| Secret not found | Secret in wrong namespace | Copy to tenant namespace |
-| Authorization denied | Insufficient RBAC | Check service account roles |
-| Provider error | API key invalid | Verify and rotate secrets |
-| OPA policy violation | Policy too strict | Review or relax policies |
+## Cost Shows Zero
 
-See API Reference for detailed error codes.
+The default `NoOpCostReporter` records nothing.
+For local evaluation, start the operator with the in-memory reporter:
+
+```text
+AGENTIC_COST_TRACKING=memory
+```
+
+The in-memory reporter resets on restart and is not suitable for billing.
+
+## gVisor Pod Does Not Start
+
+A labeled pod receives `runtimeClassName: gvisor`, but the node must provide a
+matching RuntimeClass and `runsc` installation.
+
+```bash
+kubectl get runtimeclass gvisor
+kubectl -n <namespace> describe pod <pod>
+```
+
+## NetworkPolicy Does Not Block Traffic
+
+Confirm:
+
+1. the policy selects the intended pod labels;
+2. the policy exists in the intended namespace;
+3. the cluster CNI enforces Kubernetes NetworkPolicy;
+4. optional Cilium policy is enabled and its selector matches.
+
+Policy-object presence alone does not prove packet enforcement.
+
+## Audit Verification
+
+`audit-verify` currently supports JSONL. The ClickHouse source adapter is a stub.
+The controller does not automatically emit a signed entry for every run.
+
+Use the checked-in fixture only as prior-run proof. See
+[SHOWCASE-DEMO-WALKTHROUGH.md](./SHOWCASE-DEMO-WALKTHROUGH.md).

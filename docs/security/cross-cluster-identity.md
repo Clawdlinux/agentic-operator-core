@@ -6,9 +6,9 @@ This document will hold the operational guide for configuring federated workload
 
 ## Current state
 
-Clawdlinux today issues per-cluster identity:
+Clawdlinux today relies on deployment-local identity mechanisms:
 
-- **Intra-cluster:** Kubernetes ServiceAccount tokens plus an operator-issued JWT for agent-to-agent (A2A) calls.
+- **Intra-cluster:** Kubernetes ServiceAccounts identify pods. The Python A2A server supports a configured bearer token, but the operator does not bind it to a workload identity.
 - **Cross-cluster:** No native mechanism. Operators must share static secrets, run Istio with a shared CA, or accept that agents in Cluster A cannot verifiably authenticate to Cluster B.
 
 ## What's coming

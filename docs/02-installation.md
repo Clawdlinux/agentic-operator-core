@@ -1,73 +1,76 @@
-# Installation Guide
+# Installation
 
-Complete installation instructions for production deployments.
+This repository currently supports installation from its local Helm chart.
+Do not use `helm.agentic.io`; no public chart repository exists at that address.
 
-## System Requirements
+## Requirements
 
-**Kubernetes:**
-- Version: 1.24 or later
-- API Groups: `agentic.clawdlinux.org`, `rbac.authorization.k8s.io`
+- Kubernetes 1.27 or later.
+- Helm 3.
+- `kubectl` access with permission to create CRDs and cluster-scoped RBAC.
+- Storage classes for any enabled stateful subcharts.
+- Network access or mirrored images for enabled components.
 
-**Resources:**
-- CPU: 2 cores (operator pod)
-- Memory: 2Gi (operator pod)
-- Storage: etcd/database backend
+Optional controls require additional cluster support:
 
-**Network:**
-- Outbound HTTPS for LLM provider APIs
-- Optional: Prometheus scrape access
+- gVisor mutation requires `runsc` and a working `RuntimeClass`.
+- NetworkPolicy enforcement requires an enforcing CNI.
+- Cilium FQDN policy requires Cilium.
+- External model calls require approved credentials and egress.
 
-## Step 1: Add Helm Repository
-
-```bash
-helm repo add agentic https://helm.agentic.io
-helm repo update
-```
-
-## Step 2: Create Namespace
+## Install From Source
 
 ```bash
-kubectl create namespace agentic-system
-```
+git clone https://github.com/Clawdlinux/agentic-operator-core.git
+cd agentic-operator-core
 
-## Step 3: Install Operator
-
-```bash
-helm install agentic-operator agentic/agentic-operator \
+helm dependency build ./charts
+helm upgrade --install clawdlinux ./charts \
   --namespace agentic-system \
-  --values values.yaml
+  --create-namespace \
+  --set license.key=dev-only-not-a-valid-license
 ```
 
-See `Configuration` for values.yaml options.
+The chart currently requires a nonempty `license.key`. The open-source
+reconciler defaults to a no-op validator. Use the development value only for
+local evaluation.
 
-## Step 4: Verify Installation
+Use a reviewed values file for production:
 
 ```bash
-# Check operator deployment
-kubectl get deployments -n agentic-system
-
-# Check CRDs registered
-kubectl get crd | grep agentic
-
-# View operator logs
-kubectl logs -n agentic-system -l app=agentic-operator -f
+helm upgrade --install clawdlinux ./charts \
+  --namespace agentic-system \
+  --create-namespace \
+  --values ./my-values.yaml \
+  --set license.key="$CLAWDLINUX_LICENSE_JWT"
 ```
 
-## Step 5: Configure Secrets
+Production license tokens can be generated with `cmd/generate-license` when the
+required signing material and commercial terms are available. Do not commit a
+token to a values file.
 
-Store provider API keys as Kubernetes secrets:
+## Verify
 
 ```bash
-kubectl create secret generic cloudflare-workers-ai-token \
-  --from-literal=api-token=YOUR_API_KEY \
-  -n agentic-system
+helm status clawdlinux -n agentic-system
+kubectl -n agentic-system get deployments,pods,services
+kubectl get crd | grep agentic.clawdlinux.org
 ```
+
+## Air-Gapped Environments
+
+The chart supports image repository overrides and offline JWT validation.
+A production air-gap deployment must mirror every enabled image and dependency.
+The repository does not yet run a complete air-gap installation smoke test in CI.
 
 ## Uninstall
 
 ```bash
-helm uninstall agentic-operator -n agentic-system
-kubectl delete namespace agentic-system
+helm uninstall clawdlinux -n agentic-system
 ```
 
-For more details, see `Configuration`.
+Helm does not automatically delete CRDs or persistent volumes. Review retained
+resources before deleting namespaces or storage.
+
+See [Configuration](./03-configuration.md) before changing runtime, network,
+storage, model, or observability settings.

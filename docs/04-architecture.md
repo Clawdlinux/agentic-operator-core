@@ -4,9 +4,9 @@ System design and components.
 
 ## Overview
 
-Clawdlinux is a Kubernetes operator that runs autonomous AI agent workloads
-under governance: sandboxed, egress-sealed, cost-attributed, and recorded in a
-tamper-evident audit chain that an auditor can verify offline.
+Clawdlinux is a Kubernetes operator for governed agent workloads. The current
+repository provides runtime adapters, admission and network configuration,
+cost-reporting paths, workload status, and offline audit verification primitives.
 
 ```mermaid
 flowchart LR
@@ -18,36 +18,33 @@ flowchart LR
     API["Kubernetes<br/>API Server"]
 
     subgraph plane["Clawdlinux governance plane"]
-        OP["Clawdlinux Operator<br/>(license, OPA, cost)"]
+        OP["Clawdlinux Operator<br/>(license, policy, cost)"]
         RT["Runtime Adapter<br/>(spec.orchestration.type)"]
         ARGO["Argo Workflows"]
         POD["BYO Pod"]
         KAGENT["kagent Agent"]
-        PODS["Agent Pods<br/>(gVisor, egress-sealed)"]
+        PODS["Agent Pods<br/>(governance-labeled)"]
         PROXY["LiteLLM Proxy"]
     end
 
     LLMEP["Approved<br/>LLM Endpoint"]
-    MINIO[("MinIO<br/>Artifact Store")]
-    CHAIN[("Audit Chain<br/>WORM, hash-chained")]
-    REKOR["Sigstore Rekor<br/>(optional)"]
+    AUDIT["Audit primitives<br/>(separate path)"]
+    VERIFY["audit-verify<br/>(JSONL)"]
 
     PE -->|Applies AgentWorkload| API
-    AUD -->|Fetches chain checkpoint| API
+    AUD -->|Verifies an exported chain| VERIFY
     API -->|Watch events| OP
     OP -->|Selects runtime| RT
     RT -->|argo| ARGO
     RT -->|pod| POD
     RT -->|kagent| KAGENT
-    OP -->|Injects gVisor, seals egress| PODS
+    OP -->|Applies governance labels| PODS
     ARGO --> PODS
     POD --> PODS
     KAGENT --> PODS
     PODS -->|LLM calls| PROXY
     PROXY -.->|LLM: inference| LLMEP
-    PODS -->|Writes artifacts| MINIO
-    OP -->|Appends signed events| CHAIN
-    OP -.->|Rekor: mirrors head| REKOR
+    AUDIT --> VERIFY
 
     classDef plane fill:#ede9fe,stroke:#7c3aed,color:#1e1b4b;
     classDef clients fill:#dcfce7,stroke:#16a34a,color:#052e16;
@@ -55,17 +52,14 @@ flowchart LR
     class PE,AUD clients;
 ```
 
-The Platform Engineer applies an `AgentWorkload`. The operator watches the API
-server and picks the execution runtime from `spec.orchestration.type` through a
-pluggable adapter: an Argo DAG for multi-step jobs, a bring-your-own single pod
-for simple ones, or a kagent Agent. Whichever runs, the operator injects a
-gVisor sandbox and a default-deny egress seal onto the agent pods, because that
-governance is enforced at the pod and network layer, not the scheduler. Agent
-pods reach only the approved LLM endpoint (via the LiteLLM proxy) and write
-artifacts to MinIO. Every consequential action is appended to a hash-chained,
-HMAC-signed audit chain, with the chain head optionally mirrored to Sigstore
-Rekor. An auditor fetches the published checkpoint and verifies the whole chain
-offline with `audit-verify`, no trust in the cluster required.
+The Platform Engineer applies an `AgentWorkload`. The operator selects an Argo,
+pod, or kagent adapter from `spec.orchestration.type`. Adapters stamp shared
+governance labels. The admission webhook and network-policy templates consume
+those labels.
+
+Actual gVisor isolation requires `runsc` on the nodes. Network enforcement
+depends on the cluster CNI. The audit package and JSONL verifier are implemented,
+but the controller does not append each workload event into the chain.
 
 ## Runtimes and the adapter contract
 
@@ -79,15 +73,14 @@ in `pkg/runtime`.
   pod image comes from the `CLAWDLINUX_AGENT_IMAGE` env var.
 - `kagent`: runs the workload as a kagent `Agent` (`kagent.dev/v1alpha2`) in BYO
   mode, created through the unstructured client with no Go dependency on kagent.
-  Requires kagent installed in the cluster. Same image source, same seal.
+  Requires kagent installed in the cluster. The adapter applies shared governance labels.
 
-All three stamp the same governance labels onto their pods through a shared
-helper, so the gVisor sandbox and the default-deny egress policy apply
-identically. Engineering rule: never hardcode a runtime in the controller. Add a
-runtime by implementing `runtime.RuntimeAdapter` and registering it in the
-registry, not by adding a branch in `Reconcile`. Governance is applied at the pod
-and network layer, so every adapter is governed identically without per-adapter
-seal code.
+All three stamp shared governance labels through one helper. Those labels opt
+pods into common admission and network configuration. Enforcement still depends
+on the customer's node runtime and CNI.
+
+Never hardcode a runtime in the controller. Add a runtime by implementing
+`runtime.RuntimeAdapter` and registering it in the registry.
 
 ## Components
 
@@ -104,31 +97,28 @@ Provisions and manages tenants:
 - Namespace creation
 - Secret distribution
 - RBAC configuration
-- Quota enforcement
-- SLA monitoring
+- CPU, memory, and pod ResourceQuota creation
+- Tenant status updates
 
 ### License Validator
-Enforces licensing:
-- JWT verification
-- Tier validation
-- Seat limits
-- Expiry checks
+License validation interface:
+- No-op by default in the open-source reconciler
+- Offline JWT validation when a production validator is configured
 
 ### Cost Tracker
-Tracks token usage:
-- Per-provider accounting
-- Monthly aggregation
-- Quota enforcement
-- Billing metrics
+Cost reporting interface:
+- No-op by default
+- Volatile in-memory reporter for demos
+- Durable reporting supplied by an external implementation
 
 ## Data Flow
 
-1. **Workload Creation** → AgentWorkload CRD submitted
-2. **Validation** → License check, policy evaluation
-3. **Classification** → Task categorized (analysis/reasoning/validation)
-4. **Routing** → Model selected based on strategy
-5. **Execution** → Provider API called
-6. **Evaluation** → Quality scored
-7. **Completion** → Status updated, metrics recorded
+1. **Workload Creation**: AgentWorkload CRD submitted.
+2. **Validation**: license and configured budget interfaces checked.
+3. **Runtime path**: `argo`, `pod`, or `kagent` adapter selected when configured.
+4. **Legacy direct path**: task classified, model routed, and action evaluated.
+5. **Completion**: workload status and available metrics updated.
+
+Audit capture is not part of either complete path today.
 
 For detailed flows, see respective controller documentation.

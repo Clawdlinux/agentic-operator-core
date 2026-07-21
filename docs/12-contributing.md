@@ -1,114 +1,86 @@
 # Contributing
 
-Help improve Clawdlinux!
+See the repository-level [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution policy.
 
-## Development Setup
+## Setup
 
 ```bash
-# Clone repository
-git clone https://github.com/Clawdlinux/agentic-operator-core
-cd agentic-operator
+git clone https://github.com/Clawdlinux/agentic-operator-core.git
+cd agentic-operator-core
+make help
+```
 
-# Install tools
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+Use a supported Python version. The Makefile selects Python 3.12 when available.
 
-# Build
+## Common Targets
+
+```bash
 make build
-
-# Run locally
-make run
+make test
+make helm-lint
 ```
 
-## Code Organization
-
-```
-├── api/v1alpha1/              # CRD definitions
-├── internal/controller/        # Controllers (reconcilers)
-├── pkg/                        # Packages
-│   ├── multitenancy/
-│   ├── routing/
-│   ├── metrics/
-│   ├── license/
-│   ├── opa/
-│   └── ...
-├── config/                     # YAML configs
-├── docs/                       # Documentation
-└── Makefile                    # Build targets
-```
-
-## Making Changes
-
-1. **Create branch**
-   ```bash
-   git checkout -b feature/my-feature
-   ```
-
-2. **Make changes** and add tests
-
-3. **Run tests**
-   ```bash
-   make test
-   ```
-
-4. **Lint code**
-   ```bash
-   golangci-lint run
-   ```
-
-5. **Generate CRD updates**
-   ```bash
-   make generate
-   ```
-
-6. **Commit with meaningful message**
-   ```bash
-   git commit -m "feat: add new feature"
-   ```
-
-7. **Push and create PR**
-   ```bash
-   git push origin feature/my-feature
-   ```
-
-## Code Guidelines
-
-- Follow Go conventions
-- Add tests for new features (aim for >80% coverage)
-- Document public functions
-- Update docs/ if user-facing changes
-- Run `make fmt` before committing
-
-## Testing
+Before opening a pull request, run the canonical validation when your environment
+can install envtest assets:
 
 ```bash
-# Unit tests
-make test
-
-# Integration tests
-make test-integration
-
-# E2E tests
-make test-e2e
-
-# All tests
-make test-all
+make validate
 ```
 
-## Releases
+Useful focused targets:
 
-- Maintainers handle releases
-- Semantic versioning (MAJOR.MINOR.PATCH)
-- Changelog updated in CHANGELOG.md
+```bash
+make test-go
+make test-controller
+make test-anf-snapshot
+make test-python
+make lint
+make scan-secrets
+```
 
-## Getting Help
+Cluster tests require a configured cluster:
 
-- GitHub Issues - Report bugs, request features
-- GitHub Discussions - Questions and ideas
-- Email - contact@agentic.io
+```bash
+make test-smoke
+make test-e2e-cluster
+make test-cluster
+```
 
-## Code of Conduct
+Do not use undocumented targets such as `make run`, `make test-integration`, or
+`make test-all`; they do not exist in the current Makefile.
 
-Be respectful and inclusive. See CODE_OF_CONDUCT.md.
+## Runtime Changes
 
-Thank you for contributing!
+Runtime selection must go through `pkg/runtime.Registry`.
+
+To add a runtime:
+
+1. Implement `runtime.RuntimeAdapter`.
+2. Add compile-time interface checks and tests.
+3. Register it in `ensureRuntimeDefaults`.
+4. Document required cluster dependencies.
+5. Do not add runtime-specific branches to `Reconcile`.
+
+## Documentation Changes
+
+Public claims must distinguish:
+
+- implemented runtime behavior;
+- configuration proof;
+- prior-run fixtures;
+- target product behavior.
+
+Do not claim compliance certification, packet enforcement, same-run signed
+attestation, full air-gap proof, or customer adoption without supporting evidence.
+
+## Git Workflow
+
+Use a focused branch and signed-off commits:
+
+```bash
+git switch -c docs/my-change
+git commit -s -m "docs: describe the change"
+git push -u origin docs/my-change
+```
+
+Open a pull request and include the checks you ran.

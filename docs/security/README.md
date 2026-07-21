@@ -12,5 +12,5 @@ Security guides, threat models, and identity architecture for Clawdlinux.
 ## Related
 
 - [Security policy](../../SECURITY.md) — vulnerability reporting and SLAs
-- [`docs/07-security.md`](../07-security.md) — runtime security guide (RBAC, OPA, license enforcement)
+- [`docs/07-security.md`](../07-security.md) — runtime security guide (RBAC, action policy, licensing, and enforcement prerequisites)
 - [RFC index](../rfcs/README.md) — open design proposals

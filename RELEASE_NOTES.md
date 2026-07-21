@@ -6,14 +6,16 @@
 
 ## What's New in v0.2.0
 
-This release adds production-ready multi-agent demos, a pluggable workflow engine, CLI onboarding, and per-workload cost attribution — everything needed to deploy and manage AI agent fleets on Kubernetes in air-gapped environments.
+This release adds multi-agent examples, a pluggable workflow registry, CLI onboarding, and an in-memory cost reporter for evaluation.
+
+These release notes describe the v0.2.0 feature set. They do not claim production readiness, full air-gap validation, durable chargeback, real OPA execution, or same-run signed evidence.
 
 ---
 
-## ✨ Highlights
+## Highlights
 
-### Multi-Agent Demos (Production-Ready)
-- **Research Swarm** — A2A agent discovery, persona tool_profile blocking, OPA budget enforcement, autoApproveThreshold gating. Docker Compose with ollama local overlay for fully offline operation.
+### Multi-Agent Examples
+- **Research Swarm** — A2A agent discovery, persona `toolProfile` checks, approval-threshold inputs, and a local Ollama overlay.
 - **SRE Incident Response** — `collaborationMode: delegation`, 3-tier cost-aware model routing (cheap triage → mid analysis → expensive remediation), adversarial tone on remediator, hierarchical memory. 4 alert scenarios included.
 
 ### Pluggable Workflow Registry
@@ -43,7 +45,7 @@ This release adds production-ready multi-agent demos, a pluggable workflow engin
 
 ## 🚀 Quick Start
 
-### Multi-Agent Swarm (fully offline with Ollama)
+### Multi-Agent Swarm With Local Ollama
 
 ```bash
 cd examples/multi-agent-swarm
@@ -78,8 +80,11 @@ agentctl workflows          # list available workflows
 ### Helm
 
 ```bash
-helm repo add agentic https://clawdlinux.github.io/agentic-operator-core
-helm install agentic-operator agentic/agentic-operator
+git clone https://github.com/Clawdlinux/agentic-operator-core.git
+cd agentic-operator-core
+helm dependency build ./charts
+helm upgrade --install clawdlinux ./charts \
+  --namespace agentic-system --create-namespace
 ```
 
 ### agentctl
@@ -114,7 +119,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete list of changes since v0.1.1.
 - Distroless containers, non-root user
 - Credential sanitizer in logs (OpenAI, GitHub, AWS, JWT, bearer tokens)
 - Prompt injection sanitization on scraped content
-- OPA-gated action execution with default-deny policies
+- In-process action evaluator and separate Rego policy assets
 - See [SECURITY.md](SECURITY.md) for vulnerability disclosure (48h SLA)
 
 ---

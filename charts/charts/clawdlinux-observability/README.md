@@ -1,18 +1,15 @@
-# Clawdlinux Audit — Observability bundle
+# Clawdlinux Observability Bundle
 
-> Compliance-native, air-gapped observability for AI agents on Kubernetes.
+> Self-managed observability components for AI workloads on Kubernetes.
 
 This directory is the OSS observability layer of [agentic-operator](../../).
 It deploys an opinionated bundle of OpenTelemetry Collector, Tempo, Prometheus,
 Grafana, ClickHouse, and Qdrant, wired together with curated dashboards for
-`AgentWorkload` CRDs, ACP manifests, and LangGraph node execution. On top of
-the bundle sits the proprietary **Audit** layer — tamper-evident hash-chained
-ledger, deterministic replay, and an autonomous failure-clustering analyzer.
+`AgentWorkload` CRDs, ACP manifests, and LangGraph node execution.
 
-The wedge is **compliance**, not developer experience. Hedge funds, banks, and
-defence integrators cannot ship their agent traces to LangChain's cloud
-LangSmith Engine; everything in this chart runs entirely inside the customer's
-cluster with zero external network calls.
+The chart creates ClickHouse audit-table schemas and optional analyzer resources.
+It does not connect the operator to a durable audit writer. Deterministic replay,
+regulator-ready reports, and automatic same-run evidence remain target work.
 
 ---
 
@@ -29,17 +26,16 @@ cluster with zero external network calls.
 | ClickHouse | Analytical trace queries + the `agent_audit_v1` tamper-evident table |
 | Qdrant | Vector store for clustering & similarity search |
 
-### Commercial Audit tier
+### Optional and target components
 
 | Component | Role |
 |---|---|
-| `audit-analyzer` CronJob | Embeds error spans → HDBSCAN cluster → local LLM summarises into `IssueCard` JSON published to `/issues` |
+| `audit-analyzer` CronJob | Optional deployment resource; validate the configured image and feature set separately |
 | Replay engine *(roadmap)* | Reproduce historical agent decisions bit-for-bit |
 | Compliance report templates *(roadmap)* | SR 11-7, SOC 2, GDPR Art. 30, SEC 17a-4 |
 
-The OSS bundle ships the audit-log primitives (chain hasher, recorder, verifier
-CLI). The commercial tier adds the GUI compliance reports and the replay
-engine. Both run in the same cluster; the analyzer is gated by
+The repository ships chain, recorder, and verifier primitives. The only backend
+implementation in this tree is in-memory. The analyzer is gated by
 `auditAnalyzer.enabled`.
 
 ---
@@ -95,8 +91,7 @@ semantic conventions (`gen_ai.system`, `gen_ai.usage.input_tokens`,
 
 ## Tamper-evident audit log
 
-Every consequential agent action is recorded into ClickHouse table
-`agent_audit_v1` with this row layout:
+The chart creates an `agent_audit_v1` table with this row layout:
 
 ```
 seq UInt64               (monotonic, per tenant)
@@ -114,9 +109,8 @@ signer_kid LowCardinality(String)
 signature FixedString(32)    = HMAC-SHA256(signing_key, entry_hash)
 ```
 
-A separate table `audit_checkpoints_v1` records periodic head observations
-that are also published to a Kubernetes ConfigMap (`clawd-audit-head`) and,
-optionally, to a Sigstore Rekor instance for off-cluster anchoring.
+The chart also creates an `audit_checkpoints_v1` table. No publisher in this
+repository writes checkpoints to that table, a ConfigMap, or Sigstore Rekor.
 
 The verifier CLI walks the entire chain offline:
 
@@ -132,7 +126,7 @@ go build -o bin/audit-verify ./cmd/audit-verify
 # → exit 0 = clean, 1 = tamper detected, 2 = config error
 ```
 
-Tamper-detection is exhaustively tested in `pkg/audit/audit_test.go`, covering:
+Focused tests in `pkg/audit/audit_test.go` cover:
 
 - payload mutation
 - `prev_hash` rewrites (insertion / deletion attempts)
@@ -146,7 +140,7 @@ Tamper-detection is exhaustively tested in `pkg/audit/audit_test.go`, covering:
 
 ## Failure clustering analyzer (commercial)
 
-Once nightly:
+The target analyzer flow is:
 
 1. Pulls last 24h of error spans from ClickHouse.
 2. Builds a stable trace fingerprint (agent + workload + tool sequence + error).
@@ -200,6 +194,5 @@ agents/audit_analyzer/  # Clustering pipeline + FastAPI surface + Dockerfile
 
 ## License
 
-Apache 2.0 for the OSS bundle. The `audit-analyzer` image is also Apache 2.0
-but its commercial tier features (replay engine, regulator-ready compliance
-report templates) require a separate Clawdlinux Audit license.
+Repository source and chart templates are Apache 2.0. Validate any configured
+external image and commercial feature terms separately.

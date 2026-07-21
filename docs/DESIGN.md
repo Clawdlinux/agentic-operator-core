@@ -6,26 +6,30 @@ Status: living document, July 2026. If you read one doc about this project, read
 
 Enterprises want to run AI agents on their own Kubernetes clusters. Their security and compliance teams keep saying no, because nobody can answer four questions about an autonomous agent: who is it acting as, what can it reach, what did it cost, and can we prove what it did six months later.
 
-Clawdlinux is a governance plane that answers those questions for any agent workload on Kubernetes. It does not compete with agent runtimes. It wraps them.
+Clawdlinux is building a governance plane around agent workloads on Kubernetes. It does not compete with agent runtimes. It wraps them.
 
-The wedge is the combination of two controls in one self-hosted deployment:
+The target contract combines two controls in one self-hosted deployment:
 
-1. A signed, hash-chained attestation artifact for every agent run, verifiable offline with a small CLI (`audit-verify`). An auditor can replay what an agent did months later inside an air-gapped cluster.
-2. A zero-egress seal at the network boundary. The agent can only reach the FQDNs its manifest declares. Enforced by Cilium, not by prompting the model to behave.
+1. Same-run signed evidence that links identity, policy, approval, action, cost, and outcome.
+2. A declared egress boundary enforced by the customer's Kubernetes networking stack.
 
 Everything else (gVisor isolation, cost attribution, Argo orchestration, LiteLLM routing) supports that wedge.
 
+Today, the repository ships the audit hash-chain and JSONL verifier as separate primitives. It also generates network-policy objects and admission mutations. Automatic same-run capture, durable audit storage, production key custody, and packet-enforcement proof are not connected end to end.
+
 ## Architecture
 
-Everything in the governance plane runs inside one Kubernetes cluster, which can be fully air-gapped. The operator also runs the tenant controller (namespaces, RBAC, quotas), the offline JWT license validator, and the gVisor RuntimeClass injector. Runtime adapters (`pkg/runtime`) apply the same seal and attestation contract to our AgentWorkload CRD, BYO labeled pods, and external CNCF runtimes. Shared services (Argo, LiteLLM, MinIO, Postgres, Grafana, Browserless) ship as subcharts of one Helm umbrella chart.
+The governance components run inside the customer's Kubernetes cluster. The repository includes tenant controls, offline JWT validation, admission mutation, runtime adapters, and optional shared-service subcharts.
 
-Data flow for one run: AgentWorkload applied -> license and OPA policy check -> Cilium egress policy generated from the manifest's declared FQDNs -> Argo DAG executes agent pods (gVisor if labeled) -> every LLM call, tool call, and state transition appended to the audit chain -> cost recorded per workload -> signed attestation artifact written to MinIO -> chain head checkpointed.
+Current data flow: AgentWorkload applied -> license and budget checks -> runtime selected through `pkg/runtime.Registry` -> workload status and usage updated. Admission and network-policy components apply through Kubernetes configuration paths.
 
-Tamper anywhere in that record and `audit-verify` fails the chain. That is the demo moment.
+The audit package is not called by this reconciliation path. The booth separately verifies a prior-run JSONL fixture and labels it accordingly.
 
-## Why the audit chain is trustworthy
+## Audit primitive and limits
 
-Each event hash commits to the previous one (seq, timestamp, tenant, workload, actor, action, payload hash, prev hash, fixed binary encoding). Rows are HMAC-signed with a key held in a Kubernetes Secret. Storage is append-only with no UPDATE/DELETE grants. The chain head is published periodically to a ConfigMap and optionally mirrored to Sigstore Rekor. Verification is a pure function over bytes, so a third party recomputes the chain offline without trusting our server. Code: `pkg/audit`, CLI: `cmd/audit-verify`.
+Each entry hash commits to its sequence, timestamp, context, payload hash, and previous hash. Rows use HMAC-SHA256 with a caller-supplied key. `audit-verify` can verify JSONL entries offline.
+
+The only repository backend is in-memory. ClickHouse reading, Kubernetes key loading, automatic capture, restricted durable storage, and external checkpoint publishing are not implemented. A shared-key holder can rewrite and re-sign history. Tail truncation can pass without a trusted expected head.
 
 ## Anchor use case: compliance-bound market analysis at a financial institution
 
@@ -40,10 +44,10 @@ How they integrate, day one to day thirty:
 
 1. `helm install` the umbrella chart from an OCI artifact we hand them. Air-gapped clusters load images from the same bundle. No registry pulls, no license server callbacks (JWT verified offline).
 2. Point LiteLLM at their approved model endpoint. Nothing else in the stack knows or cares which model it is.
-3. Bring their agents. Three adoption paths, cheapest first: label existing pods (they get the gVisor seal and audit for free), wrap them in an AgentWorkload CRD (they also get Argo DAG orchestration, budgets, and routing), or run a supported CNCF runtime behind the adapter.
-4. Compliance officer gets a standing artifact: for each run, who ran it, what it touched, what it cost, signed and replayable. When the auditor shows up, they hand over a snapshot and the `audit-verify` binary instead of a week of log archaeology.
+3. Bring one bounded agent workload. Use a registered runtime adapter or opt labeled pods into supported admission controls.
+4. Map identity, policy, approval, storage, keys, and evidence retention to the customer's environment.
 
-What they get out of it, in their words: "we can finally say yes to the agent project" (platform lead), "blast radius is declared in a manifest I can review in a PR" (security), "evidence collection went from days to a command" (compliance), "I know what each agent costs per run" (whoever owns the cloud bill).
+The design-partner goal is measurable production-review evidence for one workload. It is not a blanket compliance claim.
 
 What we deliberately do not do: build another agent framework, host their data (there is no SaaS in the loop), or ask them to rewrite agents. Governance wraps what they have.
 
@@ -63,9 +67,9 @@ Two product repos plus a website, all under github.com/Clawdlinux.
 
 ## Honest state of the build
 
-Working today: CRD and reconciliation lifecycle, Argo DAG orchestration, Cilium egress policy generation, audit chain and offline verifier, gVisor injector, runtime adapters (AgentWorkload, BYO pods, Argo), LiteLLM routing, per-workload cost tracking, multi-tenancy with quotas, offline JWT licensing, Helm umbrella chart, agentctl with an MCP server mode, Grafana dashboards, the kind-based demo gate, ANF execution runtime reference server with measured benchmarks.
+Working today: CRD lifecycle, Argo DAG orchestration, network-policy generation, audit primitives, gVisor mutation, runtime adapters, model routing, cost interfaces, quotas, offline JWT validation, Helm packaging, MCP workload tools, dashboards, and the kind-based demo.
 
-Not done, do not claim it: webhook admission validation for the CRD, Homebrew tap, air-gapped install smoke test as CI, per-runtime sandbox label guide, multi-cluster identity federation (SPIFFE/SPIRE, RFC-0001, gated on 6 external use cases or 1 paying customer), SOC 2, managed SaaS. Enterprise billing and licensing internals live in a private repo; the OSS tree has boundary READMEs only.
+Not done, do not claim it: same-run audit capture, durable audit storage, external checkpoints, universal tool mediation, direct MCP approval continuation, actor identity propagation, enforcing-CNI proof, air-gap installation CI, SOC 2, or managed SaaS.
 
 The rule we run by: anything that smells like rebuilding the runtime layer sits behind a validation gate until a real deployment asks for it. See ROADMAP.md.
 
