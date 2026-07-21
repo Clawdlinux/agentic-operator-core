@@ -1,66 +1,71 @@
 # API Reference
 
-Complete CRD specification.
+The generated CRDs are the source of truth:
 
-For versioning guarantees, deprecation windows, and breaking-change governance, see [API Compatibility Policy](./API_COMPATIBILITY_POLICY.md).
+- [`AgentWorkload`](../config/crd/bases/agentic.clawdlinux.org_agentworkloads.yaml)
+- [`AgentCard`](../config/crd/bases/agentic.clawdlinux.org_agentcards.yaml)
+- [`Tenant`](../config/crd/bases/agentic.clawdlinux.org_tenants.yaml)
 
-## Tenant CRD
+See [API Compatibility Policy](./API_COMPATIBILITY_POLICY.md) for versioning and deprecation rules.
 
-### Spec
+## AgentWorkload
 
-```yaml
-apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: Tenant
-metadata:
-  name: <tenant-name>
-spec:
-  displayName: <string>              # Human-readable name
-  namespace: <string>                # K8s namespace
-  providers: [<string>]              # LLM providers
-  quotas:
-    maxWorkloads: <int>              # Concurrent workloads
-    maxConcurrent: <int>             # Parallel executions
-    maxMonthlyTokens: <int64>        # Token budget
-    cpuLimit: <string>               # CPU cores
-    memoryLimit: <string>            # RAM
-  slaTarget: <float>                 # SLA percentage
-  networkPolicy: <bool>              # Enable isolation
-```
+Important spec groups:
 
-### Status
+- Objective and legacy workflow: `objective`, `agents`, `workflowName`, `jobId`.
+- Runtime: `orchestration.type`, `workflowTemplateRef`.
+- Limits: `resources`, `timeouts`.
+- Models: `modelStrategy`, `taskClassifier`, `providers`, `modelMapping`.
+- Actions: `autoApproveThreshold`, `opaPolicy`.
+- Collaboration: `collaborationMode`, `agentRefs`, `persona`.
+- External integration: `mcpServerEndpoint`.
 
-```yaml
-status:
-  phase: <Pending|Provisioning|Active|Failed|Terminating>
-  conditions: [<Condition>]          # Ready, NamespaceCreated, etc
-  namespaceCreated: <bool>
-  secretsProvisioned: <bool>
-  rbacConfigured: <bool>
-  quotasEnforced: <bool>
-  networkPolicyActive: <bool>
-  workloadCount: <int>
-  tokensUsedThisMonth: <int64>
-  lastReconciliation: <Time>
-```
+Registered runtime types are `argo`, `pod`, and `kagent`.
 
-## AgentWorkload CRD
+`opaPolicy` selects strict or permissive behavior in the legacy in-process Go
+evaluator. It does not cause the direct action path to execute Rego.
 
-See `Examples` for complete specifications.
+Important status fields:
 
-### Fields
+- `phase`
+- `conditions`
+- `proposedActions`
+- `executedActions`
+- `argoWorkflow` and `argoPhase`
+- `workflowArtifacts`
+- `modelRoutingOperationID`
+- `agentStatuses`
 
-- `objective` - Task description
-- `modelStrategy` - fixed|cost-aware
-- `taskClassifier` - default
-- `autoApproveThreshold` - Quality threshold
-- `providers` - LLM provider configurations
-- `modelMapping` - Task category → model mapping
-- `opaPolicy` - strict|permissive
+The historical `argoWorkflow` field also stores pod and kagent execution references.
+Its `runtime` field identifies the selected adapter.
 
-### Status
+## Tenant
 
-- `phase` - Pending|Processing|Completed|Failed
-- `conditions` - Detailed status
-- `tokensUsed` - Input/output token count
+The Tenant spec includes namespace, provider names, resource quotas, an SLA target,
+and a network-policy flag.
 
-See full API at `/api/v1alpha1`.
+The current tenant reconciler creates:
+
+- the tenant namespace;
+- copies of named provider Secrets from `agentic-system`;
+- a service account, Role, and RoleBinding;
+- CPU, memory, and pod-count ResourceQuota entries.
+
+`maxConcurrent`, `maxMonthlyTokens`, `slaTarget`, and `networkPolicy` are API fields,
+but the current Tenant reconciler does not provide complete enforcement for them.
+
+Some Tenant status fields are reserved for later integrations and may remain at
+their zero value.
+
+## AgentCard
+
+AgentCard describes reusable capability metadata and endpoints. It does not by
+itself bind an external employee identity to an AgentWorkload request.
+
+## MCP Surface
+
+`agentctl mcp serve` exposes tools for creating, listing, inspecting, and deleting
+AgentWorkloads. See [agentctl MCP](./agentctl/mcp.md).
+
+Bearer-token authentication protects the trusted adapter. Individual actor
+identity propagation and full RBAC remain integration work.

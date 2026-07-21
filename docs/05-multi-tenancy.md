@@ -4,12 +4,15 @@ Complete guide to multi-tenant provisioning and management.
 
 ## Overview
 
-The Tenant CRD enables automatic provisioning of complete tenant environments:
+The Tenant controller provisions selected namespace resources:
 - Isolated Kubernetes namespaces
 - Per-tenant secrets for provider access
 - RBAC with service accounts and roles
 - Resource quotas and limits
-- SLA monitoring
+- Tenant status fields for later operational integrations
+
+Review the generated RBAC before production use. The tenant service account can
+list Secrets in its namespace.
 
 ## Tenant Lifecycle
 
@@ -89,8 +92,10 @@ agentic-system/cloudflare-workers-ai-token
 agentic-customer-acme/cloudflare-workers-ai-token (copy)
 ```
 
-### Network Isolation (Optional)
-NetworkPolicy restricts inter-namespace traffic:
+### Network Isolation
+
+The Tenant CRD exposes `spec.networkPolicy`, but the current tenant reconciler
+does not create the following policy automatically. Treat this as an example:
 ```yaml
 kind: NetworkPolicy
 metadata:
@@ -126,10 +131,12 @@ quotas:
 
 ### Enforcement
 
-Operator enforces quotas:
-- **Pod limit**: Can't create more pods than maxWorkloads
-- **CPU/Memory**: Limited by ResourceQuota
-- **Monthly tokens**: Tracked and enforced monthly
+The tenant reconciler creates a Kubernetes `ResourceQuota`:
+- `maxWorkloads` maps to a pod-count quota.
+- `cpuLimit` maps to total CPU quota.
+- `memoryLimit` maps to total memory quota.
+
+`maxConcurrent` and `maxMonthlyTokens` are not enforced by this ResourceQuota.
 
 View quota usage:
 ```bash
@@ -144,7 +151,8 @@ Track per-tenant costs:
 kubectl get tenant acme-corp -o json | jq '.status.tokensUsedThisMonth'
 ```
 
-Costs are automatically calculated per provider and aggregated.
+The current tenant reconciler does not populate that field. Use a durable
+`CostReporter` and aggregation integration before relying on tenant chargeback.
 
 ## Delete Tenant
 
@@ -152,18 +160,16 @@ Costs are automatically calculated per provider and aggregated.
 kubectl delete tenant acme-corp
 ```
 
-This removes:
-- ✅ Namespace and all workloads
-- ✅ RBAC roles and bindings
-- ✅ Resource quotas
-- ✅ Secrets
+The current reconciler does not implement finalizer-based cleanup. Deleting a
+Tenant does not guarantee deletion of its namespace, RBAC, quotas, or Secrets.
+Inventory and remove retained resources explicitly.
 
 ## Best Practices
 
 1. **Use descriptive names** - `acme-corp`, not `tenant1`
 2. **Set realistic quotas** - Don't set limits too low
-3. **Monitor SLA** - Set appropriate SLATarget
-4. **Enable NetworkPolicy** - For production multi-tenancy
+3. **Define SLA monitoring externally** - `slaTarget` is not a complete SLO system
+4. **Apply NetworkPolicy explicitly** - Confirm the CNI enforces it
 5. **Rotate secrets** - Update provider tokens quarterly
 
 For examples, see `Examples`.

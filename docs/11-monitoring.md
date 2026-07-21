@@ -1,67 +1,51 @@
-# Monitoring & Observability
+# Monitoring And Observability
 
-Comprehensive monitoring setup.
+The operator exposes controller-runtime metrics plus optional routing and
+in-memory cost metrics. Enabled components determine which series exist.
 
 ## Prometheus Metrics
 
-Key metrics exported:
+Repository-defined routing metrics:
 
 ```
-# Workload metrics
-agentic_workload_total{phase}
-agentic_workload_duration_seconds{workload, tenant}
 agentic_model_routing_total{provider, model, task_category}
 agentic_tokens_used_total{provider, model, direction=input|output}
 agentic_estimated_cost_usd{provider}
 
-# Tenant metrics
-agentic_tenant_quota_usage{tenant, resource}
-agentic_tenant_active_workloads{tenant}
-agentic_tenant_tokens_monthly{tenant}
-
-# License metrics
-agentic_license_valid{valid=true|false}
-agentic_license_seats_used{tier}
-agentic_license_days_remaining
+# In-memory reporter metrics, only when enabled
+agentic_workload_cost_usd{workload, namespace}
+agentic_workload_tokens_total{workload, namespace, type}
+clawdlinux_agent_cost_dollars{workload, namespace, model}
 ```
+
+Metric label order may differ from this display order. Inspect `/metrics` in the
+deployed version before writing alerts.
 
 ## Grafana Dashboards
 
-Default dashboards provided:
-- Operator Health
-- Workload Overview
-- Cost Analysis
-- Per-Tenant Usage
-- Quality Metrics
+The optional observability chart includes Grafana provisioning and dashboard
+ConfigMaps. A sample PrometheusRule exists at:
 
-Prebuilt cost templates in this repo:
-- `config/grafana/dashboards/cost-by-workload.json`
 - `config/grafana/prometheus-rule-cost-alerts.yaml`
 
 Import steps:
-1. In Grafana, import `config/grafana/dashboards/cost-by-workload.json`.
-2. Map `DS_PROMETHEUS` and `DS_POSTGRES` datasource variables during import.
-3. Apply alert sample with `kubectl apply -f config/grafana/prometheus-rule-cost-alerts.yaml`.
+Apply the alert sample only after verifying its expressions against exported metrics:
 
-Access: `http://prometheus.agentic-system:3000`
+```bash
+kubectl apply -f config/grafana/prometheus-rule-cost-alerts.yaml
+```
+
+Use `kubectl get service` to find the release-specific Grafana service name.
 
 ## OpenTelemetry Traces
 
-Detailed traces in Loki:
+The optional OTel Collector can export traces to Tempo and ClickHouse.
 
 ```
-LogQL: {job="agentic-operator"} | json
+Trace and log storage depends on enabled chart components.
 ```
 
-Trace hierarchy:
-```
-workload-reconciliation
-├── task-classification
-├── model-routing
-├── provider-execution
-├── evaluation
-└── cost-calculation
-```
+The repository defines GenAI span helpers under `pkg/otel/genai`.
 
 ## Setting up Monitoring
 
@@ -91,21 +75,15 @@ workload-reconciliation
 Example alerts:
 
 ```yaml
-- alert: HighErrorRate
-  expr: rate(agentic_workload_errors[5m]) > 0.05
-
 - alert: CostOverBudget
-  expr: agentic_tenant_tokens_monthly > agentic_tenant_quota_max
-
-- alert: LicenseExpiring
-  expr: agentic_license_days_remaining < 30
+  expr: clawdlinux_agent_cost_dollars > 10
 ```
 
 Configure in `PrometheusRule` CRD.
 
 ## Logging
 
-Structured JSON logs:
+The operator uses structured logging. Available fields depend on the code path.
 
 ```json
 {
@@ -114,10 +92,7 @@ Structured JSON logs:
   "workload": "demo-analysis",
   "namespace": "agentic-demo",
   "event": "workload-completed",
-  "tokens_input": 100,
-  "tokens_output": 250,
-  "quality_score": 85,
-  "cost_usd": 0.05
+  "event": "workload-completed"
 }
 ```
 
@@ -131,11 +106,9 @@ kubectl logs -n agentic-system -l app=agentic-operator -f | jq '.'
 Operator provides health endpoints:
 
 ```bash
-# Readiness
-curl http://operator:8080/healthz/ready
-
-# Liveness
-curl http://operator:8080/healthz/alive
+# Readiness and liveness endpoints
+curl http://operator:8082/readyz
+curl http://operator:8082/healthz
 
 # Metrics
 curl http://operator:8080/metrics
@@ -145,14 +118,14 @@ Configure in Deployment:
 ```yaml
 livenessProbe:
   httpGet:
-    path: /healthz/alive
-    port: 8080
+    path: /healthz
+    port: 8082
   initialDelaySeconds: 30
 
 readinessProbe:
   httpGet:
-    path: /healthz/ready
-    port: 8080
+    path: /readyz
+    port: 8082
   initialDelaySeconds: 10
 ```
 

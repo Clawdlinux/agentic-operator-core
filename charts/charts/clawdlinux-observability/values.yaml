@@ -151,16 +151,14 @@ qdrant:
     limits:   { cpu: "1000m", memory: "1Gi" }
 
 # ---------------------------------------------------------------------------
-# Audit log — tamper-evident, hash-chained ClickHouse table.
-# Open-source schema and verifier; advanced tier ships the Rekor checkpoint
-# integration and the GUI compliance reports.
+# Audit substrate. The chart creates ClickHouse schemas only.
+# No controller writer or checkpoint publisher is connected in this repository.
 # ---------------------------------------------------------------------------
 auditLog:
   enabled: true
   # Bootstrap job that creates the agent_audit_v1 table on first install.
   schemaBootstrap: true
-  # Where the Merkle head checkpoint is published. Always written to a
-  # ConfigMap in the operator namespace; optionally mirrored to Rekor.
+  # Reserved configuration for a future checkpoint publisher.
   checkpoint:
     configMapName: clawd-audit-head
     intervalSeconds: 300
@@ -170,9 +168,8 @@ auditLog:
     url: ""
 
 # ---------------------------------------------------------------------------
-# Audit Analyzer — clustering service.
-# This is the proprietary surface; runs only when a Clawdlinux Audit
-# license key is provided. Default: disabled in OSS install.
+# Optional analyzer deployment. Default: disabled.
+# Validate the configured image and feature set separately.
 # ---------------------------------------------------------------------------
 auditAnalyzer:
   enabled: false

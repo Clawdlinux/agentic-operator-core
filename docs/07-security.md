@@ -4,14 +4,11 @@ Enterprise security features and best practices.
 
 ## License Enforcement
 
-Operator validates JWT licenses:
+The open-source reconciler defaults to a no-op validator. Supplying
+`LICENSE_JWT` through Helm does not change that implementation.
 
-```bash
-# Set license key
-kubectl set env deployment/agentic-operator \
-  AGENTIC_LICENSE_KEY=YOUR_JWT_TOKEN \
-  -n agentic-system
-```
+A production validator must be injected through the `LicenceValidator`
+interface. The chart still requires a nonempty `license.key` packaging value.
 
 License includes:
 - Customer ID
@@ -21,10 +18,8 @@ License includes:
 - Feature flags
 - Expiry date
 
-Workloads rejected if:
-- ❌ License invalid/expired
-- ❌ Seat limit exceeded
-- ❌ Feature not enabled
+A configured production validator can reject expired licenses, workload limits,
+or disabled features.
 
 ## RBAC
 
@@ -36,59 +31,55 @@ Role: acme-corp-workload-manager
 RoleBinding: acme-corp-workload-binding
 ```
 
-Permissions:
-- ✅ Create/manage AgentWorkloads in namespace
-- ✅ Read secrets in namespace
-- ❌ Access other namespaces
-- ❌ Modify cluster resources
+Intended permissions:
+- `[x]` Create and manage AgentWorkloads in the assigned namespace.
+- `[x]` Get and list Secrets in the tenant namespace.
+- `[ ]` Access other tenant namespaces.
+- `[ ]` Modify unrelated cluster resources.
 
-## OPA Policies
+Verify rendered Roles and bindings against the customer's tenancy model before production use.
 
-Workloads evaluated against policies:
+## Action Policy And Rego Assets
+
+The legacy direct-action path uses an in-process Go evaluator selected by:
 
 ```yaml
 opaPolicy: strict
 ```
 
-Policies enforce:
-- Security constraints
-- Resource usage
-- API rate limits
-- Data retention
+It evaluates action type, caller-supplied confidence, cluster health, and strict
+or permissive mode. Read-only actions use a separate allow path.
 
-Define custom policies in ConfigMap.
+The repository also ships Rego samples in a ConfigMap. The direct action path
+does not execute those Rego files or call a real OPA engine today. Treat them as
+policy assets and integration examples.
 
 ## Network Isolation
 
-NetworkPolicies restrict traffic:
+NetworkPolicy objects can restrict selected traffic when the cluster CNI enforces them.
+The Tenant `spec.networkPolicy` field is not consumed by the current tenant
+reconciler. Apply tenant policies separately.
 
-```yaml
-networkPolicy: true  # In Tenant spec
-```
-
-Automatically creates:
-- Pod-to-pod isolation
-- Namespace segregation
-- Egress filtering
+The chart renders a default-deny egress policy for selected operator pods.
 
 The umbrella Helm chart ships a default-deny egress NetworkPolicy
 ([`charts/templates/networkpolicy.yaml`](../charts/templates/networkpolicy.yaml))
-for any pod labeled `app.kubernetes.io/part-of: agentic-operator`. Toggle via
+for pods labeled `app.kubernetes.io/part-of: agentic-operator`. Toggle via
 `networkPolicy.enabled` (default `true`). Allow-listed: kube-dns, the
 in-cluster LiteLLM proxy, Postgres, MinIO, Browserless (when enabled), and
 external OPA (when configured). Operator-supplied additions go under
 `networkPolicy.additionalAllowedHosts`. Verified by helm-unittest in
 [`charts/tests/networkpolicy_test.yaml`](../charts/tests/networkpolicy_test.yaml).
-This closes [issue #129](https://github.com/Clawdlinux/agentic-operator-core/issues/129).
+Managed workload namespaces require separate policy application and matching labels.
+Optional Cilium FQDN policies require Cilium and explicit chart configuration.
 
 ## Sandbox Technology
 
-Agent code runs untrusted by definition — both because the agent's instructions
-come from end users (prompt injection surface) and because tool outputs may
-contain hostile content. Clawdlinux sandboxes agent pods at the syscall layer so
-a successful container-escape primitive does not yield host kernel access.
+Agent code should be treated as untrusted because the agent's instructions
+come from end users and tool outputs may contain hostile content. Clawdlinux can
+select gVisor for labeled pods when the cluster has a working `runsc` runtime.
 
-**Default sandbox: gVisor** ([gvisor.dev](https://gvisor.dev/)). gVisor
+**Supported sandbox: gVisor** ([gvisor.dev](https://gvisor.dev/)). gVisor
 intercepts all syscalls in user space (the `runsc` runtime) and reimplements a
 restricted subset of the Linux ABI, eliminating direct exposure of the host
 kernel surface. The syscall allowlist is sourced from the upstream gVisor
@@ -99,12 +90,8 @@ plus the per-runtime additions documented in
 We do not maintain a fork — we deliberately track upstream so security fixes land
 without lag.
 
-**Opt-in sandbox: Kata Containers** ([katacontainers.io](https://katacontainers.io/))
-for full microVM isolation. Pick this when your threat model requires hardware
-virtualization boundaries (sovereign workloads, strictly-air-gapped tenants,
-multi-tenant clusters where one tenant's compromise must not leak into another's
-memory). Kata trades startup latency (~hundreds of ms vs. tens) for a
-qualitatively stronger isolation guarantee.
+Kata Containers may be evaluated separately when the customer requires a
+microVM boundary. The repository does not configure a Kata runtime path.
 
 > **Status:** the Helm chart can create the gVisor `RuntimeClass` and register a
 > pod mutating webhook. Pods opt in with the label
@@ -119,17 +106,17 @@ Best practices:
 1. **Store in Kubernetes Secrets** - Not ConfigMaps
 2. **Use RBAC** - Limit access to service accounts only
 3. **Rotate regularly** - Every 90 days
-4. **Audit access** - Enable secret audit logging
+4. **Audit access** - Enable Kubernetes API audit logging for Secret requests
 5. **Encrypt at rest** - Enable etcd encryption
 
 ```bash
-# View secret access
-kubectl get events --field-selector involvedObject.kind=Secret
+# Confirm API audit configuration through your Kubernetes provider.
+# Kubernetes Events are not a Secret-access audit log.
 ```
 
-## Audit Logging
+## Audit Evidence
 
-Enable audit logging:
+Enable Kubernetes API audit logging through the cluster provider when required:
 
 ```yaml
 apiServer:
@@ -140,12 +127,14 @@ apiServer:
         resources: [tenants, agentworkloads]
 ```
 
+The repository also provides HMAC hash-chain and JSONL verification primitives.
+The controller does not automatically append each run event into that chain.
+
 ## Compliance
 
-Supports compliance frameworks:
-- ✅ SOC 2 Type II
-- ✅ HIPAA
-- ✅ PCI-DSS
-- ✅ GDPR
+Clawdlinux does not make a deployment compliant with a named framework.
+Customers may map configured controls and collected evidence to requirements
+such as SOC 2, HIPAA, PCI DSS, GDPR, DORA, or the EU AI Act.
 
-See `Monitoring` for audit logging setup.
+Applicability depends on the organization, data, role, jurisdiction, operating
+procedures, and independent assessment.

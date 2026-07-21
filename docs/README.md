@@ -1,209 +1,49 @@
-# Agentic Kubernetes Operator - Complete Documentation
+# Clawdlinux Documentation
 
-Welcome to the Agentic K8s Operator documentation. This guide covers everything you need to deploy and operate a production-grade autonomous agent infrastructure.
+Clawdlinux is an in-cluster governance layer for Kubernetes agent workloads.
+It does not replace the customer's agent runtime or orchestration system.
 
-## 📚 Documentation Structure
+## Start Here
 
-### Getting Started
-- **[Quick Start](./01-quickstart.md)** - Get up and running in 5 minutes
-- **[Installation](./02-installation.md)** - Detailed installation instructions
-- **[Configuration](./03-configuration.md)** - Configure operator behavior
+- [Quick Start](./01-quickstart.md): install the chart and inspect one workload contract.
+- [Installation](./02-installation.md): local chart installation and prerequisites.
+- [Configuration](./03-configuration.md): values, runtimes, policy, network, and cost settings.
+- [Architecture](./04-architecture.md): current components and runtime adapter contract.
+- [Security](./07-security.md): configured controls and enforcement prerequisites.
+- [API Reference](./08-api-reference.md): CRD source-of-truth links and implemented semantics.
+- [Troubleshooting](./10-troubleshooting.md): common failures and checks.
 
-### Core Concepts
-- **[Architecture](./04-architecture.md)** - System design and components
-- **[Multi-Tenancy](./05-multi-tenancy.md)** - Tenant provisioning & isolation
-- **[Cost Management](./06-cost-management.md)** - Token tracking & billing
-- **[Security](./07-security.md)** - RBAC, license enforcement, OPA policies
+## Evidence Boundaries
 
-### Operations
-- **[API Reference](./08-api-reference.md)** - Complete CRD documentation
-- **[Examples](./09-examples.md)** - Real-world use cases
-- **[Troubleshooting](./10-troubleshooting.md)** - Common issues & solutions
-- **[Monitoring](./11-monitoring.md)** - Prometheus, Grafana, logs
+Public demos and documentation use 4 labels:
 
-### Development
-- **[Contributing](./12-contributing.md)** - Contribute to the project
-- **[API Compatibility Policy](./API_COMPATIBILITY_POLICY.md)** - Public API versioning, compatibility, and deprecation policy
+- `LIVE TODAY`: executed by the current workload path.
+- `CONFIGURATION PROOF`: a mutation or policy object exists.
+- `PRIOR-RUN PROOF`: a stored fixture is verified now.
+- `TARGET PRODUCT`: intended integrated behavior that is not complete.
 
----
+## Current Repository Scope
 
-## 🎯 Quick Navigation
+Implemented components include:
 
-**First time?** → Start with [Quick Start](./01-quickstart.md)
+- AgentWorkload lifecycle and runtime adapters.
+- Argo, pod, and kagent runtime registration.
+- Admission mutation for labeled gVisor pods.
+- Default-deny and optional Cilium policy templates.
+- Model routing and cost-reporting interfaces.
+- HMAC hash-chain and JSONL verification primitives.
+- MCP tools for creating and inspecting AgentWorkloads.
 
-**Need multi-tenancy?** → Read [Multi-Tenancy](./05-multi-tenancy.md)
+The current controller does not generate a complete signed artifact from every
+run. Network enforcement requires the customer's CNI. gVisor requires `runsc`
+on the nodes. Rego policy assets are not executed by the direct action path.
 
-**Deploying to production?** → Follow [Installation](./02-installation.md) → [Configuration](./03-configuration.md) → [Security](./07-security.md)
+## Additional Guides
 
-**Troubleshooting issues?** → Check [Troubleshooting](./10-troubleshooting.md)
-
-**Want to contribute?** → See [Contributing](./12-contributing.md)
-
----
-
-## 📋 What is the Agentic Kubernetes Operator?
-
-The Agentic Kubernetes Operator is the open-source foundation for running autonomous AI agents at scale on Kubernetes. It provides enterprise-grade isolation, cost control, security, and observability for AI workloads on Kubernetes.
-
-It provides:
-
-✅ **Multi-tenant isolation** - Complete namespace isolation with RBAC
-✅ **Cost control** - Real-time token tracking and cost attribution
-✅ **Security** - License enforcement, OPA policies, network isolation
-✅ **Observability** - Prometheus metrics, OpenTelemetry traces, structured logs
-✅ **High availability** - Multi-provider failover, automatic retries
-✅ **Easy provisioning** - Single Tenant CRD for complete tenant setup
-
----
-
-## 🚀 Key Features
-
-### Autonomous Agent Execution
-- Deploy long-running AI agent workloads
-- Automatic task classification (analysis, reasoning, validation)
-- Multi-provider LLM routing with cost optimization
-- Quality evaluation pipeline with hallucination detection
-
-### Multi-Tenancy
-- Automatic namespace provisioning
-- Per-tenant resource quotas
-- Isolated provider secrets
-- RBAC-enforced access control
-
-### Cost Management
-- Real-time token counting
-- Per-provider cost tracking
-- Monthly budget enforcement
-- Cost-aware model routing
-
-### Enterprise Security
-- JWT license enforcement
-- OPA policy evaluation
-- Network policies for isolation
-- Audit logging
-
-### Production-Ready Operations
-- Horizontal Pod Autoscaling
-- Pod Disruption Budgets
-- Health checks and monitoring
-- Self-healing from failures
-
----
-
-## 📊 Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────┐
-│           User / External Client                    │
-└────────────────────┬────────────────────────────────┘
-                     │
-        ┌────────────▼────────────┐
-        │   Kubernetes API        │
-        └────────────┬────────────┘
-                     │
-        ┌────────────▼────────────────────┐
-        │  Clawdlinux              │
-        │ (Controllers & Reconcilers)     │
-        └────────────┬────────────────────┘
-                     │
-    ┌────────────────┼────────────────────┐
-    │                │                    │
-┌───▼──┐        ┌───▼──┐          ┌─────▼────┐
-│Tenant│        │Agent │          │ License  │
-│Ctrl  │        │Work  │          │Validator │
-└──────┘        │load  │          └──────────┘
-                │Ctrl  │
-                └──────┘
-                    │
-    ┌───────────────┼───────────────┐
-    │               │               │
-┌───▼────┐  ┌──────▼─────┐  ┌─────▼────┐
-│CloudF  │  │  Providers │  │ Metrics  │
-│lare    │  │ (OpenAI,   │  │(Prom,    │
-│Workers │  │ LLaMA, etc)│  │Grafana)  │
-│AI      │  └────────────┘  └──────────┘
-└────────┘
-```
-
----
-
-## 📦 Installation Summary
-
-**Prerequisites:**
-- Kubernetes 1.24+
-- Helm 3.x
-- kubectl configured
-
-**Install with local chart source:**
-
-```bash
-git clone https://github.com/Clawdlinux/agentic-operator-core.git
-cd agentic-operator-core
-helm dependency build ./charts
-helm upgrade --install agentic-operator ./charts \
-  --namespace agentic-system \
-  --create-namespace
-```
-
-For cold-start-safe steps, see [Quick Start](./01-quickstart.md).
-
----
-
-## 🏢 Create Your First Tenant
-
-```yaml
-apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: Tenant
-metadata:
-  name: customer-acme
-spec:
-  displayName: "ACME Corporation"
-  namespace: agentic-customer-acme
-  providers:
-    - cloudflare-workers-ai
-    - openai
-  quotas:
-    maxWorkloads: 100
-    maxConcurrent: 10
-    maxMonthlyTokens: 10000000
-  slaTarget: 99.5
-```
-
-Apply and watch:
-```bash
-kubectl apply -f tenant-acme.yaml
-kubectl get tenants --watch
-```
-
-The operator automatically provisions:
-- ✅ Namespace
-- ✅ Secrets (for provider access)
-- ✅ RBAC (service accounts, roles, bindings)
-- ✅ Resource quotas
-- ✅ Monitoring alerts
-
----
-
-## 🎯 Next Steps
-
-1. **[Installation](./02-installation.md)** - Set up your cluster
-2. **[Configuration](./03-configuration.md)** - Customize operator behavior
-3. **[Multi-Tenancy](./05-multi-tenancy.md)** - Provision your first tenant
-4. **[Monitoring](./11-monitoring.md)** - Set up observability
-5. **[Examples](./09-examples.md)** - Deploy sample workloads
-
----
-
-## 🆘 Need Help?
-
-- 📖 Check [Troubleshooting](./10-troubleshooting.md)
-- 💬 Open an issue on [GitHub](https://github.com/Clawdlinux/agentic-operator-core/issues)
-
----
-
-## 📄 License
-
-Apache License 2.0 - See LICENSE file in the repository.
-
-**Last Updated:** 2026-03-18  
-**Version:** v0.1.0
+- [Multi-Tenancy](./05-multi-tenancy.md)
+- [Cost Management](./06-cost-management.md)
+- [Examples](./09-examples.md): checked-in samples and evidence limits.
+- [Monitoring](./11-monitoring.md): exported metrics and optional observability components.
+- [Contributing](./12-contributing.md): current Make targets and runtime rules.
+- [API Compatibility Policy](./API_COMPATIBILITY_POLICY.md)
+- [Security Documentation](./security/README.md)

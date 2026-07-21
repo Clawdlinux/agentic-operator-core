@@ -132,7 +132,7 @@ The script injects this ANF into the scenario AgentWorkload. In-cluster LiteLLM 
 
 **Exact words to say:**
 
-"The product is the in-cluster governance and attestation layer around agent runtimes. Today's proof shows live Kubernetes context becoming ANF, Claude routing, measured usage, admission mutation, policy objects, and offline tamper detection. Full runtime enforcement and same-run signed attestation remain the next proof steps."
+"The target product is the in-cluster governance and evidence layer around agent runtimes. Today's proof shows live Kubernetes context becoming ANF, Claude routing, measured usage, admission mutation, policy objects, and prior-run tamper detection. Full runtime enforcement and same-run signed evidence remain the next proof steps."
 
 ### 4:40-5:00. Closing ask
 
@@ -216,7 +216,7 @@ Use these only for scheduled conversations. Do not use them for normal booth tra
 
 - Agents cross model, tool, and runtime boundaries.
 - Existing controls prove separate layers, not the full action trail.
-- Clawdlinux joins governance with tamper-evident receipts.
+- Clawdlinux is building the link between governance controls and verifiable receipts.
 
 ### Slide 2. Proof and ask
 
@@ -241,4 +241,4 @@ Protect the closing slide. Under time pressure, cut the opener slide first.
 
 ## One-line close
 
-"Clawdlinux makes agent actions governed, measured, and independently verifiable inside the cluster."
+"Clawdlinux connects workload context, model-cost evidence, control configuration, and prior-run verification. Full action governance remains target work."

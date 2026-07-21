@@ -4,7 +4,8 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| 0.2.x   | Supported |
+| 0.1.x   | Best effort |
 
 ## Reporting a Vulnerability
 
@@ -13,15 +14,15 @@ responsibly. **Do not open a public GitHub issue.**
 
 ### How to report
 
-1. Email **<placeholder>** with a description of the vulnerability.
+1. Use [GitHub private vulnerability reporting](https://github.com/Clawdlinux/agentic-operator-core/security/advisories/new).
 2. Include steps to reproduce, affected versions, and potential impact.
-3. We will acknowledge receipt within **48 hours**.
-4. We aim to provide a fix or mitigation within **7 days** for critical issues.
+3. We aim to acknowledge receipt within 2 business days.
+4. Fix and disclosure timelines depend on severity, exploitability, and coordinated disclosure needs.
 
 ### What to expect
 
-- A confirmation email within 48 hours.
-- Regular updates on the status of your report.
+- A private acknowledgement through GitHub Security Advisories.
+- Updates when triage status or disclosure timing changes.
 - Credit in the release notes (unless you prefer anonymity).
 
 ### Scope

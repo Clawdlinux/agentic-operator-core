@@ -1,136 +1,50 @@
 # Examples
 
-Real-world usage examples.
+Use checked-in examples instead of copying stale provider or pricing values from documentation.
 
-## Example 1: Basic Multi-Tenant Setup
+## Governance And Demo Samples
 
-Create three customers with different quotas:
+- [`agentworkload_demo.yaml`](../config/samples/agentworkload_demo.yaml)
+- [`agentworkload_demo_allow.yaml`](../config/samples/agentworkload_demo_allow.yaml)
+- [`agentworkload_demo_deny.yaml`](../config/samples/agentworkload_demo_deny.yaml)
+- [`agentworkload_demo_runtime.yaml`](../config/samples/agentworkload_demo_runtime.yaml)
+- [`agentworkload-cost-aware-routing.yaml`](../config/samples/agentworkload-cost-aware-routing.yaml)
 
-```bash
-# ACME Corp - Large customer
-kubectl apply -f - << 'YAML'
-apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: Tenant
-metadata:
-  name: acme-corp
-spec:
-  displayName: "ACME Corporation"
-  namespace: agentic-customer-acme
-  providers: [cloudflare-workers-ai, openai]
-  quotas:
-    maxWorkloads: 200
-    maxConcurrent: 50
-    maxMonthlyTokens: 100000000
-YAML
+## Collaboration Samples
 
-# BigCo - Medium customer
-kubectl apply -f - << 'YAML'
-apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: Tenant
-metadata:
-  name: bigco
-spec:
-  displayName: "BigCo Inc"
-  namespace: agentic-customer-bigco
-  providers: [cloudflare-workers-ai]
-  quotas:
-    maxWorkloads: 50
-    maxConcurrent: 10
-    maxMonthlyTokens: 10000000
-YAML
+- [`agentworkload-persona-swarm.yaml`](../config/samples/agentworkload-persona-swarm.yaml)
+- [`agentworkload_demo_swarm.yaml`](../config/samples/agentworkload_demo_swarm.yaml)
+- [`a2a_team_example.yaml`](../config/samples/a2a_team_example.yaml)
 
-# Startup - Small customer
-kubectl apply -f - << 'YAML'
-apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: Tenant
-metadata:
-  name: startup-xyz
-spec:
-  displayName: "StartupXYZ"
-  namespace: agentic-customer-startup
-  providers: [cloudflare-workers-ai]
-  quotas:
-    maxWorkloads: 10
-    maxConcurrent: 2
-    maxMonthlyTokens: 1000000
-YAML
-```
+## Workflow Examples
 
-## Example 2: Cost-Optimized Workload
+- [`research-swarm.yaml`](../config/examples/research-swarm.yaml)
+- [`code-review.yaml`](../config/examples/code-review.yaml)
+- [`doc-processor.yaml`](../config/examples/doc-processor.yaml)
 
-```yaml
-apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: AgentWorkload
-metadata:
-  name: content-analysis
-  namespace: agentic-customer-acme
-spec:
-  objective: "Analyze blog content for engagement metrics"
-  modelStrategy: cost-aware      # Use cheapest viable model
-  taskClassifier: default
-  autoApproveThreshold: 0.8      # Lower threshold for cost optimization
-  providers:
-    - name: cloudflare-workers-ai
-      type: openai-compatible
-      endpoint: https://api.cloudflare.com/...
-  modelMapping:
-    analysis: cloudflare-workers-ai/llama-2-7b-chat-int8
-```
+## Safe Evaluation Pattern
 
-Cost savings: ~70% vs. GPT-4.
-
-## Example 3: High-Quality Analysis
-
-```yaml
-apiVersion: agentic.clawdlinux.org/v1alpha1
-kind: AgentWorkload
-metadata:
-  name: strategic-research
-  namespace: agentic-customer-acme
-spec:
-  objective: "Perform deep competitive analysis for Q2 strategy"
-  modelStrategy: fixed           # Use specific high-quality model
-  taskClassifier: default
-  autoApproveThreshold: 0.95     # Higher quality requirement
-  providers:
-    - name: openai
-      type: openai
-      endpoint: https://api.openai.com/v1
-  modelMapping:
-    analysis: openai/gpt-4-turbo
-    reasoning: openai/gpt-4-turbo
-```
-
-Quality focus: ~95% output quality.
-
-## Example 4: Monitoring Tenant Usage
+Review and dry-run a sample before applying it:
 
 ```bash
-# Get all tenants
-kubectl get tenants
-
-# Check specific tenant status
-kubectl describe tenant acme-corp
-
-# View tenant's workloads
-kubectl get agentworkload -n agentic-customer-acme
-
-# Monitor token usage
-kubectl get tenant acme-corp -o jsonpath='{.status.tokensUsedThisMonth}'
-
-# Watch workload progress
-kubectl get agentworkload -n agentic-customer-acme --watch
+kubectl apply --dry-run=server \
+  -f config/samples/agentworkload_demo.yaml
 ```
 
-## Example 5: Scale Tenant Quotas
+Check provider endpoints, Secret references, runtime type, tool profile, policy
+mode, resources, and timeouts.
+
+Apply only after replacing placeholders:
 
 ```bash
-# Increase ACME's monthly token budget
-kubectl patch tenant acme-corp --type merge -p \
-  '{"spec":{"quotas":{"maxMonthlyTokens":200000000}}}'
-
-# View changes
-kubectl describe tenant acme-corp
+kubectl apply -f config/samples/agentworkload_demo.yaml
+kubectl -n agentic-system get agentworkloads -w
 ```
 
-See Full API Reference for all options.
+## Important Limits
+
+- Sample confidence values are inputs to the Go policy evaluator. They are not an independent security score.
+- Pricing and cost outputs are estimates. Validate them against current provider pricing.
+- Tenant monthly token fields are not automatically aggregated by the Tenant reconciler.
+- NetworkPolicy and gVisor samples prove configuration. Enforcement requires CNI and node-runtime support.
+- The current demo verifies a prior-run audit fixture. It does not produce same-run signed evidence.
