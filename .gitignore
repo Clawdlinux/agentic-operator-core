@@ -125,3 +125,10 @@ _staging/
 video/booth-animated-loop.html
 video/booth-loop.tape
 docs/SLACK_SIGNAL_REPORT.md
+
+# Internal, non-OSS docs (kept locally, not on GitHub)
+/RALPH_BACKLOG.md
+/naming-decision.md
+docs/PITCH-SCRIPT.md
+docs/DEMO-PLAN.md
+docs/plans/
