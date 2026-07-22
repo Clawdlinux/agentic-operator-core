@@ -119,3 +119,8 @@ _artifacts/
 /manager
 /main
 .playwright-mcp/
+
+# Booth-only material (kept locally, not on GitHub)
+_staging/
+video/booth-animated-loop.html
+video/booth-loop.tape
