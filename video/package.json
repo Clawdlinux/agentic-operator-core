@@ -5,7 +5,7 @@
   "scripts": {
     "start": "remotion studio",
     "build": "remotion render MainComposition out/agentic-operator-demo.mp4",
-    "build:gif": "remotion render MainComposition out/agentic-operator-demo.gif --codec=gif"
+    "build:gif": "remotion render MainComposition out/agentic-operator-demo.gif --codec=gif --scale=0.5 --every-nth-frame=2"
   },
   "dependencies": {
     "@remotion/cli": "4.0.351",

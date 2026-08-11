@@ -62,46 +62,34 @@ const Scene1Title: React.FC = () => {
         opacity: exitOpacity,
       }}
     >
-      {/* Hexagonal logo */}
+      {/* Clawdlinux Seal-C mark */}
       <svg
         width={140}
         height={140}
-        viewBox="0 0 200 200"
+        viewBox="0 0 88 96"
         style={{
           transform: `scale(${logoScale})`,
           marginBottom: 40,
           filter: `drop-shadow(0 0 40px ${COLORS.blue}66)`,
         }}
       >
-        <rect width="200" height="200" rx="32" fill={COLORS.navy} />
-        <g transform="translate(100,100)">
+        <g fill="none" stroke={COLORS.blueLight} strokeLinecap="round">
           <path
-            d="M0,-65 L40,-40 L50,5 L35,45 L0,60 L-35,45 L-50,5 L-40,-40 Z"
-            fill="none"
-            stroke={COLORS.blue}
-            strokeWidth="2"
-            opacity="0.5"
+            d="M72 18H41C22 18 10 31 10 48S22 78 41 78H72"
+            strokeWidth="8"
           />
-          <text
-            x="-2"
-            y="18"
-            fontFamily="Arial Black, Arial"
-            fontWeight="900"
-            fontSize="90"
-            fill={COLORS.blueAccent}
-            textAnchor="middle"
-          >
-            9
-          </text>
-          <circle cx="0" cy="-65" r="5" fill={COLORS.blueLight} />
-          <circle cx="40" cy="-40" r="4" fill={COLORS.blue} />
-          <circle cx="50" cy="5" r="4" fill={COLORS.blue} />
-          <circle cx="35" cy="45" r="4" fill={COLORS.blue} />
-          <circle cx="0" cy="60" r="5" fill={COLORS.blueLight} />
-          <circle cx="-35" cy="45" r="4" fill={COLORS.blue} />
-          <circle cx="-50" cy="5" r="4" fill={COLORS.blue} />
-          <circle cx="-40" cy="-40" r="4" fill={COLORS.blue} />
+          <path
+            d="M65 31H43C33 31 26 38 26 48S33 65 43 65H65"
+            strokeWidth="6"
+            opacity="0.72"
+          />
+          <path
+            d="M58 43H46C42 43 40 45 40 48S42 53 46 53H58"
+            strokeWidth="4"
+            opacity="0.46"
+          />
         </g>
+        <path d="M69 13L79 18L69 23Z" fill={COLORS.blueLight} />
       </svg>
 
       <div
@@ -112,11 +100,11 @@ const Scene1Title: React.FC = () => {
           fontSize: 96,
           fontWeight: 800,
           color: COLORS.text,
-          letterSpacing: "-0.03em",
+          letterSpacing: 0,
           marginBottom: 20,
         }}
       >
-        Agentic <span style={{ color: COLORS.blue }}>Operator</span>
+        Clawd<span style={{ color: COLORS.blue }}>linux</span>
       </div>
 
       <div
@@ -125,10 +113,10 @@ const Scene1Title: React.FC = () => {
           fontFamily: FONT_MONO,
           fontSize: 28,
           color: COLORS.textDim,
-          letterSpacing: "0.02em",
+          letterSpacing: 0,
         }}
       >
-        Kubernetes-native AI agent platform
+        Governance for AI agents on Kubernetes
       </div>
     </AbsoluteFill>
   );

@@ -26,7 +26,12 @@
     <g transform="translate(880, 280)">
       <!-- Central hub -->
       <circle cx="0" cy="0" r="40" fill="#1E2761" stroke="#3B82F6" stroke-width="2"/>
-      <text x="0" y="6" font-family="Arial Black, Arial" font-weight="900" font-size="36" fill="#CADCFC" text-anchor="middle">9</text>
+      <g transform="translate(-18, -20) scale(0.5)" fill="none" stroke="#60A5FA" stroke-linecap="round">
+        <path d="M72 18H41C22 18 10 31 10 48S22 78 41 78H72" stroke-width="8"/>
+        <path d="M65 31H43C33 31 26 38 26 48S33 65 43 65H65" stroke-width="6" opacity="0.72"/>
+        <path d="M58 43H46C42 43 40 45 40 48S42 53 46 53H58" stroke-width="4" opacity="0.46"/>
+        <path d="M69 13L79 18L69 23Z" fill="#60A5FA" stroke="none"/>
+      </g>
 
       <!-- Agent nodes -->
       <g>
@@ -77,29 +82,27 @@
       <text x="10" y="161" font-family="monospace" font-size="9" fill="#F59E0B" text-anchor="middle">REVIEW</text>
     </g>
 
-    <!-- ClawdLinux logo (left, integrated) -->
-    <g transform="translate(100, 120) scale(0.9)">
-      <path d="M-8,-55 C-8,-55 -30,-30 -40,0 C-50,30 -35,55 -10,55 C5,55 15,45 20,35 C25,25 30,10 25,-5 C20,-20 10,-35 5,-45 C2,-50 -2,-55 -8,-55Z" fill="#CADCFC" opacity="0.7"/>
-      <path d="M-25,-15 L15,25" stroke="#3B82F6" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
-      <path d="M-15,-20 L22,15" stroke="#3B82F6" stroke-width="3.5" stroke-linecap="round" opacity="0.6"/>
-      <path d="M-5,-25 L28,5" stroke="#60A5FA" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
-      <circle cx="30" cy="-35" r="3" fill="#60A5FA" opacity="0.7"/>
-      <circle cx="35" cy="-28" r="2" fill="#3B82F6" opacity="0.6"/>
+    <!-- Clawdlinux Seal-C mark -->
+    <g transform="translate(80, 60)" fill="none" stroke="#60A5FA" stroke-linecap="round">
+      <path d="M72 18H41C22 18 10 31 10 48S22 78 41 78H72" stroke-width="8"/>
+      <path d="M65 31H43C33 31 26 38 26 48S33 65 43 65H65" stroke-width="6" opacity="0.72"/>
+      <path d="M58 43H46C42 43 40 45 40 48S42 53 46 53H58" stroke-width="4" opacity="0.46"/>
+      <path d="M69 13L79 18L69 23Z" fill="#60A5FA" stroke="none"/>
     </g>
 
     <!-- Main text content (left side) -->
-    <text x="80" y="230" font-family="Arial Black, Arial" font-weight="900" font-size="56" fill="#FFFFFF" letter-spacing="-1">Clawdlinux</text>
+    <text x="80" y="230" font-family="Arial Black, Arial" font-weight="900" font-size="56" fill="#FFFFFF" letter-spacing="0">Clawdlinux</text>
 
-    <text x="80" y="290" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#60A5FA" letter-spacing="0.5">The Agentic Service Mesh</text>
-    <text x="80" y="325" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#94A3B8">for Enterprise Kubernetes</text>
+    <text x="80" y="290" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#60A5FA" letter-spacing="0">In-cluster governance for AI agents</text>
+    <text x="80" y="325" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#94A3B8">on Kubernetes</text>
 
     <!-- Feature pills -->
     <g transform="translate(80, 370)">
       <rect x="0" y="0" width="170" height="32" rx="16" fill="#3B82F6" opacity="0.15"/>
-      <text x="85" y="21" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#60A5FA" text-anchor="middle" font-weight="bold">Agent orchestration</text>
+      <text x="85" y="21" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#60A5FA" text-anchor="middle" font-weight="bold">Audit evidence</text>
 
       <rect x="185" y="0" width="130" height="32" rx="16" fill="#3B82F6" opacity="0.15"/>
-      <text x="250" y="21" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#60A5FA" text-anchor="middle" font-weight="bold">RL feedback</text>
+      <text x="250" y="21" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#60A5FA" text-anchor="middle" font-weight="bold">Egress controls</text>
 
       <rect x="330" y="0" width="120" height="32" rx="16" fill="#3B82F6" opacity="0.15"/>
       <text x="390" y="21" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#60A5FA" text-anchor="middle" font-weight="bold">Air-gapped</text>
@@ -114,7 +117,7 @@
       <circle cx="44" cy="16" r="4" fill="#10B981" opacity="0.8"/>
       <!-- Commands -->
       <text x="16" y="48" font-family="monospace" font-size="13" fill="#10B981">$ agentctl init</text>
-      <text x="16" y="68" font-family="monospace" font-size="13" fill="#94A3B8">  Mesh CRDs installed</text>
+      <text x="16" y="68" font-family="monospace" font-size="13" fill="#94A3B8">  Governance controls installed</text>
       <text x="16" y="88" font-family="monospace" font-size="13" fill="#10B981">$ agentctl apply -f swarm.yaml</text>
     </g>
   </g>
