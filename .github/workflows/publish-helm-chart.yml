@@ -1,0 +1,32 @@
+name: Publish Helm chart
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "chart-v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Package chart
+        run: helm package charts --destination dist
+
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Push chart
+        run: helm push dist/*.tgz oci://ghcr.io/${{ github.repository_owner }}/agentic-operator-core

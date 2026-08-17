@@ -1,19 +1,34 @@
 apiVersion: v2
 name: agentic-operator
-description: AI-native Kubernetes operator for agent workloads
+description: Runtime-agnostic Kubernetes governance for AI agents with isolation, egress policy, cost controls, and audit verification.
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
 keywords:
-  - ai
-  - agents
+  - ai-agents
+  - ai-governance
+  - agent-security
+  - air-gapped
+  - audit-logging
+  - egress-policy
+  - gvisor
   - kubernetes
-  - operator
-  - llm
-home: https://github.com/Clawdlinux/agentic-operator-core
+  - kubernetes-operator
+  - policy-as-code
+home: https://clawdlinux.org/products/operator
+icon: https://raw.githubusercontent.com/Clawdlinux/agentic-operator-core/main/assets/clawdlinux-favicon-192.png
+sources:
+  - https://github.com/Clawdlinux/agentic-operator-core
+annotations:
+  artifacthub.io/category: security
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://clawdlinux.org/products/operator
+    - name: Source
+      url: https://github.com/Clawdlinux/agentic-operator-core
 maintainers:
   - name: Shreyansh Jain
-    email: shreyansh@example.com
 dependencies:
   - name: agentic-operator
     version: "0.1.0"
