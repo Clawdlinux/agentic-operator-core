@@ -95,6 +95,16 @@ func TestWorkflowManager_CreateArgoWorkflow(t *testing.T) {
 	if labels["agentic.io/job-id"] != "test-job-001" {
 		t.Errorf("job-id label = %q, want %q", labels["agentic.io/job-id"], "test-job-001")
 	}
+	if labels["app.kubernetes.io/part-of"] != "agentic-operator" {
+		t.Errorf("part-of label = %q, want agentic-operator", labels["app.kubernetes.io/part-of"])
+	}
+	podMetadataLabels, found, err := unstructured.NestedMap(workflow.Object, "spec", "podMetadata", "labels")
+	if err != nil || !found {
+		t.Fatalf("podMetadata.labels missing: found=%v err=%v", found, err)
+	}
+	if podMetadataLabels["app.kubernetes.io/part-of"] != "agentic-operator" {
+		t.Errorf("podMetadata part-of label = %q, want agentic-operator", podMetadataLabels["app.kubernetes.io/part-of"])
+	}
 
 	// Check ownerReference is set
 	owners := workflow.GetOwnerReferences()

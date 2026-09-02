@@ -26,23 +26,20 @@ import (
 // must stamp it.
 //
 // GovernanceEgressPartOfValue MUST match the value the egress NetworkPolicy
-// selects on (charts/templates/networkpolicy.yaml). Most other platform
-// resources (Argo pods, shared services, RBAC) currently label part-of
-// "agentic-k8s-operator", which the NetworkPolicy does NOT select. Reconciling
-// the whole platform onto a single part-of value is a tracked follow-up. This
-// helper deliberately uses the NetworkPolicy's value so the pods it governs are
-// actually sealed.
+// selects on (charts/templates/networkpolicy.yaml). Runtime adapters and Argo
+// workflow pods now stamp this value. Policy coverage additionally requires
+// the NetworkPolicy to exist in each pod's namespace; it currently renders
+// only in the release namespace.
 const (
 	GovernanceEgressPartOfKey   = "app.kubernetes.io/part-of"
 	GovernanceEgressPartOfValue = "agentic-operator"
 )
 
 // governanceLabels returns the pod labels that place a workload's pods under
-// Clawdlinux governance. Two are load-bearing: the gVisor RuntimeClass injector
-// keys on the sandbox label, and the default-deny egress NetworkPolicy selects
-// on part-of. Every adapter stamps these onto the pods it creates so the seal
-// is identical across runtimes, whether the scheduler is Argo, a plain pod, or
-// kagent. Governance is applied at the pod and network layer, never per-adapter.
+// Clawdlinux governance for pod and kagent adapters. The gVisor RuntimeClass
+// injector keys on the sandbox label, and the default-deny egress NetworkPolicy
+// selects on part-of. Argo workflow pod labels are set by pkg/argo because
+// importing this package there would create an import cycle.
 func governanceLabels(workload *agenticv1alpha1.AgentWorkload) map[string]string {
 	return map[string]string{
 		admission.DefaultRuntimeLabelKey:  admission.DefaultRuntimeLabelValue, // gVisor injector

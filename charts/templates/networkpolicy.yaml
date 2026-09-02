@@ -8,10 +8,8 @@ renders nothing — preserves backwards compatibility for clusters that already
 manage egress at a higher layer (Cilium FQDN policy applied externally, etc.).
 
 Scope: selects pods labeled `app.kubernetes.io/part-of: agentic-operator` in the
-release namespace. The reconciler labels per-workload agent namespaces with
-`agentic.clawdlinux.org/managed=true`; if you want this policy to also cover
-those, enable `networkPolicy.applyToManagedNamespaces` and ensure NetworkPolicy
-admission scope matches your CNI.
+release namespace. Workload namespaces need their own NetworkPolicy resource
+before this policy can cover their pods.
 */ -}}
 {{- if .Values.networkPolicy.enabled -}}
 {{- $ns := include "agentic-operator.namespace" . -}}
