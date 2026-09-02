@@ -164,7 +164,7 @@ func (wm *WorkflowManager) CreateArgoWorkflow(
 	workflow.SetNamespace(DefaultWorkflowNamespace)
 	workflowLabels := map[string]string{
 		"app.kubernetes.io/name":    "agentic-k8s-operator",
-		"app.kubernetes.io/part-of": "agentic-k8s-operator",
+		"app.kubernetes.io/part-of": "agentic-operator",
 		"agentic.io/job-id":         params.JobID,
 		"agentic.io/source":         "agentworkload-controller",
 	}
@@ -220,14 +220,15 @@ func (wm *WorkflowManager) CreateArgoWorkflow(
 		return nil, err
 	}
 
+	podLabels := map[string]interface{}{
+		"app.kubernetes.io/part-of": "agentic-operator",
+	}
 	if agentWorkload.Spec.Persona != nil && agentWorkload.Spec.Persona.Role != "" {
-		podLabels := map[string]interface{}{
-			"agentworkload.clawdlinux.io/role": agentWorkload.Spec.Persona.Role,
-		}
-		if err := unstructured.SetNestedField(workflow.Object, podLabels, "spec", "podMetadata", "labels"); err != nil {
-			log.Error(err, "failed to set podMetadata.labels")
-			return nil, err
-		}
+		podLabels["agentworkload.clawdlinux.io/role"] = agentWorkload.Spec.Persona.Role
+	}
+	if err := unstructured.SetNestedField(workflow.Object, podLabels, "spec", "podMetadata", "labels"); err != nil {
+		log.Error(err, "failed to set podMetadata.labels")
+		return nil, err
 	}
 
 	log.Info("Creating Argo Workflow", "name", workflow.GetName(), "namespace", workflow.GetNamespace(), "jobId", params.JobID)
