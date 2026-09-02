@@ -96,6 +96,17 @@ The Clawdlinux webhook mutates matching Pods on create:
 runtimeClassName: gvisor
 ```
 
+By default, the webhook denies a matching Pod unless the RuntimeClass exists
+and a Ready node can run it. When the RuntimeClass has no scheduling selector,
+set this label on each node after confirming `runsc` is installed:
+
+```yaml
+agentic.clawdlinux.org/gvisor-ready: "true"
+```
+
+Set `global.runtimeSandbox.enforcementMode=best-effort` only when you accept an
+unsandboxed fallback.
+
 No fork required. No custom build required. Works with any pod that carries the label.
 
 ---

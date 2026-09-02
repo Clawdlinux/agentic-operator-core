@@ -28,6 +28,17 @@ metadata:
 The pod receives `runtimeClassName: gvisor` when it does not already specify a
 runtime class. The nodes must have a working `runsc` installation.
 
+`global.runtimeSandbox.enforcementMode` defaults to `strict`. The webhook
+denies a matching Pod until the named RuntimeClass exists and a Ready node can
+run it. If the RuntimeClass has no scheduling selector, mark confirmed nodes:
+
+```yaml
+agentic.clawdlinux.org/gvisor-ready: "true"
+```
+
+Set `enforcementMode: best-effort` only when an unsandboxed fallback is
+intentional.
+
 ## Network Policy
 
 The umbrella chart renders a default-deny egress policy when

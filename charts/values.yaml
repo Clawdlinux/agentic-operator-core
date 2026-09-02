@@ -33,7 +33,9 @@ global:
   #
   # The operator webhook mutates matching Pods on CREATE and sets
   # runtimeClassName: gvisor unless the Pod already set a runtimeClassName.
-  # Nodes must already have gVisor/runsc installed.
+  # In strict mode, a matching pod is admitted only when the RuntimeClass exists
+  # and at least 1 Ready node matches its scheduling selector. Without a
+  # selector, mark prepared nodes `agentic.clawdlinux.org/gvisor-ready=true`.
   runtimeSandbox:
     enabled: true
     createRuntimeClass: true
@@ -41,6 +43,9 @@ global:
     handler: runsc
     selectorLabelKey: agentic.clawdlinux.org/runtime-sandbox
     selectorLabelValue: gvisor
+    # strict denies a matching pod if sandbox readiness cannot be verified.
+    # best-effort allows it without RuntimeClass injection.
+    enforcementMode: strict
     overhead: {}
     scheduling: {}
 

@@ -59,6 +59,8 @@ spec:
               value: {{ .selectorLabelKey | default "agentic.clawdlinux.org/runtime-sandbox" | quote }}
             - name: RUNTIME_SANDBOX_LABEL_VALUE
               value: {{ .selectorLabelValue | default "gvisor" | quote }}
+            - name: RUNTIME_SANDBOX_ENFORCEMENT_MODE
+              value: {{ .enforcementMode | default "strict" | quote }}
             {{- end }}
             {{- end }}
             {{- range $key, $val := .Values.env }}

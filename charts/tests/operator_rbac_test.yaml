@@ -47,3 +47,23 @@ tests:
             verbs:
               - update
         documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - ""
+            resources:
+              - nodes
+            verbs:
+              - list
+        documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - node.k8s.io
+            resources:
+              - runtimeclasses
+            verbs:
+              - get
+        documentIndex: 1
