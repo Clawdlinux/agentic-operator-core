@@ -52,3 +52,54 @@ tests:
           content:
             port: 53
             protocol: UDP
+
+  - it: renders a policy in each configured workload namespace
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      networkPolicy:
+        enabled: true
+        workloadNamespaces:
+          - tenant-a
+          - argo-workflows
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: metadata.namespace
+          value: tenant-a
+        documentIndex: 1
+      - equal:
+          path: metadata.namespace
+          value: argo-workflows
+        documentIndex: 2
+
+  - it: does not duplicate the release namespace policy
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      networkPolicy:
+        enabled: true
+        workloadNamespaces:
+          - agentic-system
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: scopes shared service peers to the platform namespace
+    set:
+      license:
+        key: "test"
+        publicKey: "test"
+      networkPolicy:
+        enabled: true
+        platformNamespace: platform-services
+    asserts:
+      - equal:
+          path: spec.egress[1].to[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
+          value: platform-services
+      - equal:
+          path: spec.egress[1].to[0].podSelector.matchLabels["app.kubernetes.io/name"]
+          value: litellm

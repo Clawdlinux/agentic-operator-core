@@ -8,22 +8,28 @@ renders nothing — preserves backwards compatibility for clusters that already
 manage egress at a higher layer (Cilium FQDN policy applied externally, etc.).
 
 Scope: selects pods labeled `app.kubernetes.io/part-of: agentic-operator` in the
-release namespace. Workload namespaces need their own NetworkPolicy resource
-before this policy can cover their pods.
+release namespace and every namespace in `networkPolicy.workloadNamespaces`.
+Each listed namespace must already exist. NetworkPolicy is namespace-scoped.
 */ -}}
 {{- if .Values.networkPolicy.enabled -}}
+{{- $root := . -}}
 {{- $ns := include "agentic-operator.namespace" . -}}
+{{- $platformNs := default $ns .Values.networkPolicy.platformNamespace -}}
+{{- $workloadNamespaces := .Values.networkPolicy.workloadNamespaces | default (list) -}}
+{{- $policyNamespaces := concat (list $ns) $workloadNamespaces | uniq -}}
 {{- $litellmPort := default 4000 (((.Values.litellm).service).port) -}}
 {{- $postgresPort := default 5432 (((.Values.postgresql).service).port) -}}
 {{- $minioPort := default 9000 (((.Values.minio).service).port) -}}
 {{- $browserlessPort := default 3000 (((.Values.browserless).service).port) -}}
+{{- range $policyNamespace := $policyNamespaces }}
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "agentic-operator.fullname" . }}-default-deny-egress
-  namespace: {{ $ns }}
+  name: {{ include "agentic-operator.fullname" $root }}-default-deny-egress
+  namespace: {{ $policyNamespace }}
   labels:
-    {{- include "agentic-operator.labels" . | nindent 4 }}
+    {{- include "agentic-operator.labels" $root | nindent 4 }}
     app.kubernetes.io/component: networkpolicy
   annotations:
     agentic.clawdlinux.org/issue: "129"
@@ -35,7 +41,7 @@ spec:
   policyTypes:
     - Egress
   egress:
-    {{- if .Values.networkPolicy.denyEgressByDefault }}
+    {{- if $root.Values.networkPolicy.denyEgressByDefault }}
     # Allow DNS resolution (kube-dns / CoreDNS).
     - to:
         - namespaceSelector:
@@ -49,47 +55,59 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    {{- if (((.Values.litellm).enabled) | default true) }}
+    {{- if ((($root.Values.litellm).enabled) | default true) }}
     # In-cluster LiteLLM gateway (only path agents may take to LLMs).
     - to:
-        - podSelector:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $platformNs }}
+          podSelector:
             matchLabels:
               app.kubernetes.io/name: litellm
       ports:
         - port: {{ $litellmPort }}
           protocol: TCP
     {{- end }}
-    {{- if (((.Values.postgresql).enabled) | default true) }}
+    {{- if ((($root.Values.postgresql).enabled) | default true) }}
     # PostgreSQL (LangGraph checkpointer).
     - to:
-        - podSelector:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $platformNs }}
+          podSelector:
             matchLabels:
               app.kubernetes.io/name: postgresql
       ports:
         - port: {{ $postgresPort }}
           protocol: TCP
     {{- end }}
-    {{- if (((.Values.minio).enabled) | default true) }}
+    {{- if ((($root.Values.minio).enabled) | default true) }}
     # MinIO (per-workload artifact bucket).
     - to:
-        - podSelector:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $platformNs }}
+          podSelector:
             matchLabels:
               app.kubernetes.io/name: minio
       ports:
         - port: {{ $minioPort }}
           protocol: TCP
     {{- end }}
-    {{- if (((.Values.browserless).enabled) | default false) }}
+    {{- if ((($root.Values.browserless).enabled) | default false) }}
     # Browserless pool (only when browser tool is enabled).
     - to:
-        - podSelector:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $platformNs }}
+          podSelector:
             matchLabels:
               app.kubernetes.io/name: browserless
       ports:
         - port: {{ $browserlessPort }}
           protocol: TCP
     {{- end }}
-    {{- with .Values.networkPolicy.opa }}
+    {{- with $root.Values.networkPolicy.opa }}
     {{- if .external }}
     # External OPA service (when not deployed in-cluster).
     - to:
@@ -100,7 +118,7 @@ spec:
           protocol: TCP
     {{- end }}
     {{- end }}
-    {{- with .Values.networkPolicy.additionalAllowedHosts }}
+    {{- with $root.Values.networkPolicy.additionalAllowedHosts }}
     # Operator-supplied additional allow-list entries.
     {{- range . }}
     - to:
@@ -117,4 +135,5 @@ spec:
     # operators can swap to deny mode without re-installing).
     - {}
     {{- end }}
+  {{- end }}
 {{- end -}}

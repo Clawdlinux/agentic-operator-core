@@ -364,10 +364,9 @@ ingress:
 # ---------------------------------------------------------------------------
 # NetworkPolicy (default-deny egress, per issue #129)
 #
-# When enabled, ships a Kubernetes NetworkPolicy in the release namespace that
-# default-denies egress for any pod labeled `app.kubernetes.io/part-of:
-# agentic-operator`, with an explicit allow-list to in-cluster platform
-# services (DNS, LiteLLM, Postgres, MinIO, Browserless, optional OPA).
+# When enabled, ships a Kubernetes NetworkPolicy that default-denies egress for
+# any pod labeled `app.kubernetes.io/part-of: agentic-operator`. The release
+# namespace is covered by default. Add known workload namespaces explicitly.
 #
 # Defaults to ON. Disable only if your CNI applies an equivalent policy at a
 # higher layer (e.g. Cilium FQDN policy managed by your platform team).
@@ -375,6 +374,13 @@ ingress:
 networkPolicy:
   enabled: true
   denyEgressByDefault: true
+  # Additional namespaces where AgentWorkload runtime pods execute. They must
+  # exist before Helm applies this release. The Helm installer needs permission
+  # to manage NetworkPolicies in each listed namespace. CNI enforcement is not verified.
+  workloadNamespaces: []
+  # Shared service namespace. Set it to the namespace where LiteLLM, PostgreSQL,
+  # MinIO, and Browserless run. Empty uses the release namespace.
+  platformNamespace: ""
   # Extra allow-list entries appended to the default policy. Each entry is an
   # IP CIDR plus optional ports.
   # Example:

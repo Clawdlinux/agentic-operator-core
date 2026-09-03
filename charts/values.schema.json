@@ -177,6 +177,11 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "denyEgressByDefault": { "type": "boolean" },
+        "workloadNamespaces": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "platformNamespace": { "type": "string" },
         "additionalAllowedHosts": {
           "type": "array",
           "items": {
