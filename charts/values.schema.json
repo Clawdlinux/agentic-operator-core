@@ -328,6 +328,7 @@
         "handler": { "type": "string", "minLength": 1 },
         "selectorLabelKey": { "type": "string", "minLength": 1 },
         "selectorLabelValue": { "type": "string", "minLength": 1 },
+        "enforcementMode": { "type": "string", "enum": ["strict", "best-effort"] },
         "overhead": { "type": "object" },
         "scheduling": { "type": "object" }
       }

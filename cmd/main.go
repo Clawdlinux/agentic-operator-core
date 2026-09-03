@@ -283,10 +283,15 @@ func main() {
 			setupLog.Error(err, "Failed to setup webhook", "webhook", "AgentWorkload")
 			os.Exit(1)
 		}
+		sandboxConfig := runtimeadmission.RuntimeClassInjectionConfigFromEnv()
 
 		mgr.GetWebhookServer().Register("/mutate-v1-pod-runtimeclass", &webhook.Admission{
 			Handler: &runtimeadmission.RuntimeClassInjector{
-				Config: runtimeadmission.RuntimeClassInjectionConfigFromEnv(),
+				Config: sandboxConfig,
+				Checker: runtimeadmission.NewKubernetesSandboxReadinessChecker(
+					mgr.GetAPIReader(),
+					sandboxConfig.RuntimeClassName,
+				),
 			},
 		})
 	}

@@ -105,6 +105,12 @@ tests:
             name: RUNTIME_SANDBOX_LABEL_VALUE
             value: kata
         template: charts/agentic-operator/templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RUNTIME_SANDBOX_ENFORCEMENT_MODE
+            value: strict
+        template: charts/agentic-operator/templates/deployment.yaml
 
   - it: uses the same custom selector value in webhook and operator env
     set:
