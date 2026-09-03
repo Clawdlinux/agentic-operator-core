@@ -2,7 +2,7 @@ suite: operator controller RBAC
 templates:
   - templates/rbac.yaml
 tests:
-  - it: grants the running controllers access to AgentWorkload and AgentCard resources
+  - it: grants the running controllers access to AgentWorkload, AgentCard, and Tenant resources
     set:
       license.key: dev-license
     asserts:
@@ -14,6 +14,32 @@ tests:
             resources:
               - agentworkloads
               - agentcards
+              - tenants
+            verbs:
+              - get
+              - list
+              - watch
+              - create
+              - update
+              - patch
+              - delete
+        documentIndex: 1
+      - contains:
+          path: rules[0].resources
+          content: resourcequotas
+        documentIndex: 1
+      - contains:
+          path: rules[0].verbs
+          content: watch
+        documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - rbac.authorization.k8s.io
+            resources:
+              - roles
+              - rolebindings
             verbs:
               - get
               - list
@@ -31,6 +57,7 @@ tests:
             resources:
               - agentworkloads/status
               - agentcards/status
+              - tenants/status
             verbs:
               - get
               - update
@@ -44,6 +71,7 @@ tests:
             resources:
               - agentworkloads/finalizers
               - agentcards/finalizers
+              - tenants/finalizers
             verbs:
               - update
         documentIndex: 1

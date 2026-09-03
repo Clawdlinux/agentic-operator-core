@@ -31,6 +31,7 @@ rules:
       - configmaps
       - secrets
       - namespaces
+      - resourcequotas
       - serviceaccounts
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Sandbox node readiness checks
@@ -64,16 +65,19 @@ rules:
     resources:
       - agentworkloads
       - agentcards
+      - tenants
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["agentic.clawdlinux.org"]
     resources:
       - agentworkloads/status
       - agentcards/status
+      - tenants/status
     verbs: ["get", "update", "patch"]
   - apiGroups: ["agentic.clawdlinux.org"]
     resources:
       - agentworkloads/finalizers
       - agentcards/finalizers
+      - tenants/finalizers
     verbs: ["update"]
   # RBAC (for sub-agent service accounts — namespace-scoped only)
   - apiGroups: ["rbac.authorization.k8s.io"]

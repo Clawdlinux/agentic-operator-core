@@ -27,12 +27,12 @@ rules:
   - ""
   resources:
   - resourcequotas
-  - serviceaccounts
   verbs:
   - create
   - get
   - list
   - patch
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -42,6 +42,15 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - get
+  - list
+  - patch
 - apiGroups:
   - agentic.clawdlinux.org
   resources:
@@ -75,14 +84,11 @@ rules:
   - patch
   - update
 - apiGroups:
-  - networking.k8s.io
+  - apps
   resources:
-  - networkpolicies
+  - daemonsets
   verbs:
-  - create
-  - get
   - list
-  - patch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -93,3 +99,4 @@ rules:
   - get
   - list
   - patch
+  - watch

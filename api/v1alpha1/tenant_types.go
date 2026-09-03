@@ -85,6 +85,10 @@ type TenantStatus struct {
 	// NetworkPolicyActive indicates if network policies are active
 	NetworkPolicyActive bool `json:"networkPolicyActive,omitempty"`
 
+	// NetworkPolicyEnforcementReason describes passive CNI evidence. It does not
+	// represent an active packet-flow verification.
+	NetworkPolicyEnforcementReason string `json:"networkPolicyEnforcementReason,omitempty"`
+
 	// WorkloadCount is the number of active workloads for this tenant
 	WorkloadCount int `json:"workloadCount,omitempty"`
 
