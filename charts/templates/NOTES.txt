@@ -7,6 +7,13 @@ Namespace: {{ include "agentic-operator.namespace" . }}
 Tier:      {{ .Values.license.tier | default "trial" | upper }}
 Seats:     {{ .Values.license.seats | default 1 }}
 
+{{ if .Values.networkPolicy.enabled }}
+{{- $releaseNamespace := include "agentic-operator.namespace" . -}}
+{{- $workloadNamespaces := .Values.networkPolicy.workloadNamespaces | default (list) -}}
+{{- $policyNamespaces := concat (list $releaseNamespace) $workloadNamespaces | uniq -}}
+NetworkPolicy: Configured for {{ len $policyNamespaces }} namespace(s). CNI enforcement is unverified.
+{{- end }}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 COMPONENTS ENABLED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
