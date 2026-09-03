@@ -103,6 +103,7 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(newDescribeCommand(opts))
 	cmd.AddCommand(newLogsCommand(opts))
 	cmd.AddCommand(newCostCommand(opts))
+	cmd.AddCommand(newDoctorCommand(opts))
 	cmd.AddCommand(newApplyCommand(opts))
 	cmd.AddCommand(newVersionCommand(opts))
 	cmd.AddCommand(newInitCommand(opts))

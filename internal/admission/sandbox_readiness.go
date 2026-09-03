@@ -28,11 +28,23 @@ type SandboxReadinessChecker interface {
 	IsReady(ctx context.Context) (ready bool, reason string, err error)
 }
 
+// SandboxReadinessReport contains the cluster evidence used to decide whether
+// workloads can run with the requested RuntimeClass.
+type SandboxReadinessReport struct {
+	RuntimeClassName  string
+	RuntimeClassFound bool
+	ReadyNodeCount    int
+	Ready             bool
+	Reason            string
+}
+
 type sandboxReadinessResult struct {
-	ready     bool
-	reason    string
-	err       error
-	checkedAt time.Time
+	ready             bool
+	reason            string
+	err               error
+	runtimeClassFound bool
+	readyNodeCount    int
+	checkedAt         time.Time
 }
 
 // KubernetesSandboxReadinessChecker checks RuntimeClass and Node readiness
@@ -76,6 +88,19 @@ func (c *KubernetesSandboxReadinessChecker) IsReady(ctx context.Context) (bool, 
 	return result.ready, result.reason, result.err
 }
 
+// Report reads current sandbox readiness evidence without using the admission
+// cache. The doctor command uses it for a fresh preflight result.
+func (c *KubernetesSandboxReadinessChecker) Report(ctx context.Context) (SandboxReadinessReport, error) {
+	result := c.check(ctx)
+	return SandboxReadinessReport{
+		RuntimeClassName:  c.runtimeClassName,
+		RuntimeClassFound: result.runtimeClassFound,
+		ReadyNodeCount:    result.readyNodeCount,
+		Ready:             result.ready,
+		Reason:            result.reason,
+	}, result.err
+}
+
 func (c *KubernetesSandboxReadinessChecker) check(ctx context.Context) sandboxReadinessResult {
 	if c.reader == nil {
 		return sandboxReadinessResult{reason: SandboxReadinessCheckFailed, err: fmt.Errorf("sandbox readiness: nil API reader")}
@@ -91,18 +116,22 @@ func (c *KubernetesSandboxReadinessChecker) check(ctx context.Context) sandboxRe
 
 	nodes := &corev1.NodeList{}
 	if err := c.reader.List(ctx, nodes); err != nil {
-		return sandboxReadinessResult{reason: SandboxReadinessCheckFailed, err: fmt.Errorf("sandbox readiness: list nodes: %w", err)}
+		return sandboxReadinessResult{runtimeClassFound: true, reason: SandboxReadinessCheckFailed, err: fmt.Errorf("sandbox readiness: list nodes: %w", err)}
 	}
+	readyNodeCount := 0
 	for index := range nodes.Items {
 		node := &nodes.Items[index]
 		if !isReadyNode(node) {
 			continue
 		}
 		if matchesRuntimeClassNode(node, runtimeClass) {
-			return sandboxReadinessResult{ready: true, reason: SandboxReadinessVerified}
+			readyNodeCount++
 		}
 	}
-	return sandboxReadinessResult{reason: SandboxReadinessNoReadyNode}
+	if readyNodeCount > 0 {
+		return sandboxReadinessResult{ready: true, reason: SandboxReadinessVerified, runtimeClassFound: true, readyNodeCount: readyNodeCount}
+	}
+	return sandboxReadinessResult{reason: SandboxReadinessNoReadyNode, runtimeClassFound: true}
 }
 
 func isReadyNode(node *corev1.Node) bool {

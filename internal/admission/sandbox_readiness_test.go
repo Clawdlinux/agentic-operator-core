@@ -44,6 +44,35 @@ func TestKubernetesSandboxReadinessChecker(t *testing.T) {
 	}
 }
 
+func TestKubernetesSandboxReadinessCheckerReport(t *testing.T) {
+	tests := []struct {
+		name           string
+		runtimeClass   *nodev1.RuntimeClass
+		nodes          []*corev1.Node
+		wantFound      bool
+		wantReadyNodes int
+		wantReady      bool
+		wantReason     string
+	}{
+		{name: "runtime class missing", wantReason: SandboxReadinessRuntimeClassMissing},
+		{name: "runtime class without ready node", runtimeClass: runtimeClass("gvisor", nil), nodes: []*corev1.Node{notReadyNode("node-1", nil)}, wantFound: true, wantReason: SandboxReadinessNoReadyNode},
+		{name: "ready node", runtimeClass: runtimeClass("gvisor", nil), nodes: []*corev1.Node{readyNode("node-1", map[string]string{gVisorReadyNodeLabel: gVisorReadyNodeValue})}, wantFound: true, wantReadyNodes: 1, wantReady: true, wantReason: SandboxReadinessVerified},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			checker := NewKubernetesSandboxReadinessChecker(readinessClient(t, test.runtimeClass, test.nodes...), "gvisor")
+			report, err := checker.Report(context.Background())
+			if err != nil {
+				t.Fatalf("Report() error = %v", err)
+			}
+			if report.RuntimeClassFound != test.wantFound || report.ReadyNodeCount != test.wantReadyNodes || report.Ready != test.wantReady || report.Reason != test.wantReason {
+				t.Fatalf("Report() = %#v, want found=%t readyNodes=%d ready=%t reason=%q", report, test.wantFound, test.wantReadyNodes, test.wantReady, test.wantReason)
+			}
+		})
+	}
+}
+
 func TestKubernetesSandboxReadinessCheckerCachesResult(t *testing.T) {
 	now := time.Date(2026, time.September, 3, 0, 0, 0, 0, time.UTC)
 	client := readinessClient(t, runtimeClass("gvisor", nil), readyNode("node-1", map[string]string{gVisorReadyNodeLabel: gVisorReadyNodeValue}))
