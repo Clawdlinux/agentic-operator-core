@@ -271,6 +271,15 @@ func TestRuntimeClassInjectorHandleRejectsInvalidPodJSON(t *testing.T) {
 	}
 }
 
+func TestIsSandboxDenial(t *testing.T) {
+	if !IsSandboxDenial("pod adapter execute: create pod: admission webhook denied the request: " + SandboxDenialPrefix + SandboxReadinessNoReadyNode) {
+		t.Fatal("wrapped sandbox denial was not recognized")
+	}
+	if IsSandboxDenial("admission webhook denied the request: another reason") {
+		t.Fatal("non-sandbox denial was recognized")
+	}
+}
+
 func mustMarshalPod(t *testing.T, pod *corev1.Pod) []byte {
 	t.Helper()
 	raw, err := json.Marshal(pod)

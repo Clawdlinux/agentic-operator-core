@@ -44,6 +44,7 @@ type ExecutionStatus struct {
 	Name      string            // Name of the underlying execution object
 	Namespace string            // Namespace of the execution object
 	UID       string            // UID of the execution object
+	Message   string            // Runtime-provided execution status detail
 	Artifacts map[string]string // Step-name to artifact-location map
 }
 

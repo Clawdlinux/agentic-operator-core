@@ -85,6 +85,7 @@ func (a *ArgoWorkflowAdapter) Status(ctx context.Context, workload *agenticv1alp
 		Name:      workload.Status.ArgoWorkflow.Name,
 		Namespace: ns,
 		UID:       workload.Status.ArgoWorkflow.UID,
+		Message:   wfStatus.Message,
 	}, nil
 }
 

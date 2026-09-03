@@ -367,6 +367,10 @@ type AgentWorkloadStatus struct {
 	// +optional
 	ModelRoutingOperationID string `json:"modelRoutingOperationID,omitempty"`
 
+	// sandboxExecutionUID identifies the execution that last produced sandbox evidence.
+	// +optional
+	SandboxExecutionUID string `json:"sandboxExecutionUID,omitempty"`
+
 	// conditions represent the current state of the AgentWorkload resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
 	//
@@ -385,6 +389,14 @@ type AgentWorkloadStatus struct {
 	// +optional
 	AgentStatuses []AgentInstanceStatus `json:"agentStatuses,omitempty"`
 }
+
+const (
+	ConditionTypeSandboxEnforced         = "SandboxEnforced"
+	SandboxEnforcedVerified              = "Verified"
+	SandboxEnforcedRuntimeClassMissing   = "RuntimeClassMissing"
+	SandboxEnforcedNoReadyNode           = "NoReadyNode"
+	SandboxEnforcedBestEffortUnsandboxed = "BestEffortUnsandboxed"
+)
 
 // AgentInstanceStatus reports the status of a single agent in a collaborative workload
 type AgentInstanceStatus struct {

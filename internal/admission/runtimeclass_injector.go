@@ -9,14 +9,17 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	ctrladmission "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
 )
 
 const (
 	DefaultRuntimeClassName   = "gvisor"
-	DefaultRuntimeLabelKey    = "agentic.clawdlinux.org/runtime-sandbox"
-	DefaultRuntimeLabelValue  = "gvisor"
+	DefaultRuntimeLabelKey    = governance.RuntimeSandboxLabelKey
+	DefaultRuntimeLabelValue  = governance.RuntimeSandboxLabelValue
 	EnforcementModeStrict     = "strict"
 	EnforcementModeBestEffort = "best-effort"
+	SandboxDenialPrefix       = "sandbox readiness unverified: "
 )
 
 type RuntimeClassInjectionConfig struct {
@@ -98,9 +101,13 @@ func (i *RuntimeClassInjector) Handle(ctx context.Context, req ctrladmission.Req
 
 func (i *RuntimeClassInjector) readinessFailureResponse(reason string) ctrladmission.Response {
 	if enforcementMode(i.Config.EnforcementMode) == EnforcementModeBestEffort {
-		return ctrladmission.Allowed("sandbox readiness unverified: " + reason)
+		return ctrladmission.Allowed(SandboxDenialPrefix + reason)
 	}
-	return ctrladmission.Denied("sandbox readiness unverified: " + reason)
+	return ctrladmission.Denied(SandboxDenialPrefix + reason)
+}
+
+func IsSandboxDenial(message string) bool {
+	return strings.Contains(message, SandboxDenialPrefix)
 }
 
 func enforcementMode(value string) string {

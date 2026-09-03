@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -77,6 +78,8 @@ type AgentWorkloadReconciler struct {
 	Metrics          *metrics.RoutingMetrics  // Singleton metrics recorder (initialized once)
 	RetryConfig      *resilience.RetryConfig  // optional test seam; nil uses production defaults
 	RuntimeRegistry  *runtimeadapter.Registry // runtime adapter registry; nil lazily defaults to Argo
+	SandboxClass     string                   // RuntimeClass required for sandbox enforcement
+	Recorder         events.EventRecorder     // Optional Kubernetes event recorder
 }
 
 type quotaChecker interface {
@@ -148,6 +151,7 @@ func (r *AgentWorkloadReconciler) ensureRuntimeDefaults() {
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 
 // Reconcile reconciles the AgentWorkload by:
 // 1. Fetching the AgentWorkload CR
@@ -741,6 +745,7 @@ func (r *AgentWorkloadReconciler) reconcileViaRuntime(ctx context.Context, workl
 
 		// Update phase based on normalized execution status
 		workload.Status.ArgoPhase = execStatus.Phase
+		r.observeSandboxStatus(ctx, workload, execStatus.Message)
 		switch execStatus.Phase {
 		case "Succeeded":
 			workload.Status.Phase = "Completed"
@@ -766,6 +771,7 @@ func (r *AgentWorkloadReconciler) reconcileViaRuntime(ctx context.Context, workl
 		log.Error(err, "failed to create execution")
 		workload.Status.Phase = "Failed"
 		workload.Status.ArgoPhase = "Error"
+		r.observeSandboxStatus(ctx, workload, err.Error())
 		if err := r.Status().Update(ctx, workload); err != nil {
 			log.Error(err, "failed to update status")
 		}
@@ -784,6 +790,7 @@ func (r *AgentWorkloadReconciler) reconcileViaRuntime(ctx context.Context, workl
 		UID:       execStatus.UID,
 		CreatedAt: &metav1.Time{Time: time.Now()},
 	}
+	r.observeSandboxStatus(ctx, workload, execStatus.Message)
 
 	if err := r.Status().Update(ctx, workload); err != nil {
 		log.Error(err, "failed to update status with execution reference")

@@ -30,6 +30,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -38,6 +40,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -50,6 +54,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/internal/controller"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/otel/genai"
 	// +kubebuilder:scaffold:imports
@@ -204,8 +209,12 @@ func main() {
 		metricsServerOptions.KeyName = metricsCertKey
 	}
 
+	sandboxConfig := runtimeadmission.RuntimeClassInjectionConfigFromEnv()
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
+		Scheme: scheme,
+		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
+			&corev1.Pod{}: {Label: labels.SelectorFromSet(labels.Set{governance.ManagedByLabelKey: governance.ManagedByLabelValue})},
+		}},
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
@@ -264,6 +273,8 @@ func main() {
 	workloadReconciler.QuotaMgr = quotaMgr                   // Phase 7: Quota enforcement
 	workloadReconciler.SLAMonitor = slaMonitor               // Phase 7: SLA tracking
 	workloadReconciler.TenantRes = tenantResolver            // Phase 7: Tenant isolation
+	workloadReconciler.SandboxClass = sandboxConfig.RuntimeClassName
+	workloadReconciler.Recorder = mgr.GetEventRecorder("agentworkload-controller")
 
 	if err := workloadReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "AgentWorkload")
@@ -283,8 +294,6 @@ func main() {
 			setupLog.Error(err, "Failed to setup webhook", "webhook", "AgentWorkload")
 			os.Exit(1)
 		}
-		sandboxConfig := runtimeadmission.RuntimeClassInjectionConfigFromEnv()
-
 		mgr.GetWebhookServer().Register("/mutate-v1-pod-runtimeclass", &webhook.Admission{
 			Handler: &runtimeadmission.RuntimeClassInjector{
 				Config: sandboxConfig,
