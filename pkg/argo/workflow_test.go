@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
 )
 
 // TestWorkflowManager_CreateArgoWorkflow verifies that a valid Workflow CR is created
@@ -102,8 +103,10 @@ func TestWorkflowManager_CreateArgoWorkflow(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("podMetadata.labels missing: found=%v err=%v", found, err)
 	}
-	if podMetadataLabels["app.kubernetes.io/part-of"] != "agentic-operator" {
-		t.Errorf("podMetadata part-of label = %q, want agentic-operator", podMetadataLabels["app.kubernetes.io/part-of"])
+	for key, value := range governance.PodLabels(workload) {
+		if podMetadataLabels[key] != value {
+			t.Errorf("podMetadata label %q = %q, want %q", key, podMetadataLabels[key], value)
+		}
 	}
 
 	// Check ownerReference is set

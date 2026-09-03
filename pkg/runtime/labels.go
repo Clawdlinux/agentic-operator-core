@@ -18,7 +18,7 @@ package runtime
 
 import (
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
-	"github.com/Clawdlinux/agentic-operator-core/internal/admission"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
 )
 
 // GovernanceEgressPartOfKey is the label the default-deny egress NetworkPolicy
@@ -31,8 +31,8 @@ import (
 // the NetworkPolicy to exist in each pod's namespace; it currently renders
 // only in the release namespace.
 const (
-	GovernanceEgressPartOfKey   = "app.kubernetes.io/part-of"
-	GovernanceEgressPartOfValue = "agentic-operator"
+	GovernanceEgressPartOfKey   = governance.EgressPartOfLabelKey
+	GovernanceEgressPartOfValue = governance.EgressPartOfLabelValue
 )
 
 // governanceLabels returns the pod labels that place a workload's pods under
@@ -41,10 +41,5 @@ const (
 // selects on part-of. Argo workflow pod labels are set by pkg/argo because
 // importing this package there would create an import cycle.
 func governanceLabels(workload *agenticv1alpha1.AgentWorkload) map[string]string {
-	return map[string]string{
-		admission.DefaultRuntimeLabelKey:  admission.DefaultRuntimeLabelValue, // gVisor injector
-		GovernanceEgressPartOfKey:         GovernanceEgressPartOfValue,        // egress NetworkPolicy
-		"app.kubernetes.io/managed-by":    "agentic-operator",
-		"agentic.clawdlinux.org/workload": workload.GetName(),
-	}
+	return governance.PodLabels(workload)
 }

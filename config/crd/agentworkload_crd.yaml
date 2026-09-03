@@ -164,6 +164,8 @@ spec:
                 type: string
               modelRoutingOperationID:
                 type: string
+              sandboxExecutionUID:
+                type: string
               workflowArtifacts:
                 type: object
                 additionalProperties:

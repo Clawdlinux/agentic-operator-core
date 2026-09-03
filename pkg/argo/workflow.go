@@ -31,6 +31,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
 )
 
 // WorkflowManager encapsulates Argo Workflows interaction logic
@@ -220,8 +221,9 @@ func (wm *WorkflowManager) CreateArgoWorkflow(
 		return nil, err
 	}
 
-	podLabels := map[string]interface{}{
-		"app.kubernetes.io/part-of": "agentic-operator",
+	podLabels := make(map[string]interface{})
+	for key, value := range governance.PodLabels(agentWorkload) {
+		podLabels[key] = value
 	}
 	if agentWorkload.Spec.Persona != nil && agentWorkload.Spec.Persona.Role != "" {
 		podLabels["agentworkload.clawdlinux.io/role"] = agentWorkload.Spec.Persona.Role

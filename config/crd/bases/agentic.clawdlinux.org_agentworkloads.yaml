@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: agentworkloads.agentic.clawdlinux.org
 spec:
   group: agentic.clawdlinux.org
@@ -546,6 +546,10 @@ spec:
                 description: readyAgents is the number of agents ready to execute
                 format: int32
                 type: integer
+              sandboxExecutionUID:
+                description: sandboxExecutionUID identifies the execution that last
+                  produced sandbox evidence.
+                type: string
               workflowArtifacts:
                 additionalProperties:
                   type: string
