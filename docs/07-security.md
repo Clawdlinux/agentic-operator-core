@@ -73,6 +73,17 @@ external OPA (when configured). Operator-supplied additions go under
 Managed workload namespaces require separate policy application and matching labels.
 Optional Cilium FQDN policies require Cilium and explicit chart configuration.
 
+Run `agentctl doctor network-policy` for passive CNI detection. It does not
+verify packet enforcement. To run an intrusive scratch-namespace test, use:
+
+```bash
+agentctl doctor network-policy --active-probe --probe-image <updated-operator-image>
+```
+
+The active probe requires your kubeconfig identity to create and delete a
+namespace, Pods, a Service, and a NetworkPolicy. It proves only that a
+deny-egress policy blocked TCP to a test Service in the scratch namespace.
+
 ## Sandbox Technology
 
 Agent code should be treated as untrusted because the agent's instructions

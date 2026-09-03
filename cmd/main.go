@@ -56,6 +56,7 @@ import (
 	runtimeadmission "github.com/Clawdlinux/agentic-operator-core/internal/admission"
 	"github.com/Clawdlinux/agentic-operator-core/internal/controller"
 	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy"
+	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy/netprobe"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
@@ -81,6 +82,10 @@ func init() {
 
 // nolint:gocyclo
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "netprobe" {
+		os.Exit(netprobe.Run(os.Args[2:], os.Stdout, os.Stderr))
+	}
+
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
