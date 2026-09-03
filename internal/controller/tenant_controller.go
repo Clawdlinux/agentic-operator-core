@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,12 +35,15 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy"
 )
 
 // TenantReconciler reconciles a Tenant object
 type TenantReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme          *runtime.Scheme
+	DiscoveryClient netpolicy.DiscoveryClient
+	DaemonSets      netpolicy.DaemonSetClient
 }
 
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=tenants,verbs=get;list;watch;create;update;patch;delete
@@ -48,10 +52,10 @@ type TenantReconciler struct {
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=create;get;list;patch
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=create;get;list;patch
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create;get;list;patch
-// +kubebuilder:rbac:groups="",resources=resourcequotas,verbs=create;get;list;patch
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=create;get;list;patch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=create;get;list;watch;patch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create;get;list;watch;patch
+// +kubebuilder:rbac:groups="",resources=resourcequotas,verbs=create;get;list;watch;patch
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=list
 
 // Reconcile implements the reconciliation loop for Tenant provisioning
 func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -79,11 +83,15 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		Message:            "Tenant provisioning in progress",
 	})
 	tenant.Status.Phase = "Provisioning"
+	r.updateNetworkPolicyStatus(ctx, &tenant)
 
 	// Step 1: Create Namespace
 	if !tenant.Status.NamespaceCreated {
 		if err := r.createNamespace(ctx, &tenant); err != nil {
 			log.Error(err, "failed to create namespace")
+			if statusErr := r.persistTenantStatus(ctx, &tenant, log); statusErr != nil {
+				return ctrl.Result{}, statusErr
+			}
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 		tenant.Status.NamespaceCreated = true
@@ -94,6 +102,9 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !tenant.Status.SecretsProvisioned {
 		if err := r.provisionSecrets(ctx, &tenant); err != nil {
 			log.Error(err, "failed to provision secrets")
+			if statusErr := r.persistTenantStatus(ctx, &tenant, log); statusErr != nil {
+				return ctrl.Result{}, statusErr
+			}
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 		tenant.Status.SecretsProvisioned = true
@@ -104,6 +115,9 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !tenant.Status.RBACConfigured {
 		if err := r.configureRBAC(ctx, &tenant); err != nil {
 			log.Error(err, "failed to configure RBAC")
+			if statusErr := r.persistTenantStatus(ctx, &tenant, log); statusErr != nil {
+				return ctrl.Result{}, statusErr
+			}
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 		tenant.Status.RBACConfigured = true
@@ -114,6 +128,9 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !tenant.Status.QuotasEnforced {
 		if err := r.enforceQuotas(ctx, &tenant); err != nil {
 			log.Error(err, "failed to enforce quotas")
+			if statusErr := r.persistTenantStatus(ctx, &tenant, log); statusErr != nil {
+				return ctrl.Result{}, statusErr
+			}
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 		tenant.Status.QuotasEnforced = true
@@ -130,13 +147,37 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	tenant.Status.Phase = "Active"
 	tenant.Status.LastReconciliation = &metav1.Time{Time: time.Now()}
 
-	if err := r.Status().Update(ctx, &tenant); err != nil {
-		log.Error(err, "failed to update status")
+	if err := r.persistTenantStatus(ctx, &tenant, log); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	log.Info("Tenant provisioned successfully", "tenant", tenant.Name)
 	return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
+}
+
+func (r *TenantReconciler) persistTenantStatus(ctx context.Context, tenant *agenticv1alpha1.Tenant, log logr.Logger) error {
+	if err := r.Status().Update(ctx, tenant); err != nil {
+		log.Error(err, "failed to update status")
+		return err
+	}
+	return nil
+}
+
+func (r *TenantReconciler) updateNetworkPolicyStatus(ctx context.Context, tenant *agenticv1alpha1.Tenant) {
+	if r.DiscoveryClient == nil || r.DaemonSets == nil {
+		tenant.Status.NetworkPolicyActive = false
+		tenant.Status.NetworkPolicyEnforcementReason = "DetectionFailed"
+		return
+	}
+	detection, err := netpolicy.DetectCNIEnforcement(ctx, r.DiscoveryClient, r.DaemonSets)
+	if err != nil {
+		tenant.Status.NetworkPolicyActive = false
+		tenant.Status.NetworkPolicyEnforcementReason = "DetectionFailed"
+		logf.FromContext(ctx).Error(err, "failed to detect NetworkPolicy CNI enforcement", "tenant", tenant.Name)
+		return
+	}
+	tenant.Status.NetworkPolicyActive = detection.Enforcement == netpolicy.EnforcementEnforcing
+	tenant.Status.NetworkPolicyEnforcementReason = string(detection.Enforcement)
 }
 
 func (r *TenantReconciler) createNamespace(ctx context.Context, tenant *agenticv1alpha1.Tenant) error {
