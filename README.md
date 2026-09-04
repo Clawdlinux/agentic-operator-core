@@ -245,7 +245,9 @@ controls that customers can map into their own security and compliance program.
 The Helm chart renders default-deny egress NetworkPolicies for selected pods
 when `networkPolicy.enabled=true`. It can also create a gVisor `RuntimeClass`
 and register a mutating webhook for labeled pods. The cluster must provide an
-enforcing CNI and install `runsc`. See [docs/07-security.md](docs/07-security.md).
+enforcing CNI and install `runsc`. `agentctl doctor network-policy` reports
+passive CNI evidence. Its `--active-probe` mode tests scratch-namespace packet
+flow when given an updated operator image. See [docs/07-security.md](docs/07-security.md).
 
 ---
 

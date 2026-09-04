@@ -93,6 +93,12 @@ Confirm:
 
 Policy-object presence alone does not prove packet enforcement.
 
+Use `agentctl doctor network-policy` to inspect passive CNI evidence. To test
+packet flow, run `agentctl doctor network-policy --active-probe --probe-image
+<updated-operator-image>`. The command creates and deletes a scratch namespace.
+It verifies only the probe policy and test Service. It does not verify your
+production policy's selectors or allow-list.
+
 ## Audit Verification
 
 `audit-verify` currently supports JSONL. The ClickHouse source adapter is a stub.

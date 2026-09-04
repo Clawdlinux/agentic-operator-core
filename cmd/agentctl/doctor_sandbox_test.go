@@ -11,6 +11,7 @@ import (
 	nodev1 "k8s.io/api/node/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -123,4 +124,58 @@ func TestNewDoctorCommandIncludesSandbox(t *testing.T) {
 	if !strings.Contains(command.Use, "doctor") {
 		t.Fatalf("doctor command Use = %q", command.Use)
 	}
+}
+
+func TestNewDoctorCommandIncludesNetworkPolicy(t *testing.T) {
+	command := newDoctorCommand(&cliOptions{})
+	child, _, err := command.Find([]string{"network-policy"})
+	if err != nil || child == nil || child.Name() != "network-policy" {
+		t.Fatalf("network-policy command = %v, %v, want network-policy", child, err)
+	}
+	if flag := child.Flags().Lookup("active-probe"); flag == nil || flag.DefValue != "false" {
+		t.Fatalf("active-probe flag = %#v, want default false", flag)
+	}
+}
+
+func TestRunNetworkPolicyDoctorPassiveDoesNotCreateResources(t *testing.T) {
+	kube := kubefake.NewClientset()
+	var output bytes.Buffer
+	err := runNetworkPolicyDoctor(context.Background(), kube, doctorNetworkPolicyDiscovery{groups: []metav1.APIGroup{{Name: "cilium.io"}}}, networkPolicyDoctorOptions{}, &output)
+	if err != nil {
+		t.Fatalf("runNetworkPolicyDoctor() error = %v", err)
+	}
+	if output.String() != "NetworkPolicy CNI: Enforcing\nConfigured only. Active packet probe not run.\n" {
+		t.Fatalf("output = %q", output.String())
+	}
+	for _, action := range kube.Actions() {
+		if action.GetVerb() == "create" || action.GetVerb() == "delete" || action.GetVerb() == "patch" || action.GetVerb() == "update" {
+			t.Fatalf("passive command performed mutation: %#v", action)
+		}
+	}
+}
+
+func TestRunNetworkPolicyDoctorRequiresImageBeforeActiveProbe(t *testing.T) {
+	kube := kubefake.NewClientset()
+	var output bytes.Buffer
+	err := runNetworkPolicyDoctor(context.Background(), kube, doctorNetworkPolicyDiscovery{}, networkPolicyDoctorOptions{activeProbe: true}, &output)
+	if err == nil {
+		t.Fatal("runNetworkPolicyDoctor() error = nil, want missing image error")
+	}
+	for _, action := range kube.Actions() {
+		if action.GetVerb() == "create" || action.GetVerb() == "delete" || action.GetVerb() == "patch" || action.GetVerb() == "update" {
+			t.Fatalf("active command without image performed mutation: %#v", action)
+		}
+	}
+}
+
+type doctorNetworkPolicyDiscovery struct {
+	groups []metav1.APIGroup
+	err    error
+}
+
+func (d doctorNetworkPolicyDiscovery) ServerGroups() (*metav1.APIGroupList, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
+	return &metav1.APIGroupList{Groups: d.groups}, nil
 }
