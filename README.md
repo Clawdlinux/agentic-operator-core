@@ -5,6 +5,10 @@
 <h1 align="center">Clawdlinux Operator</h1>
 
 <p align="center">
+  <strong>Product: Clawdlinux. Component: Kubernetes operator.</strong>
+</p>
+
+<p align="center">
   <strong>In-cluster governance for AI agents on Kubernetes.</strong>
 </p>
 
@@ -18,6 +22,7 @@
   <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/Clawdlinux/agentic-operator-core?style=flat-square&color=3B82F6" alt="Go Version" /></a>
   <a href="https://github.com/Clawdlinux/agentic-operator-core/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Clawdlinux/agentic-operator-core/ci.yml?style=flat-square&label=CI&color=3B82F6" alt="CI" /></a>
   <a href="https://github.com/Clawdlinux/agentic-operator-core/actions/workflows/test-gates.yml"><img src="https://img.shields.io/github/actions/workflow/status/Clawdlinux/agentic-operator-core/test-gates.yml?style=flat-square&label=Tests&color=3B82F6" alt="Test Gates" /></a>
+  <a href="https://artifacthub.io/packages/search?repo=clawdlinux-operator"><img src="https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/clawdlinux-operator&amp;style=flat-square" alt="Artifact Hub" /></a>
 </p>
 
 <p align="center">
