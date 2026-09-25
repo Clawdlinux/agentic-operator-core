@@ -5,6 +5,10 @@
 <h1 align="center">Clawdlinux Operator</h1>
 
 <p align="center">
+  <strong>Product: Clawdlinux. Component: Kubernetes operator.</strong>
+</p>
+
+<p align="center">
   <strong>In-cluster governance for AI agents on Kubernetes.</strong>
 </p>
 
