@@ -58,16 +58,21 @@ func (c *Client) ApproveWorkloadWithReason(ctx context.Context, ns, name, approv
 			patchObj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{})[k] = v
 		}
 	}
-	patchBytes, jsonErr := json.Marshal(patchObj)
-	if jsonErr != nil {
-		return nil, fmt.Errorf("marshal patch: %w", jsonErr)
-	}
-
-	_, err = c.Dynamic.Resource(AgentWorkloadGVR).Namespace(ns).Patch(
-		ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("patch workload %q: %w", name, err)
+	if decided {
+		ann := patchObj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{})
+		if err := c.patchDecision(ctx, ns, name, wl.GetResourceVersion(), ann); err != nil {
+			return nil, err
+		}
+	} else {
+		patchBytes, jsonErr := json.Marshal(patchObj)
+		if jsonErr != nil {
+			return nil, fmt.Errorf("marshal patch: %w", jsonErr)
+		}
+		if _, err = c.Dynamic.Resource(AgentWorkloadGVR).Namespace(ns).Patch(
+			ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{},
+		); err != nil {
+			return nil, fmt.Errorf("patch workload %q: %w", name, err)
+		}
 	}
 
 	result := &ApproveResult{

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +38,7 @@ func decisionAnnotations(label, reason, edit string) (map[string]interface{}, er
 		approval.AnnotationEdit:     nil,
 		approval.AnnotationBy:       nil,
 		approval.AnnotationFor:      nil,
+		approval.AnnotationMAC:      nil,
 	}
 	if reason != "" {
 		ann[approval.AnnotationReason] = reason
@@ -82,18 +84,30 @@ func (c *Client) EditApproveWorkload(ctx context.Context, ns, name, editJSON, re
 	if err != nil {
 		return nil, err
 	}
-	if err := c.patchAnnotations(ctx, ns, name, ann); err != nil {
+	if err := c.patchDecision(ctx, ns, name, wl.GetResourceVersion(), ann); err != nil {
 		return nil, err
 	}
 	return &ApproveResult{Name: name, Namespace: ns, PreviousPhase: phase, DecisionRecorded: true}, nil
 }
 
-func (c *Client) patchAnnotations(ctx context.Context, ns, name string, ann map[string]interface{}) error {
-	patch, err := json.Marshal(map[string]interface{}{"metadata": map[string]interface{}{"annotations": ann}})
+// patchDecision merge-patches annotations with the resourceVersion read
+// before the pending action was checked. Any change since then, including a
+// new pending action, fails the patch with a conflict.
+func (c *Client) patchDecision(ctx context.Context, ns, name, resourceVersion string, ann map[string]interface{}) error {
+	if resourceVersion == "" {
+		return fmt.Errorf("workload %q has no resourceVersion; refusing an unconditional decision", name)
+	}
+	patch, err := json.Marshal(map[string]interface{}{"metadata": map[string]interface{}{
+		"resourceVersion": resourceVersion,
+		"annotations":     ann,
+	}})
 	if err != nil {
 		return fmt.Errorf("marshal patch: %w", err)
 	}
 	if _, err := c.Dynamic.Resource(AgentWorkloadGVR).Namespace(ns).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		if apierrors.IsConflict(err) {
+			return fmt.Errorf("workload %q changed since it was read; the pending action may differ, review it and retry: %w", name, err)
+		}
 		return fmt.Errorf("patch workload %q: %w", name, err)
 	}
 	return nil

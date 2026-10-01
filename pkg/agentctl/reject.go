@@ -58,21 +58,25 @@ func (c *Client) RejectWorkload(ctx context.Context, ns, name, rule, reason, rej
 		}
 	}
 
-	patchObj := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"annotations": annotations,
-		},
-	}
-	patchBytes, err := json.Marshal(patchObj)
-	if err != nil {
-		return nil, fmt.Errorf("marshal patch: %w", err)
-	}
-
-	_, err = c.Dynamic.Resource(AgentWorkloadGVR).Namespace(ns).Patch(
-		ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("patch workload %q: %w", name, err)
+	if decided {
+		if err := c.patchDecision(ctx, ns, name, wl.GetResourceVersion(), annotations); err != nil {
+			return nil, err
+		}
+	} else {
+		patchObj := map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"annotations": annotations,
+			},
+		}
+		patchBytes, err := json.Marshal(patchObj)
+		if err != nil {
+			return nil, fmt.Errorf("marshal patch: %w", err)
+		}
+		if _, err = c.Dynamic.Resource(AgentWorkloadGVR).Namespace(ns).Patch(
+			ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{},
+		); err != nil {
+			return nil, fmt.Errorf("patch workload %q: %w", name, err)
+		}
 	}
 
 	return &RejectResult{
