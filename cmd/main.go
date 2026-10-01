@@ -62,6 +62,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/otel/genai"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -284,6 +285,12 @@ func main() {
 	workloadReconciler.TenantRes = tenantResolver            // Phase 7: Tenant isolation
 	workloadReconciler.SandboxClass = sandboxConfig.RuntimeClassName
 	workloadReconciler.Recorder = mgr.GetEventRecorder("agentworkload-controller")
+	receiptsCfg, err := receipts.ConfigFromEnv(os.Getenv)
+	if err != nil {
+		setupLog.Error(err, "Invalid receipts configuration")
+		os.Exit(1)
+	}
+	workloadReconciler.Receipts = buildReceiptsConfig(receiptsCfg, setupLog)
 
 	if err := workloadReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "AgentWorkload")
@@ -355,6 +362,24 @@ type runnableFunc func(context.Context) error
 
 func (f runnableFunc) Start(ctx context.Context) error {
 	return f(ctx)
+}
+
+// buildReceiptsConfig turns env config into controller config. A writer that
+// cannot be built stays nil: with RECEIPTS_REQUIRED every action is then
+// denied by INV-05 instead of the operator refusing to start.
+func buildReceiptsConfig(cfg receipts.Config, logger logr.Logger) controller.ReceiptsConfig {
+	out := controller.ReceiptsConfig{Enabled: cfg.Enabled, Required: cfg.Required}
+	if !cfg.Enabled {
+		return out
+	}
+	w, err := cfg.NewWriter()
+	if err != nil {
+		logger.Error(err, "Receipt writer misconfigured", "required", cfg.Required)
+		return out
+	}
+	out.Writer = w
+	logger.Info("Decision receipts enabled", "writer", cfg.WriterURL, "required", cfg.Required)
+	return out
 }
 
 func registerFinOpsMetrics(registerer prometheus.Registerer, reporter *finops.MemoryCostReporter) error {

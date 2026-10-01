@@ -27,7 +27,8 @@
         },
         "storageClass": { "type": "string" },
         "namespace": { "type": "string" },
-        "runtimeSandbox": { "$ref": "#/$defs/runtimeSandbox" }
+        "runtimeSandbox": { "$ref": "#/$defs/runtimeSandbox" },
+        "receipts": { "$ref": "#/$defs/receipts" }
       }
     },
     "license": {
@@ -336,6 +337,34 @@
         "enforcementMode": { "type": "string", "enum": ["strict", "best-effort"] },
         "overhead": { "type": "object" },
         "scheduling": { "type": "object" }
+      }
+    },
+    "receipts": {
+      "type": "object",
+      "description": "Signed decision receipts and the receipt-writer StatefulSet. See docs/receipts.md.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "required": { "type": "boolean" },
+        "image": { "$ref": "#/$defs/image" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "timeout": { "type": "string" },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "size": { "type": "string" },
+            "storageClass": { "type": "string" }
+          }
+        },
+        "token": { "$ref": "#/$defs/secretRef" },
+        "signingKey": { "$ref": "#/$defs/secretRef" },
+        "resources": { "$ref": "#/$defs/resources" }
+      }
+    },
+    "secretRef": {
+      "type": "object",
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "key": { "type": "string", "minLength": 1 }
       }
     }
   }

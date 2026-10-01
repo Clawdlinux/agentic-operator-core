@@ -118,6 +118,22 @@ spec:
           protocol: TCP
     {{- end }}
     {{- end }}
+    {{- with ($root.Values.global).receipts }}
+    {{- if .enabled }}
+    # receipt-writer, so the operator can store decision receipts.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $root.Release.Namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: receipt-writer
+              app.kubernetes.io/instance: {{ $root.Release.Name }}
+      ports:
+        - port: {{ .port | default 8080 }}
+          protocol: TCP
+    {{- end }}
+    {{- end }}
     {{- with $root.Values.networkPolicy.additionalAllowedHosts }}
     # Operator-supplied additional allow-list entries.
     {{- range . }}

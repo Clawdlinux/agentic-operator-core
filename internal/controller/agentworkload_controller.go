@@ -106,6 +106,7 @@ type AgentWorkloadReconciler struct {
 	RuntimeRegistry  *runtimeadapter.Registry // runtime adapter registry; nil lazily defaults to Argo
 	SandboxClass     string                   // RuntimeClass required for sandbox enforcement
 	Recorder         events.EventRecorder     // Optional Kubernetes event recorder
+	Receipts         ReceiptsConfig           // Decision receipts; zero value disables them
 }
 
 type quotaChecker interface {
@@ -626,7 +627,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Layers run in order: invariants, policy packs, threshold. Decide keeps
 	// the strictest outcome, so no layer or claim can loosen another.
 	layers := decision.Layers{ThresholdAllowed: opaResult.Allowed, ThresholdReasons: opaResult.Reasons}
-	for _, res := range invariants.Check(decisionInput, invariants.Context{}) {
+	for _, res := range invariants.Check(decisionInput, r.receiptContext(ctx)) {
 		layers.Invariants = append(layers.Invariants, res.String())
 	}
 	if len(workload.Spec.PolicyPacks) > 0 {
@@ -644,6 +645,8 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 	result := decision.Decide(layers)
+	// Write-ahead: the receipt is stored before the action can run.
+	result = r.recordDecision(ctx, &workload, actionName, decisionInput, layers, result, opaPolicyMode)
 	log.Info("decision", "outcome", result.Outcome, "layer", result.Layer, "destination", decisionInput.Observed.Destination, "dataClasses", decisionInput.Observed.DataClasses, "reasons", result.Reasons)
 
 	// Step 5: Handle action execution or approval pending

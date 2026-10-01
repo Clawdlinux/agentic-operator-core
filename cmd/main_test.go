@@ -8,9 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
 )
 
 func TestFinOpsMetricsEndpointContainsClawdlinuxCostMetric(t *testing.T) {
@@ -49,5 +51,28 @@ func TestFinOpsMetricsEndpointContainsClawdlinuxCostMetric(t *testing.T) {
 	}
 	if !strings.Contains(body, `namespace="demo-ns"`) {
 		t.Fatalf("metrics body missing namespace label:\n%s", body)
+	}
+}
+
+func TestBuildReceiptsConfig(t *testing.T) {
+	tests := []struct {
+		name       string
+		cfg        receipts.Config
+		wantWriter bool
+	}{
+		{"disabled", receipts.Config{}, false},
+		{"enabled without token file", receipts.Config{Enabled: true, Required: true, WriterURL: "http://w:8080"}, false},
+		{"enabled", receipts.Config{Enabled: true, WriterURL: "http://w:8080", TokenFile: "/var/run/token"}, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildReceiptsConfig(tc.cfg, logr.Discard())
+			if got.Enabled != tc.cfg.Enabled || got.Required != tc.cfg.Required {
+				t.Fatalf("flags = %+v", got)
+			}
+			if (got.Writer != nil) != tc.wantWriter {
+				t.Fatalf("writer = %v, want present %v", got.Writer, tc.wantWriter)
+			}
+		})
 	}
 }

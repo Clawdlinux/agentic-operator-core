@@ -135,7 +135,7 @@ func dataClassSubset(in input.Input, _ Context) string {
 }
 
 // receipts is INV-05. When receipts are required, a missing receipt writer
-// fails closed. ReceiptsRequired defaults to false until receipts ship.
+// fails closed. ReceiptsRequired comes from RECEIPTS_REQUIRED, default false.
 func receipts(_ input.Input, ctx Context) string {
 	if ctx.ReceiptsRequired && !ctx.ReceiptWriterAvailable {
 		return "receipts required but no receipt writer available"

@@ -112,6 +112,7 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(newWorkflowsCommand(opts))
 	cmd.AddCommand(newStatusCommand(opts))
 	cmd.AddCommand(newMCPCommand(opts))
+	cmd.AddCommand(newReceiptsCommand(opts))
 
 	return cmd
 }
