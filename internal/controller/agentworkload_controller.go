@@ -53,6 +53,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/routing"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/packs"
 	runtimeadapter "github.com/Clawdlinux/agentic-operator-core/pkg/runtime"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/tracing/decisiontrace"
 )
 
 // Maximum number of actions to keep in status to prevent unbounded growth
@@ -592,7 +593,9 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if workload.Spec.OPAPolicy != nil {
 		opaPolicyMode = *workload.Spec.OPAPolicy
 	}
-	opaResult := evaluateThreshold(opaPolicyMode, actionName, confidence, clusterHealth)
+	ctx, decisionSpan := decisiontrace.StartEvaluation(ctx, workload.Namespace, workload.Name, workload.Spec.DecisionModelMode())
+	decisiontrace.SetRules(decisionSpan, nil, workload.Spec.PolicyPacks)
+	opaResult := traceThreshold(ctx, opaPolicyMode, actionName, confidence, clusterHealth)
 
 	log.Info("OPA evaluation result", "allowed", opaResult.Allowed, "confidence", opaResult.Confidence, "reasons", opaResult.Reasons)
 
@@ -620,6 +623,8 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	result, modelBlock := r.applyDecisionModel(ctx, &workload, actionName, decisionInput, result)
 	// Write-ahead: the receipt is stored before the action can run.
 	result, recorded := r.recordDecision(ctx, &workload, actionName, decisionInput, layers, result, opaPolicyMode, modelBlock)
+	decisiontrace.SetResult(decisionSpan, result.Layer, string(result.Outcome))
+	decisionSpan.End()
 	log.Info("decision", "outcome", result.Outcome, "layer", result.Layer, "destination", decisionInput.Observed.Destination, "dataClasses", decisionInput.Observed.DataClasses, "reasons", result.Reasons)
 
 	// Step 5: Handle action execution or approval pending

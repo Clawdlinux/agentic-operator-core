@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"slices"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -46,13 +47,14 @@ type evaluationKey struct{}
 type evaluation struct {
 	span                  trace.Span
 	namespace, name, mode string
+	ruleIDs               []string
 }
 
 func StartEvaluation(ctx context.Context, namespace, name, mode string) (context.Context, trace.Span) {
 	ctx, span := otel.Tracer(TracerName).Start(ctx, SpanEvaluate)
 	if span.IsRecording() {
 		setWorkload(span, namespace, name, mode)
-		ctx = context.WithValue(ctx, evaluationKey{}, evaluation{span, namespace, name, mode})
+		ctx = context.WithValue(ctx, evaluationKey{}, &evaluation{span: span, namespace: namespace, name: name, mode: mode})
 	}
 	return ctx, span
 }
@@ -60,7 +62,7 @@ func StartEvaluation(ctx context.Context, namespace, name, mode string) (context
 func Start(ctx context.Context, name string) (context.Context, trace.Span) {
 	ctx, span := otel.Tracer(TracerName).Start(ctx, name)
 	if span.IsRecording() {
-		if root, ok := ctx.Value(evaluationKey{}).(evaluation); ok {
+		if root, ok := ctx.Value(evaluationKey{}).(*evaluation); ok {
 			setWorkload(span, root.namespace, root.name, root.mode)
 		}
 	}
@@ -96,6 +98,28 @@ func SetModel(span trace.Span, id, version string, riskMicro int64, mode string)
 	}
 }
 
+func AddRuleIDs(ctx context.Context, span trace.Span, ruleIDs []string) {
+	if !span.IsRecording() {
+		return
+	}
+	span.SetAttributes(KeyRuleIDs.StringSlice(ruleIDs))
+	if root, ok := ctx.Value(evaluationKey{}).(*evaluation); ok {
+		for _, id := range ruleIDs {
+			if !slices.Contains(root.ruleIDs, id) {
+				root.ruleIDs = append(root.ruleIDs, id)
+			}
+		}
+		root.span.SetAttributes(KeyRuleIDs.StringSlice(root.ruleIDs))
+	}
+}
+
+func FailedEvaluation(ctx context.Context, err error, class string) {
+	Failed(trace.SpanFromContext(ctx), err, class)
+	if root, ok := ctx.Value(evaluationKey{}).(*evaluation); ok && root.span != trace.SpanFromContext(ctx) {
+		Failed(root.span, err, class)
+	}
+}
+
 func BindReceipt(ctx context.Context, span trace.Span, seq uint64, entryHash [32]byte) {
 	if !span.IsRecording() {
 		return
@@ -103,7 +127,7 @@ func BindReceipt(ctx context.Context, span trace.Span, seq uint64, entryHash [32
 	attrs := []attribute.KeyValue{KeyAuditSeq.Int64(int64(seq)), KeyEntryHash.String(hex.EncodeToString(entryHash[:]))}
 	span.SetAttributes(attrs...)
 	trace.SpanFromContext(ctx).SetAttributes(attrs...)
-	if root, ok := ctx.Value(evaluationKey{}).(evaluation); ok {
+	if root, ok := ctx.Value(evaluationKey{}).(*evaluation); ok {
 		root.span.SetAttributes(attrs...)
 	}
 }
@@ -121,8 +145,5 @@ func ReceiptFailed(ctx context.Context, span trace.Span, err error) {
 	}
 	Failed(span, err, ErrorReceipt)
 	span.AddEvent(EventReceiptWriteFailed)
-	Failed(trace.SpanFromContext(ctx), err, ErrorReceipt)
-	if root, ok := ctx.Value(evaluationKey{}).(evaluation); ok {
-		Failed(root.span, err, ErrorReceipt)
-	}
+	FailedEvaluation(ctx, err, ErrorReceipt)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/decision"
 	decisioninput "github.com/Clawdlinux/agentic-operator-core/pkg/decision/input"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/tracing/decisiontrace"
 )
 
 // DecisionModelConfig holds the loaded decision model. A nil Scorer means no
@@ -37,6 +38,9 @@ func (r *AgentWorkloadReconciler) applyDecisionModel(
 	if r.DecisionModel.Scorer == nil || mode == decision.ModelOff {
 		return base, nil
 	}
+	parentCtx := ctx
+	ctx, span := decisiontrace.Start(ctx, decisiontrace.SpanModel)
+	defer span.End()
 	log := logf.FromContext(ctx)
 	if mode != decision.ModelShadow && mode != decision.ModelEscalate {
 		log.Info("unknown decision model mode, using shadow", "mode", mode)
@@ -60,6 +64,10 @@ func (r *AgentWorkloadReconciler) applyDecisionModel(
 	}
 	final := decision.ApplyModel(base, s, err, mode)
 	block := receipts.NewModelBlock(mode, s, err, base, final)
+	decisiontrace.SetResult(span, decision.LayerModel, string(final.Outcome))
+	decisiontrace.SetModel(span, s.ModelID, s.Version, s.RiskMicro, string(mode))
+	decisiontrace.Failed(span, err, decisiontrace.ErrorModel)
+	decisiontrace.FailedEvaluation(parentCtx, err, decisiontrace.ErrorModel)
 	if err != nil {
 		log.Error(err, "decision model scorer failed", "mode", mode, "baseOutcome", base.Outcome, "outcome", final.Outcome)
 	} else {

@@ -35,6 +35,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/engine"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/threshold"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/tracing/decisiontrace"
 )
 
 // Approval condition types.
@@ -65,24 +66,68 @@ func evaluateThreshold(mode, action string, confidence, health float64) *thresho
 // threshold result.
 func (r *AgentWorkloadReconciler) evaluateLayers(ctx context.Context, wl *agenticv1alpha1.AgentWorkload, in decisioninput.Input, th *threshold.EvaluationResult) decision.Layers {
 	layers := decision.Layers{ThresholdAllowed: th.Allowed, ThresholdReasons: th.Reasons}
-	for _, res := range invariants.Check(in, r.receiptContext(ctx)) {
+	invariantCtx, invariantSpan := decisiontrace.Start(ctx, decisiontrace.SpanInvariants)
+	var invariantIDs []string
+	for _, res := range invariants.Check(in, r.receiptContext(invariantCtx)) {
 		layers.Invariants = append(layers.Invariants, res.String())
+		if invariantSpan.IsRecording() {
+			invariantIDs = append(invariantIDs, res.ID)
+		}
 	}
+	invariantOutcome := decision.Allow
+	if len(layers.Invariants) > 0 {
+		invariantOutcome = decision.Deny
+	}
+	decisiontrace.SetResult(invariantSpan, decision.LayerInvariant, string(invariantOutcome))
+	decisiontrace.AddRuleIDs(ctx, invariantSpan, invariantIDs)
+	invariantSpan.End()
+	packCtx, packSpan := decisiontrace.Start(ctx, decisiontrace.SpanPacks)
+	var ruleIDs []string
 	if len(wl.Spec.PolicyPacks) > 0 {
 		var verdict engine.Verdict
-		eng, err := engine.LoadPacks(ctx, wl.Spec.PolicyPacks...)
+		eng, err := engine.LoadPacks(packCtx, wl.Spec.PolicyPacks...)
 		if err == nil {
-			verdict, err = eng.Eval(ctx, engine.Doc(in))
+			verdict, err = eng.Eval(packCtx, engine.Doc(in))
 		}
 		layers.PackErr = err
-		for _, f := range verdict.Deny {
-			layers.PackDeny = append(layers.PackDeny, f.String())
+		decisiontrace.Failed(packSpan, err, decisiontrace.ErrorPacks)
+		decisiontrace.FailedEvaluation(ctx, err, decisiontrace.ErrorPacks)
+		for _, finding := range verdict.Deny {
+			layers.PackDeny = append(layers.PackDeny, finding.String())
+			if packSpan.IsRecording() {
+				ruleIDs = append(ruleIDs, finding.RuleID)
+			}
 		}
-		for _, f := range verdict.RequireApproval {
-			layers.PackApproval = append(layers.PackApproval, f.String())
+		for _, finding := range verdict.RequireApproval {
+			layers.PackApproval = append(layers.PackApproval, finding.String())
+			if packSpan.IsRecording() {
+				ruleIDs = append(ruleIDs, finding.RuleID)
+			}
 		}
 	}
+	packOutcome := decision.Allow
+	if layers.PackErr != nil || len(layers.PackDeny) > 0 {
+		packOutcome = decision.Deny
+	} else if len(layers.PackApproval) > 0 {
+		packOutcome = decision.RequireApproval
+	}
+	decisiontrace.SetResult(packSpan, decision.LayerPack, string(packOutcome))
+	decisiontrace.SetRules(packSpan, ruleIDs, wl.Spec.PolicyPacks)
+	decisiontrace.AddRuleIDs(ctx, packSpan, ruleIDs)
+	packSpan.End()
 	return layers
+}
+
+func traceThreshold(ctx context.Context, mode, action string, confidence, health float64) *threshold.EvaluationResult {
+	_, span := decisiontrace.Start(ctx, decisiontrace.SpanThreshold)
+	defer span.End()
+	result := evaluateThreshold(mode, action, confidence, health)
+	outcome := decision.Allow
+	if !result.Allowed {
+		outcome = decision.Deny
+	}
+	decisiontrace.SetResult(span, decision.LayerThreshold, string(outcome))
+	return result
 }
 
 // humanBlocked reports whether a human approval cannot execute the action.
@@ -163,11 +208,28 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 	if !ok {
 		return ctrl.Result{RequeueAfter: time.Hour}, nil
 	}
+	parentCtx := ctx
+	ctx, evaluationSpan := decisiontrace.StartEvaluation(ctx, wl.Namespace, wl.Name, wl.Spec.DecisionModelMode())
+	defer evaluationSpan.End()
+	decisiontrace.SetRules(evaluationSpan, nil, wl.Spec.PolicyPacks)
+	ctx, humanSpan := decisiontrace.Start(ctx, decisiontrace.SpanHuman)
+	defer humanSpan.End()
+	humanOutcome := receipts.OutcomeApproved
+	switch d.Label {
+	case approval.Reject:
+		humanOutcome = receipts.OutcomeRejected
+	case approval.Edit:
+		humanOutcome = receipts.OutcomeEdited
+	}
+	decisiontrace.SetResult(humanSpan, receipts.LayerHuman, humanOutcome)
+	decisiontrace.SetResult(evaluationSpan, receipts.LayerHuman, humanOutcome)
 
 	var proposal map[string]interface{}
 	dec := json.NewDecoder(bytes.NewReader([]byte(p.Proposal)))
 	dec.UseNumber()
 	if err := dec.Decode(&proposal); err != nil {
+		decisiontrace.Failed(humanSpan, err, decisiontrace.ErrorHuman)
+		decisiontrace.FailedEvaluation(ctx, err, decisiontrace.ErrorHuman)
 		return r.holdApproval(ctx, wl, "PendingActionUnreadable", "stored proposal is unreadable: "+err.Error(), time.Hour)
 	}
 	orig := dataset.Action{Name: p.Action, Description: p.Description, Params: proposalParams(proposal)}
@@ -205,13 +267,15 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 	var layers decision.Layers
 	blocked := false
 	if d.Label != approval.Reject {
-		layers = r.evaluateLayers(ctx, wl, in, evaluateThreshold(mode, tgt.name, confidence, health))
+		layers = r.evaluateLayers(ctx, wl, in, traceThreshold(ctx, mode, tgt.name, confidence, health))
 		blocked = humanBlocked(layers)
 	}
 
 	// Persist intent first. A stale read fails here, before any side effect.
 	p.State, p.Decision = agenticv1alpha1.ApprovalStateRecording, d.Label
 	if err := r.Status().Update(ctx, wl); err != nil {
+		decisiontrace.Failed(humanSpan, err, decisiontrace.ErrorHuman)
+		decisiontrace.FailedEvaluation(ctx, err, decisiontrace.ErrorHuman)
 		return ctrl.Result{}, err
 	}
 
@@ -257,6 +321,8 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 	if humanReceipt != nil {
 		r.storeExample(ctx, wl, humanReceipt, human, original, orig, edited, now)
 	}
+	humanSpan.End()
+	evaluationSpan.End()
 
 	ref := tgt.name
 	switch {
@@ -265,7 +331,10 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 			agenticv1alpha1.PhaseRejected, "Rejected", fmt.Sprintf("action %q rejected by %s", ref, d.Approver.Username), now)
 	case blocked:
 		// A human cannot override invariants or pack denies. Record the deny.
-		r.recordDecision(ctx, wl, tgt.name, in, layers, decision.Decide(layers), mode, nil)
+		denyCtx, denySpan := decisiontrace.StartEvaluation(parentCtx, wl.Namespace, wl.Name, wl.Spec.DecisionModelMode())
+		denied, _ := r.recordDecision(denyCtx, wl, tgt.name, in, layers, decision.Decide(layers), mode, nil)
+		decisiontrace.SetResult(denySpan, denied.Layer, string(denied.Outcome))
+		denySpan.End()
 		return r.finishApproval(ctx, wl, d.Label, approvalDenied, d.ApproverSHA256(), receiptSeq(humanReceipt),
 			"PolicyDenied", "HumanDecisionBlocked", fmt.Sprintf("human %s of %q blocked: %s", d.Label, ref, strings.Join(decision.Decide(layers).Reasons, "; ")), now)
 	}

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"slices"
 
+	"go.opentelemetry.io/otel/trace"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/Clawdlinux/agentgate/pkg/receiptspec"
@@ -20,6 +21,7 @@ import (
 	decisioninput "github.com/Clawdlinux/agentic-operator-core/pkg/decision/input"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/invariants"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/tracing/decisiontrace"
 )
 
 // ReceiptsConfig controls decision receipts on the direct action path. The
@@ -91,6 +93,7 @@ func (r *AgentWorkloadReconciler) recordDecision(
 		}
 	}
 	result = decision.Decide(layers)
+	decisiontrace.AddRuleIDs(ctx, trace.SpanFromContext(ctx), []string{invariants.ReceiptsOrFailClosed})
 	out.record, _ = newRecord(wl, action, in, layers, result, thresholdMode, model)
 	return result, out
 }
@@ -122,13 +125,21 @@ func workloadRef(wl *agenticv1alpha1.AgentWorkload) receipts.Workload {
 
 // appendRecord stores rec through the writer and returns its receipt.
 func (r *AgentWorkloadReconciler) appendRecord(ctx context.Context, rec receipts.DecisionRecord) (*receiptspec.Receipt, error) {
+	parentCtx := ctx
+	ctx, span := decisiontrace.Start(ctx, decisiontrace.SpanReceiptAppend)
+	defer span.End()
+	decisiontrace.SetResult(span, rec.Layer, rec.Outcome)
 	if r.Receipts.Writer == nil {
-		return nil, errors.New("no receipt writer configured")
+		err := errors.New("no receipt writer configured")
+		decisiontrace.ReceiptFailed(parentCtx, span, err)
+		return nil, err
 	}
 	rc, err := r.Receipts.Writer.Append(ctx, rec)
 	if err != nil {
+		decisiontrace.ReceiptFailed(parentCtx, span, err)
 		return nil, err
 	}
+	decisiontrace.BindReceipt(parentCtx, span, rc.Seq, rc.EntryHash)
 	logf.FromContext(ctx).Info("decision receipt written", "seq", rc.Seq, "outcome", rec.Outcome, "layer", rec.Layer)
 	return &rc, nil
 }
