@@ -72,6 +72,7 @@ func TestReceiptsVerify(t *testing.T) {
 		mutate    func(*receipts.Export)
 		bundle    bool
 		trustRoot []byte
+		extra     []string
 		wantOut   string
 		wantErr   string
 	}{
@@ -88,6 +89,12 @@ func TestReceiptsVerify(t *testing.T) {
 			e.RecordsJSONL = strings.Join(lines[1:], "")
 		}, wantErr: "FAIL: record seq=1 reason=record_missing"},
 		{name: "pinned trust root mismatch fails", trustRoot: otherTrust, wantErr: "FAIL: manifest"},
+		{name: "stripped manifest and tail fails", mutate: func(e *receipts.Export) {
+			*e = receipts.StripToPrefix(*e, 1)
+		}, wantErr: "FAIL: completeness not proven"},
+		{name: "stripped tail passes only with allow-prefix", mutate: func(e *receipts.Export) {
+			*e = receipts.StripToPrefix(*e, 1)
+		}, extra: []string{"--allow-prefix"}, wantOut: "PASS: 2 receipts verified", wantErr: "WARNING: completeness NOT proven"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -110,7 +117,14 @@ func TestReceiptsVerify(t *testing.T) {
 				_ = os.WriteFile(trustPath, tc.trustRoot, 0o600)
 				args = append(args, "--trust-root", trustPath)
 			}
+			args = append(args, tc.extra...)
 			out, errOut, err := runAgentctl(t, args...)
+			if tc.wantOut != "" && tc.wantErr != "" {
+				if err != nil || !strings.Contains(out, tc.wantOut) || !strings.Contains(errOut, tc.wantErr) {
+					t.Fatalf("err = %v, stdout = %q, stderr = %q", err, out, errOut)
+				}
+				return
+			}
 			if tc.wantErr != "" {
 				if !errors.Is(err, errVerifyFailed) || !strings.Contains(errOut, tc.wantErr) {
 					t.Fatalf("err = %v, stderr = %q, want %q", err, errOut, tc.wantErr)

@@ -140,7 +140,9 @@ agentctl dataset export --writer http://localhost:8080 \
 agentctl dataset verify ./dataset --trust-root ./pinned-trust.json
 ```
 
-`verify` runs the same chain and record checks as `agentctl receipts verify`.
+`verify` runs the same chain and record checks as `agentctl receipts verify`,
+including the signed manifest completeness check. `--allow-prefix` works the
+same way and prints the same WARNING.
 Then for each example it checks that `receipt_seq` and `receipt_entry_hash`
 exist in the chain, that the receipt is a `human` record, and that the label,
 pending id, approver hash, reason hash, and workload match it. It prints PASS

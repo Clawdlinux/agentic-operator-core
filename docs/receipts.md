@@ -214,6 +214,13 @@ then `receiptspec.VerifyRecordBinding` for every record. It prints PASS or
 FAIL lines and exits nonzero on failure. Without `--trust-root` it falls back
 to the export's own `trust.json`, which proves consistency, not origin.
 
+A pass needs a signed export manifest whose head matches the last receipt.
+That proves completeness: nobody stripped trailing receipts and records.
+An export with no manifest fails with `FAIL: completeness not proven`.
+`--allow-prefix` accepts it anyway and prints `WARNING: completeness NOT
+proven`. That mode only proves the receipts present are valid. Use it for
+partial exports you made yourself, never as evidence of the full history.
+
 The chain alone also verifies with AgentGate:
 
 ```sh

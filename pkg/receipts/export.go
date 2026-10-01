@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/Clawdlinux/agentgate/pkg/receiptspec"
 )
@@ -104,12 +105,21 @@ const (
 // Report is the result of VerifyExport.
 type Report struct {
 	Chain          receiptspec.VerifyResult
+	HasManifest    bool
 	RecordsBound   int
 	RecordFailures []RecordFailure
 }
 
-// OK is true when the chain verifies and every record binds to its receipt.
-func (r Report) OK() bool { return r.Chain.OK && len(r.RecordFailures) == 0 }
+// Complete is true when a signed manifest proved the chain head.
+func (r Report) Complete() bool { return r.HasManifest && r.Chain.Complete }
+
+// PrefixOK is true when the receipts present verify and bind. It does not
+// prove that no trailing receipts or records were removed.
+func (r Report) PrefixOK() bool { return r.Chain.OK && len(r.RecordFailures) == 0 }
+
+// OK is true when the chain verifies, every record binds, and a signed
+// manifest proves completeness.
+func (r Report) OK() bool { return r.PrefixOK() && r.Complete() }
 
 // VerifyExport checks the receipt chain with receiptspec.VerifyBundle, the
 // entry point agentgate-verify uses, then checks every decision record with
@@ -130,7 +140,7 @@ func VerifyExport(e Export, trusted []receiptspec.TrustedKey) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	rep := Report{Chain: res}
+	rep := Report{Chain: res, HasManifest: b.Manifest != nil}
 
 	records := map[uint64]json.RawMessage{}
 	scanner := bufio.NewScanner(bytes.NewReader([]byte(e.RecordsJSONL)))
@@ -170,6 +180,38 @@ func VerifyExport(e Export, trusted []receiptspec.TrustedKey) (Report, error) {
 	}
 	sort.SliceStable(rep.RecordFailures, func(i, j int) bool { return rep.RecordFailures[i].Seq < rep.RecordFailures[j].Seq })
 	return rep, nil
+}
+
+// StripToPrefix drops the manifest line and the last n receipts and records.
+// It models the truncation attack that only a signed manifest can detect.
+func StripToPrefix(e Export, n int) Export {
+	var keep []string
+	var rec []string
+	for _, l := range strings.SplitAfter(e.ReceiptsJSONL, "\n") {
+		if strings.TrimSpace(l) == "" {
+			continue
+		}
+		switch receiptspec.DetectJSONLLineType([]byte(l)) {
+		case "manifest":
+		case "receipt":
+			rec = append(rec, l)
+		default:
+			keep = append(keep, l)
+		}
+	}
+	if n > len(rec) {
+		n = len(rec)
+	}
+	e.ReceiptsJSONL = strings.Join(append(keep, rec[:len(rec)-n]...), "")
+	recs := strings.SplitAfter(strings.TrimRight(e.RecordsJSONL, "\n"), "\n")
+	if n > len(recs) {
+		n = len(recs)
+	}
+	e.RecordsJSONL = strings.Join(recs[:len(recs)-n], "")
+	if e.RecordsJSONL != "" && !strings.HasSuffix(e.RecordsJSONL, "\n") {
+		e.RecordsJSONL += "\n"
+	}
+	return e
 }
 
 // IsManifestError reports whether err is a manifest tamper finding.

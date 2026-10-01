@@ -79,12 +79,14 @@ func newDatasetExportCommand() *cobra.Command {
 
 func newDatasetVerifyCommand() *cobra.Command {
 	var trustRoot string
+	var allowPrefix bool
 	cmd := &cobra.Command{
 		Use:   "verify <export-dir>",
 		Short: "Verify an approval dataset export offline",
 		Long: "Verifies the receipt chain and decision records like 'agentctl receipts verify', then checks " +
 			"that every example's receipt_seq and entry hash exist in the chain and that its label matches " +
-			"the human decision receipt.",
+			"the human decision receipt. A pass requires a signed export manifest that proves completeness " +
+			"unless --allow-prefix is set.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var trusted []receiptspec.TrustedKey
@@ -125,12 +127,10 @@ func newDatasetVerifyCommand() *cobra.Command {
 			if len(rep.Failures) == 0 {
 				fmt.Fprintf(stdout, "PASS: %d approval examples bound to their receipts\n", rep.ExamplesBound)
 			}
-			if !rep.OK() {
-				return errVerifyFailed
-			}
-			return nil
+			return completenessVerdict(stdout, stderr, rep.PrefixOK(), rep.Receipts.Complete(), allowPrefix)
 		},
 	}
 	cmd.Flags().StringVar(&trustRoot, "trust-root", "", "trust file pinned out of band (receiptspec trust file format)")
+	cmd.Flags().BoolVar(&allowPrefix, "allow-prefix", false, allowPrefixHelp)
 	return cmd
 }

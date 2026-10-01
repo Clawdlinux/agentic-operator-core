@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -73,12 +74,14 @@ func newReceiptsExportCommand() *cobra.Command {
 
 func newReceiptsVerifyCommand() *cobra.Command {
 	var trustRoot string
+	var allowPrefix bool
 	cmd := &cobra.Command{
 		Use:   "verify <export-dir-or-bundle.json>",
 		Short: "Verify a receipt export offline",
 		Long: "Verifies the receipt chain with the same check agentgate-verify runs, then checks that every " +
 			"decision record binds to its receipt. Pass --trust-root with a trust file pinned out of band; " +
-			"otherwise the export's own trust.json or embedded keys are used.",
+			"otherwise the export's own trust.json or embedded keys are used. A pass requires a signed " +
+			"export manifest that proves completeness unless --allow-prefix is set.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var trusted []receiptspec.TrustedKey
@@ -107,11 +110,6 @@ func newReceiptsVerifyCommand() *cobra.Command {
 			c := rep.Chain
 			if c.OK {
 				fmt.Fprintf(stdout, "PASS: %d receipts verified, head seq=%d hash=%x\n", c.VerifiedCount, c.HeadSeq, c.HeadEntryHash[:8])
-				if c.Complete {
-					fmt.Fprintln(stdout, "completeness: proven against the signed export manifest")
-				} else {
-					fmt.Fprintln(stdout, "completeness: not claimed")
-				}
 			} else {
 				fmt.Fprintf(stderr, "FAIL: seq=%d reason=%s (%d of %d receipts verified before failure)\n",
 					c.FailedAtSeq, c.Reason, c.VerifiedCount, c.TotalReceipts)
@@ -122,14 +120,32 @@ func newReceiptsVerifyCommand() *cobra.Command {
 			if len(rep.RecordFailures) == 0 {
 				fmt.Fprintf(stdout, "PASS: %d decision records bound to their receipts\n", rep.RecordsBound)
 			}
-			if !rep.OK() {
-				return errVerifyFailed
-			}
-			return nil
+			return completenessVerdict(stdout, stderr, rep.PrefixOK(), rep.Complete(), allowPrefix)
 		},
 	}
 	cmd.Flags().StringVar(&trustRoot, "trust-root", "", "trust file pinned out of band (receiptspec trust file format)")
+	cmd.Flags().BoolVar(&allowPrefix, "allow-prefix", false, allowPrefixHelp)
 	return cmd
+}
+
+const allowPrefixHelp = "accept an export without a signed manifest; proves only that the receipts present are valid, not that none were removed"
+
+// completenessVerdict turns a verification into an exit status. Without
+// allowPrefix a pass needs a signed manifest that proves completeness.
+func completenessVerdict(stdout, stderr io.Writer, prefixOK, complete, allowPrefix bool) error {
+	if !prefixOK {
+		return errVerifyFailed
+	}
+	if complete {
+		fmt.Fprintln(stdout, "completeness: proven against the signed export manifest")
+		return nil
+	}
+	if allowPrefix {
+		fmt.Fprintln(stderr, "WARNING: completeness NOT proven. Prefix-only verification (--allow-prefix). Trailing receipts or records may have been removed.")
+		return nil
+	}
+	fmt.Fprintln(stderr, "FAIL: completeness not proven: no signed export manifest matched the chain head. Use --allow-prefix to accept a prefix.")
+	return errVerifyFailed
 }
 
 func newReceiptsTrustRootCommand() *cobra.Command {

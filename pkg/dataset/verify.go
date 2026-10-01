@@ -34,8 +34,12 @@ type Report struct {
 	Failures      []Failure
 }
 
-// OK is true when the receipt export verifies and every example binds.
+// OK is true when the receipt export verifies with proven completeness and
+// every example binds.
 func (r Report) OK() bool { return r.Receipts.OK() && len(r.Failures) == 0 }
+
+// PrefixOK is OK without the completeness proof.
+func (r Report) PrefixOK() bool { return r.Receipts.PrefixOK() && len(r.Failures) == 0 }
 
 // ReadDir reads a dataset export dir: a receipts export plus approvals.jsonl.
 func ReadDir(dir string) (receipts.Export, string, error) {

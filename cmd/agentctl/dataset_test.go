@@ -126,7 +126,19 @@ func TestDatasetVerify(t *testing.T) {
 		})
 	}
 
-	e, _ := datasetExport(t)
+	e, approvals := datasetExport(t)
+	stripped := filepath.Join(t.TempDir(), "stripped")
+	if err := receipts.StripToPrefix(e, 0).WriteDir(stripped); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(stripped, dataset.ApprovalsFile), []byte(approvals), 0o600)
+	if _, errOut, err := runAgentctl(t, "dataset", "verify", stripped); !errors.Is(err, errVerifyFailed) || !strings.Contains(errOut, "FAIL: completeness not proven") {
+		t.Fatalf("manifest-free dataset err = %v, stderr = %q", err, errOut)
+	}
+	if _, errOut, err := runAgentctl(t, "dataset", "verify", "--allow-prefix", stripped); err != nil || !strings.Contains(errOut, "WARNING: completeness NOT proven") {
+		t.Fatalf("allow-prefix err = %v, stderr = %q", err, errOut)
+	}
+
 	dir := filepath.Join(t.TempDir(), "noapprovals")
 	_ = e.WriteDir(dir)
 	if _, _, err := runAgentctl(t, "dataset", "verify", dir); err == nil || !strings.Contains(err.Error(), dataset.ApprovalsFile) {

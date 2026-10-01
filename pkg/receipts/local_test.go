@@ -287,3 +287,20 @@ func TestLocalWriterBrokenFailsClosed(t *testing.T) {
 		t.Fatalf("second append err = %v, want ErrWriterBroken", err)
 	}
 }
+
+func TestStrippedPrefixIsNotComplete(t *testing.T) {
+	w := openTest(t, t.TempDir(), 1)
+	defer func() { _ = w.Close() }()
+	appendN(t, w, 4)
+	e := StripToPrefix(mustExport(t, w), 2)
+	rep, err := VerifyExport(e, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rep.PrefixOK() || rep.RecordsBound != 2 {
+		t.Fatalf("prefix should still verify: %+v", rep)
+	}
+	if rep.HasManifest || rep.Complete() || rep.OK() {
+		t.Fatalf("stripped export must not be OK: %+v", rep)
+	}
+}
