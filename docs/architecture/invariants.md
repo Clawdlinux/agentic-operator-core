@@ -17,7 +17,7 @@ The set stays under 15 entries. IDs are never reused or renumbered.
 | INV-02 | Egress to a destination not in `allowedDestinations`. | `declaredIntent` has any field set. An empty allow list allows nothing. | Declared vs observed |
 | INV-03 | Personal data (`email`, `phone`, `aadhaar`, `pan`, `iban`, `card`) sent to a destination not in `allowedDestinations`. | `declaredIntent` has any field set. | Declared vs observed |
 | INV-04 | Observed data classes outside `allowedDataClasses`. | `declaredIntent` has any field set. | Declared vs observed |
-| INV-05 | Deciding without a receipt when receipts are required. Fails closed if no receipt writer is available. | `ReceiptsRequired` is true. It is false today, so INV-05 never fires yet. | Platform |
+| INV-05 | Deciding without a receipt when receipts are required. Fails closed if no receipt writer is available or the receipt append fails. | `RECEIPTS_REQUIRED=true`. Off by default. See [receipts](../receipts.md). | Platform |
 
 Reasons never contain matched content. They name the class or host only.
 

@@ -157,6 +157,8 @@ apiServer:
 
 The repository also provides HMAC hash-chain and JSONL verification primitives.
 The controller does not automatically append each run event into that chain.
+Separately, opt-in Ed25519 decision receipts cover each direct-path decision.
+See [receipts](receipts.md).
 
 ## Compliance
 

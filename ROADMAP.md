@@ -53,6 +53,7 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 ## Shipped (decision architecture)
 
 - [x] Rule engine (OPA Go library) with invariants and policy packs. 5 invariants, `dpdp-in@v0.1.0` and `gdpr-eu@v0.1.0` packs. Direct action path only; orchestrated runtimes reject packs. See [policy packs](docs/policy-packs.md)
+- [x] Signed decision receipts, opt-in. AgentGate receipt format, `receipt-writer` service, write-ahead, fail closed with `RECEIPTS_REQUIRED`, `agentctl receipts export|verify`. Direct action path only. See [receipts](docs/receipts.md)
 
 ## Now
 
@@ -69,6 +70,7 @@ Priority order. Validation before features.
 - [ ] Homebrew tap for agentctl
 - [x] Observed decision inputs on the direct action path: destination host, deterministic data-class detection, action history. Caller identity is not observed yet. Agent self-report only tightens. See [policy input](docs/policy-input.md)
 - [ ] Invariants and policy packs on orchestrated runtimes (`spec.orchestration`)
+- [ ] Receipt gaps: runtime-adapter path, execution outcome, approval receipts, key rotation, retention, writer TLS, published writer image
 - [ ] Decision model: escalate-only scoring, shadow mode first. See [decision architecture](docs/architecture/decision-architecture.md)
 
 ## Later (all validation-gated)

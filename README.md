@@ -294,6 +294,7 @@ assets/                 Branding assets (logo, etc.)
 | [Security](docs/07-security.md) | Cilium, action rules, RBAC, and egress hardening |
 | [Policy input](docs/policy-input.md) | Declared, observed, and agent-claimed decision inputs |
 | [Policy packs](docs/policy-packs.md) | Invariants and opt-in Rego packs (`dpdp-in`, `gdpr-eu`) |
+| [Receipts](docs/receipts.md) | Opt-in signed decision receipts, receipt-writer, offline verify |
 | [Troubleshooting](docs/10-troubleshooting.md) | Common issues and fixes |
 
 ---

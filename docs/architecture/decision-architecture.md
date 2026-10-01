@@ -30,8 +30,13 @@ model id and version, input hash, option set and order, per-option probabilities
   shipped packs (dpdp-in, gdpr-eu) when spec.policyPacks is set. The
   config/policies and pkg/rules/threshold .rego samples are still unevaluated.
 - Invariants (pkg/invariants, INV-01 to INV-05) run on every direct-path
-  action. See [invariants](invariants.md). INV-05 is wired but off until
-  receipts ship.
+  action. See [invariants](invariants.md). INV-05 fails closed when
+  `RECEIPTS_REQUIRED=true` and no receipt can be written.
+- Receipts (pkg/receipts, cmd/receipt-writer) are opt-in. With receipts on,
+  every direct-path decision gets a signed AgentGate-format receipt before the
+  action runs. See [receipts](../receipts.md). No model block yet, because no
+  model decides. Execution outcome and the runtime-adapter path are not
+  receipted.
 - Layers combine in pkg/decision.Decide. Strictest wins.
 - Gap: the runtime-adapter path (reconcileViaRuntime) runs neither invariants
   nor packs. Packs on that path fail closed.
@@ -45,7 +50,8 @@ model id and version, input hash, option set and order, per-option probabilities
 1. Measure, stop trusting agent self-report (observed inputs). See
    [policy input](../policy-input.md).
 2. Real rule engine (OPA Go lib) for invariants and packs.
-3. Receipts for every decision (shared receiptspec).
+3. Receipts for every decision (shared receiptspec). Shipped on the direct
+   path, opt-in. See [receipts](../receipts.md).
 4. Approval dataset (already in goal prompt phase 4).
 5. Decision model phase A (escalate-only), evaluated offline on approval dataset first, shadow mode before it can affect anything.
 6. Phase B only after shadow results and calibration are documented.
