@@ -62,7 +62,7 @@ How an action is decided, as a target design (see [decision architecture](docs/a
 
 1. Invariants in code. Credentials never reach the agent. Egress only to declared destinations.
 2. A decision model scores each action. It can only escalate to a human.
-3. Humans approve or reject. Every decision is a signed, labelled example.
+3. Humans approve, reject, or edit. Every decision is a signed, labelled example.
 
 Today the repo ships invariants, policy packs, a threshold evaluator, and
 human approvals. The decision model exists but is escalate-only, runs in
@@ -74,7 +74,7 @@ decisions. The ADR lists what is built and what is not.
 |---|---|
 | Runtime isolation | gVisor `RuntimeClass` mutation for labeled pods; nodes must provide `runsc` |
 | Network controls | Default-deny and allow-list policy generation; enforcement depends on the cluster CNI |
-| Audit | HMAC hash-chain and JSONL verifier; automatic same-run capture is not connected |
+| Audit | Opt-in Ed25519 decision receipts on the direct action path ([receipts](docs/receipts.md)), plus HMAC hash-chain primitives; execution outcomes and runtime-adapter runs are not receipted |
 | Cost | Per-workload usage and estimated-cost paths plus chargeback hooks |
 | Context | ANF view snapshots (internal tooling): `agentctl` renders token-minimal Kubernetes and agent state for the model |
 | Delivery | Helm packaging and offline JWT validation; full air-gapped install testing remains a release gate |
@@ -198,6 +198,34 @@ kubectl -n agentic-system get agentworkloads -w
 
 ---
 
+## Run the claims demo
+
+One script proves the decision-architecture claims on a fresh kind cluster.
+No API keys. A deterministic mock MCP server plays the agent. Each scenario
+prints its command and a PASS or FAIL line. The script exits nonzero on any
+failure and deletes its cluster at the end.
+
+Prerequisites: docker (running), kind, kubectl, helm, go, python3, openssl,
+curl.
+
+```bash
+scripts/demo-claims.sh            # --keep, --skip-build, --cluster-name, --dry-run, --help
+```
+
+Runtime: about 3 minutes end to end, build included. Two runs from a fresh
+cluster took 151s and 165s on an Apple Silicon laptop (kind v0.31, images
+already pulled).
+
+It proves invariants, write-ahead receipts, pack escalation, webhook-stamped
+approvals, offline verification, and the shadow decision model. It does not
+prove the runtime-adapter path, Argo approval gates, execution outcome
+receipts, production model quality, packet-level egress, or caller identity.
+The script ends with the full list. It builds a demo-only image from host
+binaries until the receiptspec dependency is tagged. See
+[BLOCKERS.md](BLOCKERS.md).
+
+---
+
 ## Architecture
 
 ```mermaid
@@ -221,8 +249,9 @@ templates consume those labels. Actual sandboxing requires gVisor on the nodes.
 Network enforcement depends on the cluster CNI.
 
 The audit package and offline JSONL verifier are implemented. The controller does
-not yet append each run event into that chain. Durable storage, production signing
-keys, and independently verified checkpoints remain integration work.
+not yet append each run event into that chain. Separately, opt-in signed decision
+receipts cover each direct-path decision before it runs. Durable storage, key
+rotation, and independently verified checkpoints remain integration work.
 
 ---
 
