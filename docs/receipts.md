@@ -41,15 +41,23 @@ Each receipt is a v1 AgentGate receipt:
 The decision record sits beside the receipt in `records.jsonl`. Fields:
 `schema_version`, `workload` (namespace, name, uid), `action`, `layer`
 (`invariant`, `rules`, `threshold`, `human`, `model`), `outcome`,
-`reasons` (rule ID plus reason), `input_hash`, `declared`, `observed`,
+`reasons` (rule ID plus reason), `input_hash`, `payload_sha256`, `declared`, `observed`,
 `claimed`, `policy_packs`, `threshold_mode`, `replay_hint`. A `model` block is
 added whenever the decision model scored the action. See
 [model block](#model-block). Human decisions add an `approval`
 block and set `human_principal` to the approver. See [approvals](approvals.md).
 
 `input_hash` is the SHA-256 of the canonical JSON of the full decision input:
-declared, observed, and agent-claimed (labelled `agent_claimed`). It covers
-the raw values without storing them.
+declared, observed, agent-claimed (labelled `agent_claimed`), and
+`payload_sha256`. It covers the raw values without storing them.
+
+`payload_sha256` is the digest of the exact `execute_action` argument map:
+`{"action", "params", "confidence"}`. It is `sha256("clawdlinux.decision.payload.v1"
+|| 0x00 || canonical JSON)`. Canonical JSON sorts object keys and normalizes
+numbers through float64, so a JSON round trip gives the same digest. A human
+record carries the digest of the payload the human approved or edited. To
+check which payload was authorized, recompute the digest from the payload you
+hold and compare. The payload itself is never stored.
 
 Numbers are integers or decimal strings. Never floats. Canonical JSON follows
 receiptspec `DECISION.md` (RFC 8785 subset).
@@ -84,7 +92,7 @@ In shadow mode `outcome` equals `base_outcome`. In escalate mode the record
 
 ## What is not recorded
 
-- Raw action params and the proposal payload.
+- Raw action params and the proposal payload. Only `payload_sha256`.
 - Matched content: no email, phone, card, or credential value. Only class
   names like `email`.
 - Declared purpose, agent-claimed intent, caller identity. Hashed only.

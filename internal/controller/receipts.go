@@ -64,12 +64,13 @@ func (r *AgentWorkloadReconciler) recordDecision(
 	wl *agenticv1alpha1.AgentWorkload,
 	action string,
 	in decisioninput.Input,
+	payload map[string]any,
 	layers decision.Layers,
 	result decision.Result,
 	thresholdMode string,
 	model *receipts.Model,
 ) (decision.Result, decided) {
-	rec, err := newRecord(wl, action, in, layers, result, thresholdMode, model)
+	rec, err := newRecord(wl, action, in, payload, layers, result, thresholdMode, model)
 	out := decided{record: rec}
 	if !r.Receipts.Enabled {
 		return result, out
@@ -94,7 +95,7 @@ func (r *AgentWorkloadReconciler) recordDecision(
 	}
 	result = decision.Decide(layers)
 	decisiontrace.AddRuleIDs(ctx, trace.SpanFromContext(ctx), []string{invariants.ReceiptsOrFailClosed})
-	out.record, _ = newRecord(wl, action, in, layers, result, thresholdMode, model)
+	out.record, _ = newRecord(wl, action, in, payload, layers, result, thresholdMode, model)
 	return result, out
 }
 
@@ -102,6 +103,7 @@ func newRecord(
 	wl *agenticv1alpha1.AgentWorkload,
 	action string,
 	in decisioninput.Input,
+	payload map[string]any,
 	layers decision.Layers,
 	result decision.Result,
 	thresholdMode string,
@@ -111,6 +113,7 @@ func newRecord(
 		Workload:      workloadRef(wl),
 		Action:        action,
 		Input:         in,
+		Payload:       payload,
 		Layers:        layers,
 		Result:        result,
 		PolicyPacks:   wl.Spec.PolicyPacks,

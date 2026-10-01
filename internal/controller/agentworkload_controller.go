@@ -53,6 +53,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/mcp"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/metrics"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/resilience"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/routing"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/packs"
@@ -626,8 +627,10 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	result := decision.Decide(layers)
 	// The model runs last and can only tighten: escalate-only.
 	result, modelBlock := r.applyDecisionModel(ctx, &workload, actionName, decisionInput, result)
+	// The receipt binds the digest of exactly this execute_action payload.
+	executeParams := receipts.ExecutionPayload(actionName, proposal, confidenceStr)
 	// Write-ahead: the receipt is stored before the action can run.
-	result, recorded := r.recordDecision(ctx, &workload, actionName, decisionInput, layers, result, opaPolicyMode, modelBlock)
+	result, recorded := r.recordDecision(ctx, &workload, actionName, decisionInput, executeParams, layers, result, opaPolicyMode, modelBlock)
 	decisiontrace.SetResult(decisionSpan, result.Layer, string(result.Outcome))
 	decisionSpan.End()
 	log.Info("decision", "outcome", result.Outcome, "layer", result.Layer, "destination", decisionInput.Observed.Destination, "dataClasses", decisionInput.Observed.DataClasses, "reasons", result.Reasons)
@@ -656,12 +659,6 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		// Step 5a: Execute approved action via MCP
 		log.Info("OPA approved action, executing", "action", action.Name)
-
-		executeParams := map[string]interface{}{
-			"action":     action.Name,
-			"params":     proposal,
-			"confidence": confidenceStr,
-		}
 
 		execution, err := mcpClient.CallTool("execute_action", executeParams)
 		if err != nil {

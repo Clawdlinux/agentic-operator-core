@@ -263,6 +263,8 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 		Claimed:  decisioninput.AgentClaimed{Confidence: &confidence, ClusterHealth: claimedHealth, Intent: tgt.description},
 	}
 
+	execPayload := receipts.ExecutionPayload(tgt.name, tgt.payload, p.Confidence)
+
 	// Approve and edit re-run every layer on the action that would execute.
 	var layers decision.Layers
 	blocked := false
@@ -291,6 +293,7 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 		Workload:      workloadRef(wl),
 		Action:        tgt.name,
 		Input:         in,
+		Payload:       execPayload,
 		PolicyPacks:   wl.Spec.PolicyPacks,
 		ThresholdMode: mode,
 		Approval: receipts.Approval{
@@ -334,7 +337,7 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 		denyCtx, denySpan := decisiontrace.StartEvaluation(parentCtx, wl.Namespace, wl.Name, wl.Spec.DecisionModelMode())
 		decisiontrace.SetRules(denySpan, nil, wl.Spec.PolicyPacks)
 		decisiontrace.AddRuleIDs(denyCtx, denySpan, decisiontrace.RuleIDs(ctx))
-		denied, _ := r.recordDecision(denyCtx, wl, tgt.name, in, layers, decision.Decide(layers), mode, nil)
+		denied, _ := r.recordDecision(denyCtx, wl, tgt.name, in, execPayload, layers, decision.Decide(layers), mode, nil)
 		decisiontrace.SetResult(denySpan, denied.Layer, string(denied.Outcome))
 		denySpan.End()
 		return r.finishApproval(ctx, wl, d.Label, approvalDenied, d.ApproverSHA256(), receiptSeq(humanReceipt),
@@ -345,8 +348,7 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 	if err := r.Status().Update(ctx, wl); err != nil {
 		return ctrl.Result{}, err
 	}
-	params := map[string]interface{}{"action": tgt.name, "params": tgt.payload, "confidence": p.Confidence}
-	_, execErr := mcp.NewMCPClient(endpoint).CallTool("execute_action", params)
+	_, execErr := mcp.NewMCPClient(endpoint).CallTool("execute_action", execPayload)
 	executed := agenticv1alpha1.Action{Name: tgt.name, Description: tgt.description, Confidence: p.Confidence, Timestamp: &now}
 	if execErr != nil {
 		log.Error(execErr, "failed to execute approved action", "action", tgt.name)

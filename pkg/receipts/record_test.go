@@ -262,3 +262,42 @@ func TestConfigFromEnv(t *testing.T) {
 		t.Fatal("missing URL accepted")
 	}
 }
+
+func TestPayloadDigest(t *testing.T) {
+	payload := ExecutionPayload("refund", map[string]any{"order": "o-1", "amount": 42}, "0.88")
+	got, err := PayloadSHA256(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sha256("clawdlinux.decision.payload.v1\x00" + canonical JSON)
+	const want = "dc707fc38b69443231f93c176c2e083b53e0684073bcc5812f5808aa95b43e90"
+	if got != want {
+		t.Fatalf("payload digest = %s, want %s", got, want)
+	}
+	var roundTrip map[string]any
+	raw, _ := json.Marshal(payload)
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&roundTrip); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := PayloadSHA256(roundTrip); again != want {
+		t.Fatalf("round trip digest = %s, want %s", again, want)
+	}
+
+	p := testParams()
+	p.Payload = payload
+	rec := mustRecord(t, p)
+	if rec.PayloadSHA256 != want {
+		t.Fatalf("record payload_sha256 = %s", rec.PayloadSHA256)
+	}
+	p.Payload = ExecutionPayload("refund", map[string]any{"order": "o-1", "amount": 4200}, "0.88")
+	other := mustRecord(t, p)
+	if other.PayloadSHA256 == want || other.InputHash == rec.InputHash {
+		t.Fatal("changing the executed params must change payload_sha256 and input_hash")
+	}
+	data, _ := json.Marshal(rec)
+	if strings.Contains(string(data), "o-1") || !strings.Contains(string(data), `"payload_sha256":"`+want+`"`) {
+		t.Fatalf("record must carry only the payload digest: %s", data)
+	}
+}

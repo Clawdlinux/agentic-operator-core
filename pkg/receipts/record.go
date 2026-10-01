@@ -10,7 +10,9 @@ Licensed under the Apache License, Version 2.0.
 package receipts
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -166,6 +168,7 @@ type DecisionRecord struct {
 	Outcome       string          `json:"outcome"`
 	Reasons       []Reason        `json:"reasons"`
 	InputHash     string          `json:"input_hash"`
+	PayloadSHA256 string          `json:"payload_sha256"`
 	Declared      DeclaredSummary `json:"declared"`
 	Observed      ObservedSummary `json:"observed"`
 	Claimed       ClaimedSummary  `json:"claimed"`
@@ -213,9 +216,11 @@ func OutcomeForLabel(label string) (string, error) {
 // of the action the human decided on: the original for approve and reject,
 // the edited action for edit.
 type HumanParams struct {
-	Workload      Workload
-	Action        string
-	Input         input.Input
+	Workload Workload
+	Action   string
+	Input    input.Input
+	// Payload is the execution payload the decision applies to.
+	Payload       map[string]any
 	PolicyPacks   []string
 	ThresholdMode string
 	Approval      Approval
@@ -234,6 +239,7 @@ func NewHumanRecord(p HumanParams) (DecisionRecord, error) {
 		Workload:      p.Workload,
 		Action:        p.Action,
 		Input:         p.Input,
+		Payload:       p.Payload,
 		Result:        decision.Result{Outcome: decision.Allow, Layer: decision.LayerThreshold},
 		PolicyPacks:   p.PolicyPacks,
 		ThresholdMode: p.ThresholdMode,
@@ -260,9 +266,12 @@ func NewHumanRecord(p HumanParams) (DecisionRecord, error) {
 
 // Params are the inputs to NewDecisionRecord.
 type Params struct {
-	Workload      Workload
-	Action        string
-	Input         input.Input
+	Workload Workload
+	Action   string
+	Input    input.Input
+	// Payload is the execution payload sent if the action runs. Only its
+	// digest is recorded.
+	Payload       map[string]any
 	Layers        decision.Layers
 	Result        decision.Result
 	PolicyPacks   []string
@@ -278,7 +287,11 @@ func NewDecisionRecord(p Params) (DecisionRecord, error) {
 	if err != nil {
 		return DecisionRecord{}, err
 	}
-	inputHash, err := InputHash(p.Input)
+	payloadSHA, err := PayloadSHA256(p.Payload)
+	if err != nil {
+		return DecisionRecord{}, err
+	}
+	inputHash, err := InputHash(p.Input, payloadSHA)
 	if err != nil {
 		return DecisionRecord{}, err
 	}
@@ -302,6 +315,7 @@ func NewDecisionRecord(p Params) (DecisionRecord, error) {
 		Outcome:       outcome,
 		Reasons:       ReasonsFromLayers(p.Layers),
 		InputHash:     inputHash,
+		PayloadSHA256: payloadSHA,
 		Declared: DeclaredSummary{
 			SHA256:              declHash,
 			DecisionType:        p.Input.Declared.DecisionType,
@@ -453,13 +467,46 @@ func clip(s string, max int, fallback string) string {
 }
 
 // InputHash is the SHA-256 hex of the canonical JSON of the full input,
-// agent claims included under "agent_claimed".
-func InputHash(in input.Input) (string, error) {
+// agent claims included under "agent_claimed", and the payload digest.
+func InputHash(in input.Input, payloadSHA256 string) (string, error) {
 	return hashHex(map[string]any{
-		"declared":      canonDeclared(in.Declared),
-		"observed":      canonObserved(in.Observed),
-		"agent_claimed": canonClaimed(in.Claimed),
+		"declared":       canonDeclared(in.Declared),
+		"observed":       canonObserved(in.Observed),
+		"agent_claimed":  canonClaimed(in.Claimed),
+		"payload_sha256": payloadSHA256,
 	})
+}
+
+// PayloadDomain separates payload digests from every other hash.
+const PayloadDomain = "clawdlinux.decision.payload.v1"
+
+// ExecutionPayload is the execute_action argument map. Build it here so the
+// digest covers exactly what is sent.
+func ExecutionPayload(action string, params map[string]any, confidence string) map[string]any {
+	return map[string]any{"action": action, "params": params, "confidence": confidence}
+}
+
+// PayloadSHA256 is the hex SHA-256 of the domain, a NUL, and the canonical
+// JSON of payload. Numbers are normalized through float64 and object keys
+// are sorted, so a JSON round trip of the payload gives the same digest.
+func PayloadSHA256(payload map[string]any) (string, error) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("receipts: payload: %w", err)
+	}
+	var norm any
+	if err := json.Unmarshal(raw, &norm); err != nil {
+		return "", fmt.Errorf("receipts: payload: %w", err)
+	}
+	canon, err := json.Marshal(norm)
+	if err != nil {
+		return "", fmt.Errorf("receipts: payload: %w", err)
+	}
+	h := sha256.New()
+	h.Write([]byte(PayloadDomain))
+	h.Write([]byte{0})
+	h.Write(canon)
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func canonDeclared(d input.Declared) map[string]any {

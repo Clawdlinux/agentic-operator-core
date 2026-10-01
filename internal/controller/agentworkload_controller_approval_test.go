@@ -48,6 +48,7 @@ type executeLog struct {
 	mu      sync.Mutex
 	actions []string
 	tools   []string
+	params  []map[string]any
 }
 
 func (l *executeLog) snapshot() ([]string, []string) {
@@ -70,6 +71,7 @@ func newExecuteLoggingMCP(t *testing.T, scenario mockMCPScenario, events *eventL
 		if req.Tool == "execute_action" {
 			name, _ := req.Params["action"].(string)
 			l.actions = append(l.actions, name)
+			l.params = append(l.params, req.Params)
 		}
 		l.mu.Unlock()
 		events.add(req.Tool)
@@ -261,6 +263,31 @@ func TestReconcile_ApprovalDecisions(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestReconcile_ReceiptBindsExecutedPayload(t *testing.T) {
+	t.Parallel()
+	env := newApprovalEnv(t, "approval-payload", "", "", nil)
+	env.decide(t, map[string]string{approval.AnnotationDecision: approval.Edit,
+		approval.AnnotationEdit: `{"name":"scale","description":"scale to 2","params":{"replicas":2}}`}, true, env.pendingI)
+	env.reconcile(t)
+	env.exec.mu.Lock()
+	sent := env.exec.params
+	env.exec.mu.Unlock()
+	if len(sent) != 1 {
+		t.Fatalf("execute_action calls = %d", len(sent))
+	}
+	want, err := receipts.PayloadSHA256(sent[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	human := env.writer.records[len(env.writer.records)-1]
+	if human.Layer != receipts.LayerHuman || human.PayloadSHA256 != want {
+		t.Fatalf("human receipt payload_sha256 = %q, want digest of the sent payload %q", human.PayloadSHA256, want)
+	}
+	if env.writer.records[0].PayloadSHA256 == "" || env.writer.records[0].PayloadSHA256 == want {
+		t.Fatalf("original receipt must bind the original payload, got %q", env.writer.records[0].PayloadSHA256)
 	}
 }
 
