@@ -129,7 +129,13 @@ type Example struct {
 	CaptureMode      string            `json:"capture_mode"`
 	Content          Content           `json:"content"`
 	EditDiff         *EditDiff         `json:"edit_diff,omitempty"`
+	// Source is empty for a human decision bound to a receipt. "synthetic"
+	// marks generated training rows, which never bind.
+	Source string `json:"source,omitempty"`
 }
+
+// SourceSynthetic marks generated rows from tools/decision-train.
+const SourceSynthetic = "synthetic"
 
 // BuildContent renders a for one capture mode. Unknown modes fall back to
 // none, the most private.
@@ -300,6 +306,9 @@ var (
 func Validate(ex Example, r receiptspec.Receipt, recordJSON []byte) error {
 	if ex.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("dataset: unsupported schema_version %d", ex.SchemaVersion)
+	}
+	if ex.Source != "" {
+		return fmt.Errorf("%w: %q example is not a human decision", ErrUnbound, ex.Source)
 	}
 	switch ex.CaptureMode {
 	case CaptureNone, CaptureRedacted, CaptureFull:
