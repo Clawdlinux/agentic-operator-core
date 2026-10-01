@@ -46,6 +46,7 @@ func TestReconcile_DecisionModel(t *testing.T) {
 		name        string
 		confidence  string
 		scorer      *fakeScorer
+		unavailable bool
 		mode        string
 		override    *int64
 		wantPhase   string
@@ -73,6 +74,12 @@ func TestReconcile_DecisionModel(t *testing.T) {
 			wantPhase: "PendingApproval", wantCalls: 1, wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true, wantError: true},
 		{name: "shadow scorer error never blocks", confidence: "0.98", scorer: &fakeScorer{err: errors.New("artifact read failed")}, mode: "shadow",
 			wantPhase: "Completed", wantExecute: true, wantCalls: 1, wantOutcome: receipts.OutcomeAllow, wantLayer: receipts.LayerThreshold, wantBlock: true, wantError: true},
+		{name: "escalate unavailable model requires approval", confidence: "0.98", unavailable: true, mode: "escalate",
+			wantPhase: "PendingApproval", wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true, wantError: true},
+		{name: "shadow unavailable model only logs", confidence: "0.98", unavailable: true, mode: "shadow",
+			wantPhase: "Completed", wantExecute: true, wantOutcome: receipts.OutcomeAllow, wantLayer: receipts.LayerThreshold, wantBlock: true, wantError: true},
+		{name: "off ignores unavailable model", confidence: "0.98", unavailable: true, mode: "off",
+			wantPhase: "Completed", wantExecute: true, wantOutcome: receipts.OutcomeAllow, wantLayer: receipts.LayerThreshold},
 		{name: "stricter override escalates", confidence: "0.98", scorer: &fakeScorer{risk: 400000, threshold: 500000}, mode: "escalate", override: i(300000),
 			wantPhase: "PendingApproval", wantCalls: 2, wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true},
 		{name: "looser override ignored", confidence: "0.98", scorer: &fakeScorer{risk: 600000, threshold: 500000}, mode: "escalate", override: i(900000),
@@ -109,6 +116,9 @@ func TestReconcile_DecisionModel(t *testing.T) {
 			reconciler := &AgentWorkloadReconciler{Client: k8sClient, Scheme: scheme, Receipts: ReceiptsConfig{Enabled: true, Writer: writer}}
 			if tc.scorer != nil {
 				reconciler.DecisionModel = DecisionModelConfig{Scorer: tc.scorer}
+			}
+			if tc.unavailable {
+				reconciler.DecisionModel = DecisionModelConfig{Unavailable: errors.New("decision model artifact rejected")}
 			}
 			if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}}); err != nil {
 				t.Fatalf("reconcile: %v", err)

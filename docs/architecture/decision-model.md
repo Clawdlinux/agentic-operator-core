@@ -66,8 +66,12 @@ version. An artifact with another spec version or feature order is refused.
 - `artifact_sha256`: SHA-256 of the artifact as compact JSON, sorted keys,
   this field removed
 
-A hash mismatch, spec mismatch, bad decimal, or unknown field means no model.
-The operator logs the error and decides exactly as without a model.
+A hash mismatch, spec mismatch, bad decimal, unknown field, or unreadable
+file means the configured model is unavailable. The operator logs the error and
+keeps an explicit unavailable state. It is handled like a scorer error:
+workloads in `escalate` mode require approval for actions the other layers
+allow, `shadow` only logs, `off` is unchanged. No `DECISION_MODEL_PATH` at all
+still means no model.
 
 ## Determinism and replay
 

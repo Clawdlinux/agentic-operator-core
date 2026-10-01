@@ -7,6 +7,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -17,10 +18,14 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/tracing/decisiontrace"
 )
 
-// DecisionModelConfig holds the loaded decision model. A nil Scorer means no
-// artifact is configured: nothing is scored and decisions are unchanged.
+// DecisionModelConfig holds the loaded decision model. A nil Scorer and nil
+// Unavailable means no artifact is configured: nothing is scored and
+// decisions are unchanged. Unavailable is set when an artifact is configured
+// but did not load. It is handled like a scorer error: escalate requires
+// approval, shadow only logs.
 type DecisionModelConfig struct {
-	Scorer decision.Scorer
+	Scorer      decision.Scorer
+	Unavailable error
 }
 
 // applyDecisionModel scores the action after the non-model decision. Shadow
@@ -35,7 +40,8 @@ func (r *AgentWorkloadReconciler) applyDecisionModel(
 	base decision.Result,
 ) (decision.Result, *receipts.Model) {
 	mode := decision.ModelMode(wl.Spec.DecisionModelMode())
-	if r.DecisionModel.Scorer == nil || mode == decision.ModelOff {
+	unavailable := r.DecisionModel.Unavailable
+	if (r.DecisionModel.Scorer == nil && unavailable == nil) || mode == decision.ModelOff {
 		return base, nil
 	}
 	parentCtx := ctx
@@ -57,7 +63,14 @@ func (r *AgentWorkloadReconciler) applyDecisionModel(
 		override = wl.Spec.DecisionModel.ThresholdMicro
 	}
 	// Claims may only tighten: the risk is never below the no-claim risk.
-	s, err := decision.ScoreClaimSafe(ctx, r.DecisionModel.Scorer, fi)
+	var s decision.Score
+	err := unavailable
+	if err == nil && r.DecisionModel.Scorer == nil {
+		err = errors.New("decision model unavailable")
+	}
+	if err == nil {
+		s, err = decision.ScoreClaimSafe(ctx, r.DecisionModel.Scorer, fi)
+	}
 	if err != nil {
 		s = decision.Score{FeatureSpec: f.SpecVersion, FeatureHash: f.Hash()}
 	} else {

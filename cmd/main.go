@@ -414,8 +414,9 @@ func buildApprovalStampKey(path string, logger logr.Logger) []byte {
 }
 
 // buildDecisionModelConfig loads the decision model artifact. No path means
-// no model. A bad artifact is logged and also means no model: decisions then
-// stay exactly as without a model. It never blocks startup.
+// no model. A configured artifact that fails to load gives an unavailable
+// model: escalate workloads then require approval, as on a scorer error. It
+// never blocks startup.
 func buildDecisionModelConfig(path string, logger logr.Logger) controller.DecisionModelConfig {
 	if path == "" {
 		logger.Info("Decision model off: DECISION_MODEL_PATH not set")
@@ -423,8 +424,8 @@ func buildDecisionModelConfig(path string, logger logr.Logger) controller.Decisi
 	}
 	m, err := learned.Load(path)
 	if err != nil {
-		logger.Error(err, "Decision model artifact rejected; running without a model", "path", path)
-		return controller.DecisionModelConfig{}
+		logger.Error(err, "Decision model artifact rejected; escalate workloads require approval, shadow only logs", "path", path)
+		return controller.DecisionModelConfig{Unavailable: err}
 	}
 	a := m.Artifact()
 	agenticv1alpha1.SetDecisionModelThreshold(m.ThresholdMicro())

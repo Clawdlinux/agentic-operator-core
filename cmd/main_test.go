@@ -86,20 +86,24 @@ func TestBuildDecisionModelConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	tests := []struct {
-		name      string
-		path      string
-		wantModel bool
+		name            string
+		path            string
+		wantModel       bool
+		wantUnavailable bool
 	}{
-		{"unset means no model", "", false},
-		{"missing file means no model", t.TempDir() + "/none.json", false},
-		{"bad artifact means no model", bad, false},
-		{"shipped artifact loads", shipped, true},
+		{"unset means no model", "", false, false},
+		{"missing file means unavailable model", t.TempDir() + "/none.json", false, true},
+		{"bad artifact means unavailable model", bad, false, true},
+		{"shipped artifact loads", shipped, true, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := buildDecisionModelConfig(tc.path, logr.Discard())
 			if (got.Scorer != nil) != tc.wantModel {
 				t.Fatalf("scorer loaded = %v, want %v", got.Scorer != nil, tc.wantModel)
+			}
+			if (got.Unavailable != nil) != tc.wantUnavailable {
+				t.Fatalf("unavailable = %v, want %v", got.Unavailable, tc.wantUnavailable)
 			}
 		})
 	}
