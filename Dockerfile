@@ -14,6 +14,19 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -o manager \
     -trimpath \
     ./cmd/main.go
 
+# receipt-writer image. Build with: docker build --target receipt-writer .
+FROM builder AS receipt-writer-build
+RUN CGO_ENABLED=0 GOOS=linux go build -o receipt-writer \
+    -ldflags="-s -w" \
+    -trimpath \
+    ./cmd/receipt-writer
+
+FROM gcr.io/distroless/static:nonroot AS receipt-writer
+COPY --from=receipt-writer-build /build/receipt-writer /receipt-writer
+USER nonroot:nonroot
+ENTRYPOINT ["/receipt-writer"]
+
+# Default target: the operator manager. Keep this stage last.
 FROM gcr.io/distroless/static:nonroot
 
 LABEL maintainer="operator-maintainers@example.com"
