@@ -160,6 +160,46 @@ type AgentWorkloadSpec struct {
 	// action content of each human decision. See docs/approvals.md.
 	// +optional
 	ApprovalCapture *ApprovalCapture `json:"approvalCapture,omitempty"`
+
+	// decisionModel sets how the escalate-only decision model is used on the
+	// direct action path. Nothing runs until the operator has a model
+	// artifact (DECISION_MODEL_PATH). See docs/architecture/decision-model.md.
+	// +optional
+	DecisionModel *DecisionModel `json:"decisionModel,omitempty"`
+}
+
+// DecisionModel configures the decision model for one workload.
+type DecisionModel struct {
+	// mode is off (never scored), shadow (scored and recorded, no effect), or
+	// escalate (may move allow to require_approval, never anything looser).
+	// +kubebuilder:validation:Enum=off;shadow;escalate
+	// +kubebuilder:default=shadow
+	// +optional
+	Mode string `json:"mode,omitempty"`
+
+	// thresholdMicro overrides the artifact escalation threshold, in
+	// micro-units (1000000 is 1.0). It may only be stricter: at or below the
+	// artifact threshold. A looser value is rejected by the webhook and
+	// ignored by the controller.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000000
+	// +optional
+	ThresholdMicro *int64 `json:"thresholdMicro,omitempty"`
+}
+
+// Decision model modes.
+const (
+	DecisionModelOff      = "off"
+	DecisionModelShadow   = "shadow"
+	DecisionModelEscalate = "escalate"
+)
+
+// DecisionModelMode returns the effective mode. Unset means shadow.
+func (s AgentWorkloadSpec) DecisionModelMode() string {
+	if s.DecisionModel == nil || s.DecisionModel.Mode == "" {
+		return DecisionModelShadow
+	}
+	return s.DecisionModel.Mode
 }
 
 // ApprovalCapture sets the content capture mode for approval examples.

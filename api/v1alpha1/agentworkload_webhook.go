@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -193,6 +194,9 @@ func (r *AgentWorkload) validate() error {
 		}
 	}
 
+	// 8. Validate decisionModel. The threshold may only be stricter.
+	allErrs = append(allErrs, validateDecisionModel(r.Spec.DecisionModel)...)
+
 	// Combine errors
 	if len(allErrs) > 0 {
 		errMsg := strings.Join(allErrs, "; ")
@@ -206,6 +210,36 @@ func (r *AgentWorkload) validate() error {
 	}
 
 	return nil
+}
+
+// decisionModelThreshold is the loaded artifact threshold in micro-units, or
+// 0 when no artifact is loaded. Set once by the operator at startup.
+var decisionModelThreshold atomic.Int64
+
+// SetDecisionModelThreshold tells the webhook the loaded artifact threshold,
+// so a looser workload override is rejected at admission.
+func SetDecisionModelThreshold(micro int64) { decisionModelThreshold.Store(micro) }
+
+func validateDecisionModel(dm *DecisionModel) []string {
+	if dm == nil {
+		return nil
+	}
+	var errs []string
+	switch dm.Mode {
+	case "", DecisionModelOff, DecisionModelShadow, DecisionModelEscalate:
+	default:
+		errs = append(errs, fmt.Sprintf("decisionModel.mode must be one of off, shadow, escalate, got %q", dm.Mode))
+	}
+	if t := dm.ThresholdMicro; t != nil {
+		art := decisionModelThreshold.Load()
+		switch {
+		case *t < 0 || *t > 1000000:
+			errs = append(errs, fmt.Sprintf("decisionModel.thresholdMicro must be 0 to 1000000, got %d", *t))
+		case art > 0 && *t > art:
+			errs = append(errs, fmt.Sprintf("decisionModel.thresholdMicro %d is looser than the model artifact threshold %d; only a stricter (lower) value is allowed", *t, art))
+		}
+	}
+	return errs
 }
 
 // validateMCPEndpoint validates the MCP server endpoint
