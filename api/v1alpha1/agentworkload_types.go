@@ -139,6 +139,36 @@ type AgentWorkloadSpec struct {
 	// persona defines optional runtime identity, style, memory scope, and tool access policy.
 	// +optional
 	Persona *AgentPersona `json:"persona,omitempty"`
+
+	// declaredIntent states what this workload is for and what it may touch.
+	// When set, observed data classes and destinations outside it deny or
+	// escalate the action. See docs/policy-input.md.
+	// +optional
+	DeclaredIntent *DeclaredIntent `json:"declaredIntent,omitempty"`
+}
+
+// DeclaredIntent is the human-reviewed purpose and allow lists for a workload.
+// Once any field is set, an empty allow list allows nothing.
+type DeclaredIntent struct {
+	// purpose is a short human statement of what the workload does.
+	// +kubebuilder:validation:MaxLength=1024
+	// +optional
+	Purpose string `json:"purpose,omitempty"`
+
+	// decisionType names the kind of decision the agent makes (e.g. "refund").
+	// +kubebuilder:validation:MaxLength=128
+	// +optional
+	DecisionType string `json:"decisionType,omitempty"`
+
+	// allowedDataClasses lists data classes the workload may send.
+	// Known classes: email, phone, aadhaar, pan, iban, card.
+	// +optional
+	AllowedDataClasses []string `json:"allowedDataClasses,omitempty"`
+
+	// allowedDestinations lists hosts the workload may call. Exact host or
+	// "*.example.com" for any subdomain.
+	// +optional
+	AllowedDestinations []string `json:"allowedDestinations,omitempty"`
 }
 
 // AgentPersona defines agent identity and behavior controls for runtime execution.

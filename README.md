@@ -292,6 +292,7 @@ assets/                 Branding assets (logo, etc.)
 | [Multi-tenancy](docs/05-multi-tenancy.md) | Tenant isolation and quota enforcement |
 | [Cost Management](docs/06-cost-management.md) | Per-workload billing and chargeback |
 | [Security](docs/07-security.md) | Cilium, action rules, RBAC, and egress hardening |
+| [Policy input](docs/policy-input.md) | Declared, observed, and agent-claimed decision inputs |
 | [Troubleshooting](docs/10-troubleshooting.md) | Common issues and fixes |
 
 ---

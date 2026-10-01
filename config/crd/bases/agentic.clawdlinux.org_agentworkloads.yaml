@@ -83,6 +83,37 @@ spec:
                 - team
                 - delegation
                 type: string
+              declaredIntent:
+                description: |-
+                  declaredIntent states what this workload is for and what it may touch.
+                  When set, observed data classes and destinations outside it deny or
+                  escalate the action. See docs/policy-input.md.
+                properties:
+                  allowedDataClasses:
+                    description: |-
+                      allowedDataClasses lists data classes the workload may send.
+                      Known classes: email, phone, aadhaar, pan, iban, card.
+                    items:
+                      type: string
+                    type: array
+                  allowedDestinations:
+                    description: |-
+                      allowedDestinations lists hosts the workload may call. Exact host or
+                      "*.example.com" for any subdomain.
+                    items:
+                      type: string
+                    type: array
+                  decisionType:
+                    description: decisionType names the kind of decision the agent
+                      makes (e.g. "refund").
+                    maxLength: 128
+                    type: string
+                  purpose:
+                    description: purpose is a short human statement of what the workload
+                      does.
+                    maxLength: 1024
+                    type: string
+                type: object
               jobId:
                 description: jobId uniquely identifies this agent workload job
                 type: string

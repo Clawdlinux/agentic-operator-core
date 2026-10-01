@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added a working booth prepare/present flow with real provider and cost proof.
 - Added `agentctl doctor sandbox` to verify RuntimeClass and ready-node sandbox evidence before workload deployment.
+- Added optional `spec.declaredIntent` on `AgentWorkload` and observed decision inputs. The legacy action path now denies or escalates actions that send undeclared data classes or call undeclared hosts. Agent-claimed confidence and cluster health can only tighten. New packages: `pkg/dataclass`, `pkg/decision`, `pkg/decision/input`, `pkg/decision/observe`. See `docs/policy-input.md`.
 
 ### Changed
 - Docs: removed claims not backed by code. Added the decision architecture ADR (`docs/architecture/decision-architecture.md`). Rego files are labelled samples; the action path is a Go threshold evaluator.

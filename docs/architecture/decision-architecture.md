@@ -32,7 +32,8 @@ model id and version, input hash, option set and order, per-option probabilities
 - No learned gate exists. Layer 2 is new work.
 
 ## Build order
-1. Measure, stop trusting agent self-report (observed inputs).
+1. Measure, stop trusting agent self-report (observed inputs). See
+   [policy input](../policy-input.md).
 2. Real rule engine (OPA Go lib) for invariants and packs.
 3. Receipts for every decision (shared receiptspec).
 4. Approval dataset (already in goal prompt phase 4).

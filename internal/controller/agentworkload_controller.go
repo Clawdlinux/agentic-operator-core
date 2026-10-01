@@ -40,6 +40,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/decision"
+	decisioninput "github.com/Clawdlinux/agentic-operator-core/pkg/decision/input"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/decision/observe"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/llm"
@@ -434,12 +437,14 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Extract cluster health from status
 	// Default to 75 if not provided by MCP, but log a warning
 	clusterHealth := 75.0
+	var claimedHealth *float64
 	if rawHealth, ok := status["cluster_health"]; ok {
 		health, err := parseFlexibleFloat(rawHealth)
 		if err != nil {
 			log.Info("Warning: MCP status has invalid 'cluster_health' field, using default", "default", clusterHealth, "value", rawHealth)
 		} else {
 			clusterHealth = health
+			claimedHealth = &health
 		}
 	} else {
 		log.Info("Warning: MCP status missing 'cluster_health' field, using default", "default", clusterHealth)
@@ -549,6 +554,28 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	log.Info("OPA evaluation result", "allowed", opaResult.Allowed, "confidence", opaResult.Confidence, "reasons", opaResult.Reasons)
+
+	// Both threshold inputs come from the agent's MCP server, not the platform.
+	log.Info("agent-claimed decision inputs", "claimedConfidence", confidence, "claimedClusterHealth", claimedHealth, "clusterHealthUsed", clusterHealth)
+
+	if workload.Spec.DeclaredIntent != nil {
+		priorTotal, priorDenied := observe.History(workload.Status.ExecutedActions, workload.Status.ProposedActions)
+		decisionInput := decisioninput.Input{
+			Declared: observe.Declared(workload.Spec.DeclaredIntent),
+			Observed: observe.Observe(observe.Facts{
+				Endpoint:         mcpEndpoint,
+				Tool:             actionName,
+				Payload:          proposal,
+				PriorActionCount: priorTotal,
+				PriorDeniedCount: priorDenied,
+			}),
+			Claimed: decisioninput.AgentClaimed{Confidence: &confidence, ClusterHealth: claimedHealth, Intent: description},
+		}
+		violations := decisionInput.Violations()
+		opaResult.Allowed = decision.Combine(len(violations) > 0, opaResult.Allowed)
+		opaResult.Reasons = append(opaResult.Reasons, violations...)
+		log.Info("declared intent check", "destination", decisionInput.Observed.Destination, "dataClasses", decisionInput.Observed.DataClasses, "violations", violations, "allowed", opaResult.Allowed)
+	}
 
 	// Step 5: Handle action execution or approval pending
 	action := agenticv1alpha1.Action{
