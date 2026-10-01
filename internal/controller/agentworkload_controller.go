@@ -104,6 +104,7 @@ type AgentWorkloadReconciler struct {
 	SandboxClass     string                   // RuntimeClass required for sandbox enforcement
 	Recorder         events.EventRecorder     // Optional Kubernetes event recorder
 	Receipts         ReceiptsConfig           // Decision receipts; zero value disables them
+	DecisionModel    DecisionModelConfig      // Decision model; zero value scores nothing
 }
 
 type quotaChecker interface {
@@ -615,8 +616,10 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// the strictest outcome, so no layer or claim can loosen another.
 	layers := r.evaluateLayers(ctx, &workload, decisionInput, opaResult)
 	result := decision.Decide(layers)
+	// The model runs last and can only tighten: escalate-only.
+	result, modelBlock := r.applyDecisionModel(ctx, &workload, actionName, decisionInput, result)
 	// Write-ahead: the receipt is stored before the action can run.
-	result, recorded := r.recordDecision(ctx, &workload, actionName, decisionInput, layers, result, opaPolicyMode)
+	result, recorded := r.recordDecision(ctx, &workload, actionName, decisionInput, layers, result, opaPolicyMode, modelBlock)
 	log.Info("decision", "outcome", result.Outcome, "layer", result.Layer, "destination", decisionInput.Observed.Destination, "dataClasses", decisionInput.Observed.DataClasses, "reasons", result.Reasons)
 
 	// Step 5: Handle action execution or approval pending
@@ -662,13 +665,17 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		workload.Status.ProposedActions = prunedProposed
 		switch {
 		case result.Outcome == decision.RequireApproval:
-			// A pack approval finding never auto-allows, in any mode.
+			// A pack or model approval finding never auto-allows, in any mode.
+			reason := "PolicyPackApproval"
+			if result.Layer == decision.LayerModel {
+				reason = "ModelEscalation"
+			}
 			workload.Status.Phase = "PendingApproval"
 			workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
 				Type:               "ApprovalRequired",
 				Status:             metav1.ConditionTrue,
 				ObservedGeneration: workload.Generation,
-				Reason:             "PolicyPackApproval",
+				Reason:             reason,
 				Message:            fmt.Sprintf("action %q needs human approval: %s", action.Name, strings.Join(result.Reasons, "; ")),
 				LastTransitionTime: now,
 			})

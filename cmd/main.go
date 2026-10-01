@@ -58,6 +58,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy"
 	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy/netprobe"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/dataset"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/decision/learned"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
@@ -292,6 +293,7 @@ func main() {
 		os.Exit(1)
 	}
 	workloadReconciler.Receipts = buildReceiptsConfig(receiptsCfg, setupLog)
+	workloadReconciler.DecisionModel = buildDecisionModelConfig(os.Getenv("DECISION_MODEL_PATH"), setupLog)
 
 	if err := workloadReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "AgentWorkload")
@@ -386,6 +388,26 @@ func buildReceiptsConfig(cfg receipts.Config, logger logr.Logger) controller.Rec
 	}
 	logger.Info("Decision receipts enabled", "writer", cfg.WriterURL, "required", cfg.Required)
 	return out
+}
+
+// buildDecisionModelConfig loads the decision model artifact. No path means
+// no model. A bad artifact is logged and also means no model: decisions then
+// stay exactly as without a model. It never blocks startup.
+func buildDecisionModelConfig(path string, logger logr.Logger) controller.DecisionModelConfig {
+	if path == "" {
+		logger.Info("Decision model off: DECISION_MODEL_PATH not set")
+		return controller.DecisionModelConfig{}
+	}
+	m, err := learned.Load(path)
+	if err != nil {
+		logger.Error(err, "Decision model artifact rejected; running without a model", "path", path)
+		return controller.DecisionModelConfig{}
+	}
+	a := m.Artifact()
+	agenticv1alpha1.SetDecisionModelThreshold(m.ThresholdMicro())
+	logger.Info("Decision model loaded", "id", a.ModelID, "version", a.Version, "artifactSHA256", a.ArtifactSHA256,
+		"thresholdMicro", a.ThresholdMicro, "dataSource", a.TrainedOn.DataSource)
+	return controller.DecisionModelConfig{Scorer: m}
 }
 
 func registerFinOpsMetrics(registerer prometheus.Registerer, reporter *finops.MemoryCostReporter) error {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -72,6 +73,32 @@ func TestBuildReceiptsConfig(t *testing.T) {
 			}
 			if (got.Writer != nil) != tc.wantWriter {
 				t.Fatalf("writer = %v, want present %v", got.Writer, tc.wantWriter)
+			}
+		})
+	}
+}
+
+func TestBuildDecisionModelConfig(t *testing.T) {
+	shipped := "../tools/decision-train/out/model.json"
+	bad := t.TempDir() + "/bad.json"
+	if err := os.WriteFile(bad, []byte(`{"schema_version":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name      string
+		path      string
+		wantModel bool
+	}{
+		{"unset means no model", "", false},
+		{"missing file means no model", t.TempDir() + "/none.json", false},
+		{"bad artifact means no model", bad, false},
+		{"shipped artifact loads", shipped, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildDecisionModelConfig(tc.path, logr.Discard())
+			if (got.Scorer != nil) != tc.wantModel {
+				t.Fatalf("scorer loaded = %v, want %v", got.Scorer != nil, tc.wantModel)
 			}
 		})
 	}

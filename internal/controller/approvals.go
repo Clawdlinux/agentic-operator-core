@@ -265,7 +265,7 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 			agenticv1alpha1.PhaseRejected, "Rejected", fmt.Sprintf("action %q rejected by %s", ref, d.Approver.Username), now)
 	case blocked:
 		// A human cannot override invariants or pack denies. Record the deny.
-		r.recordDecision(ctx, wl, tgt.name, in, layers, decision.Decide(layers), mode)
+		r.recordDecision(ctx, wl, tgt.name, in, layers, decision.Decide(layers), mode, nil)
 		return r.finishApproval(ctx, wl, d.Label, approvalDenied, d.ApproverSHA256(), receiptSeq(humanReceipt),
 			"PolicyDenied", "HumanDecisionBlocked", fmt.Sprintf("human %s of %q blocked: %s", d.Label, ref, strings.Join(decision.Decide(layers).Reasons, "; ")), now)
 	}

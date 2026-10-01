@@ -65,8 +65,9 @@ func (r *AgentWorkloadReconciler) recordDecision(
 	layers decision.Layers,
 	result decision.Result,
 	thresholdMode string,
+	model *receipts.Model,
 ) (decision.Result, decided) {
-	rec, err := newRecord(wl, action, in, layers, result, thresholdMode)
+	rec, err := newRecord(wl, action, in, layers, result, thresholdMode, model)
 	out := decided{record: rec}
 	if !r.Receipts.Enabled {
 		return result, out
@@ -90,7 +91,7 @@ func (r *AgentWorkloadReconciler) recordDecision(
 		}
 	}
 	result = decision.Decide(layers)
-	out.record, _ = newRecord(wl, action, in, layers, result, thresholdMode)
+	out.record, _ = newRecord(wl, action, in, layers, result, thresholdMode, model)
 	return result, out
 }
 
@@ -101,6 +102,7 @@ func newRecord(
 	layers decision.Layers,
 	result decision.Result,
 	thresholdMode string,
+	model *receipts.Model,
 ) (receipts.DecisionRecord, error) {
 	return receipts.NewDecisionRecord(receipts.Params{
 		Workload:      workloadRef(wl),
@@ -110,6 +112,7 @@ func newRecord(
 		Result:        result,
 		PolicyPacks:   wl.Spec.PolicyPacks,
 		ThresholdMode: thresholdMode,
+		Model:         model,
 	})
 }
 
