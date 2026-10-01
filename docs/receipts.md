@@ -103,7 +103,14 @@ Order on the direct path:
 1. Invariants, packs, threshold run. `decision.Decide` picks the outcome.
 2. The operator appends the receipt. `Append` returns only after the record
    and receipt are fsynced on the writer.
-3. Only then is the action executed or held.
+3. On allow, the operator reserves execution: a status write (condition
+   `ExecutionReserved`) sent with the resourceVersion the decision read. If
+   the workload changed since then, for example a pack was added or declared
+   intent was tightened while the append was blocked, the write conflicts.
+   The action is not executed. The workload is decided again on the fresh
+   object. The receipt from step 2 stays: it records a decision that did not
+   run.
+4. Only then is the action executed or held.
 
 `RECEIPTS_REQUIRED=true`:
 

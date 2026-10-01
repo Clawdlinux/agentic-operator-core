@@ -29,6 +29,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apiMeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -640,6 +641,19 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if result.Outcome == decision.Allow {
+		// Order: receipt append, reservation, execute. The reservation is an
+		// optimistic status write. A spec change since the decision read
+		// (new pack, tighter declared intent) conflicts here, before any side
+		// effect, and the action is decided again on the fresh object.
+		if err := r.reserveExecution(ctx, &workload, action.Name, recorded, now); err != nil {
+			if apierrors.IsConflict(err) {
+				log.Info("workload changed after the decision; not executing, deciding again", "action", action.Name)
+				return ctrl.Result{RequeueAfter: time.Second}, nil
+			}
+			log.Error(err, "execution reservation failed; not executing", "action", action.Name)
+			return ctrl.Result{}, err
+		}
+
 		// Step 5a: Execute approved action via MCP
 		log.Info("OPA approved action, executing", "action", action.Name)
 
