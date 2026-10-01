@@ -194,7 +194,7 @@ export KUBECONFIG="${KUBECONFIG_FILE}"
 run kind load docker-image "${IMAGE}" --name "${CLUSTER_NAME}"
 
 heading "Install cert-manager ${CERT_MANAGER_VERSION}"
-run helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+run helm --kube-context "kind-${CLUSTER_NAME}" upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --namespace cert-manager --create-namespace --version "${CERT_MANAGER_VERSION}" \
   --set crds.enabled=true --timeout "${HELM_TIMEOUT}" --wait >/dev/null
 
@@ -208,7 +208,12 @@ kc -n "${NS}" create secret generic receipt-signing-key \
 note "signing key Secret created (value not printed)"
 image_repo="${IMAGE%%:*}"
 image_tag="${IMAGE##*:}"
-run helm upgrade --install "${RELEASE}" "${REPO_ROOT}/charts" --namespace "${NS}" \
+# kindnet enforces NetworkPolicy. The chart's default-deny egress has no rule
+# for an MCP endpoint, so allow the kind pod CIDR on the mock's port only.
+run helm --kube-context "kind-${CLUSTER_NAME}" upgrade --install "${RELEASE}" "${REPO_ROOT}/charts" --namespace "${NS}" \
+  --set 'networkPolicy.additionalAllowedHosts[0].cidr=10.244.0.0/16' \
+  --set 'networkPolicy.additionalAllowedHosts[0].ports[0].port=8443' \
+  --set 'networkPolicy.additionalAllowedHosts[0].ports[0].protocol=TCP' \
   --set-string license.key=dev-license \
   --set argo.enabled=false --set browserless.enabled=false --set litellm.enabled=false \
   --set minio.enabled=false --set postgresql.enabled=false \
@@ -557,8 +562,8 @@ s6() {
 }
 
 s7() {
-  run kubectl -n "${NS}" create configmap decision-model --from-file=model.json="${MODEL_JSON}"
-  run helm upgrade "${RELEASE}" "${REPO_ROOT}/charts" -n "${NS}" --reuse-values \
+  run kubectl --context "kind-${CLUSTER_NAME}" -n "${NS}" create configmap decision-model --from-file=model.json="${MODEL_JSON}"
+  run helm --kube-context "kind-${CLUSTER_NAME}" upgrade "${RELEASE}" "${REPO_ROOT}/charts" -n "${NS}" --reuse-values \
     --set global.decisionModel.existingConfigMap=decision-model --timeout "${HELM_TIMEOUT}" --wait >/dev/null
   local end
   end=$(( $(date +%s) + 120 ))
@@ -629,8 +634,9 @@ NOT proven by this demo:
 - Argo approval gates
 - execution outcome receipts (only the pre-execution decision is signed)
 - production validity of the decision model (trained on synthetic DRAFT data)
-- packet-level egress enforcement (kind's CNI does not enforce NetworkPolicy;
-  INV-02 checks the configured MCP endpoint only)
+- packet-level egress enforcement (not asserted here; the demo opens operator
+  egress to the mock on the pod CIDR, and INV-02 checks the configured MCP
+  endpoint only)
 - caller identity observation (observed.callerIdentity is empty)
 EOF
 
