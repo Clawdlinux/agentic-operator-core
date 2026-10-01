@@ -1,0 +1,11 @@
+# Demo-only image for scripts/demo-claims.sh. Not a release artifact.
+# The repo Dockerfile cannot build while go.mod carries the local receiptspec
+# replace (see BLOCKERS.md), so the script builds linux binaries on the host
+# and copies them in. Drop this file once agentgate v0.1.4 is tagged.
+FROM gcr.io/distroless/static:nonroot
+COPY --chmod=0555 manager receipt-writer mockmcp /
+# Throwaway CA and serving cert for the mock MCP server, generated per build.
+# 0555, not 0444: --chmod also sets the new /demo dir mode, which needs x.
+COPY --chmod=0555 ca.crt tls.crt tls.key /demo/
+USER nonroot:nonroot
+ENTRYPOINT ["/receipt-writer"]
