@@ -9,6 +9,7 @@ import (
 
 	agentctl "github.com/Clawdlinux/agentic-operator-core/pkg/agentctl"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -306,9 +307,8 @@ func runWorkflows(_ context.Context, opts *cliOptions, cmd *cobra.Command) error
 	case "json", "yaml":
 		return agentctl.PrintStructured(w, workflows, opts.Output)
 	default:
-		tbl := tablewriter.NewWriter(w)
-		tbl.SetHeader([]string{"WORKFLOW", "DESCRIPTION", "DAG SHAPE", "EXAMPLE"})
-		tbl.SetAutoWrapText(false)
+		tbl := tablewriter.NewTable(w, tablewriter.WithRowAutoWrap(tw.WrapNone))
+		tbl.Header([]string{"WORKFLOW", "DESCRIPTION", "DAG SHAPE", "EXAMPLE"})
 		for _, wf := range workflows {
 			tbl.Append([]string{wf.Name, wf.Description, wf.DAGShape, wf.Example})
 		}

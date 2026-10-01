@@ -145,6 +145,16 @@ type AgentWorkloadSpec struct {
 	// escalate the action. See docs/policy-input.md.
 	// +optional
 	DeclaredIntent *DeclaredIntent `json:"declaredIntent,omitempty"`
+
+	// policyPacks lists Rego policy packs to evaluate, each as name@vX.Y.Z.
+	// Packs only add deny or require-approval. They are engineering controls,
+	// not legal advice. Enforced on the direct action path only.
+	// See docs/policy-packs.md.
+	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:validation:items:Pattern=`^(dpdp-in|gdpr-eu)@v[0-9]+\.[0-9]+\.[0-9]+$`
+	// +listType=set
+	// +optional
+	PolicyPacks []string `json:"policyPacks,omitempty"`
 }
 
 // DeclaredIntent is the human-reviewed purpose and allow lists for a workload.

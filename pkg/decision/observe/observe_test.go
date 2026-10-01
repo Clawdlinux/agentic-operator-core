@@ -35,6 +35,11 @@ func TestObserve(t *testing.T) {
 			},
 		},
 		{"bad endpoint", Facts{Endpoint: "://"}, input.Observed{DataClasses: []string{}}},
+		{
+			"credential",
+			Facts{Payload: map[string]any{"params": map[string]any{"key": "AKIAIOSFODNN7EXAMPLE"}}},
+			input.Observed{DataClasses: []string{"credential"}},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

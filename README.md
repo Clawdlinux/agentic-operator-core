@@ -293,6 +293,7 @@ assets/                 Branding assets (logo, etc.)
 | [Cost Management](docs/06-cost-management.md) | Per-workload billing and chargeback |
 | [Security](docs/07-security.md) | Cilium, action rules, RBAC, and egress hardening |
 | [Policy input](docs/policy-input.md) | Declared, observed, and agent-claimed decision inputs |
+| [Policy packs](docs/policy-packs.md) | Invariants and opt-in Rego packs (`dpdp-in`, `gdpr-eu`) |
 | [Troubleshooting](docs/10-troubleshooting.md) | Common issues and fixes |
 
 ---

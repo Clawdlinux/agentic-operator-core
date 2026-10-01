@@ -24,8 +24,18 @@ Rule count explodes, edge cases never end. Policy documents are prose. So model 
 model id and version, input hash, option set and order, per-option probabilities, threshold used, outcome, layer that decided. Replay with same inputs must reproduce the score (pin version, temperature 0, fixed seed). Air-gap: model runs in cluster (self-hosted small model). No hosted scoring API in the default path.
 
 ## Today vs target (verified in code 2026-10-01)
-- pkg/opa/evaluator.go: hardcoded Go thresholds, not OPA. go.mod has no OPA. .rego ships as ConfigMap, unevaluated.
-- Input confidence comes from the propose_action tool reply. cluster_health comes from the MCP status reply, default 75 when absent (controller ~L436-538). Platform measures neither.
+- Threshold evaluator moved from pkg/opa to pkg/rules/threshold. Still
+  hardcoded Go thresholds. pkg/opa is a deprecated alias package.
+- go.mod now has OPA (v1.19.1). pkg/rules/engine embeds it and evaluates the
+  shipped packs (dpdp-in, gdpr-eu) when spec.policyPacks is set. The
+  config/policies and pkg/rules/threshold .rego samples are still unevaluated.
+- Invariants (pkg/invariants, INV-01 to INV-05) run on every direct-path
+  action. See [invariants](invariants.md). INV-05 is wired but off until
+  receipts ship.
+- Layers combine in pkg/decision.Decide. Strictest wins.
+- Gap: the runtime-adapter path (reconcileViaRuntime) runs neither invariants
+  nor packs. Packs on that path fail closed.
+- Input confidence comes from the propose_action tool reply. cluster_health comes from the MCP status reply, default 75 when absent. Platform measures neither.
 - "Destructive" = string match on action name.
 - pkg/evaluation/scorer.go: keyword heuristic, post hoc, blocks nothing.
 - AgentGate: deterministic, fine as invariant layer example.

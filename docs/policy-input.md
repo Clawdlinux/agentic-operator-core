@@ -11,7 +11,8 @@ different trust level. Source of truth for the design:
 | Agent-claimed | The agent or its MCP server | No. It can only tighten |
 
 Code: `pkg/decision/input` (types), `pkg/decision/observe` (builder),
-`pkg/dataclass` (detectors), `pkg/decision.Combine` (tighten-only merge).
+`pkg/dataclass` (detectors), `pkg/invariants` (always-on checks),
+`pkg/rules/engine` (policy packs), `pkg/decision.Decide` (strictest wins).
 
 ## Declared
 
@@ -19,13 +20,14 @@ Set in `spec.declaredIntent` on an `AgentWorkload`. All fields optional.
 
 | Field | Meaning |
 |---|---|
-| `purpose` | Short human statement of what the workload does. Recorded only. |
-| `decisionType` | Kind of decision the agent makes, e.g. `refund-triage`. Recorded only. |
-| `allowedDataClasses` | Data classes the workload may send. Known: `email`, `phone`, `aadhaar`, `pan`, `iban`, `card`. |
+| `purpose` | Short human statement of what the workload does. Policy packs require it when they see personal data. |
+| `decisionType` | Kind of decision the agent makes, e.g. `refund-triage`. Packs treat `automated` as needing human approval when personal data is present. |
+| `allowedDataClasses` | Data classes the workload may send. Known: `email`, `phone`, `aadhaar`, `pan`, `iban`, `card`. Declaring `credential` has no effect: INV-01 always denies it. |
 | `allowedDestinations` | Hosts the workload may call. Exact host, or `*.example.com` for any subdomain. The apex does not match the wildcard. |
 
 Rules:
-- If `declaredIntent` is absent, nothing changes. The legacy path behaves as before.
+- If `declaredIntent` is absent, declared-intent checks (INV-02 to INV-04)
+  do not run. INV-01 (credentials) still runs.
 - If `declaredIntent` is present, an empty allow list allows nothing.
 - Matching is case-insensitive.
 
@@ -47,6 +49,9 @@ Built by `observe.Observe` from values the controller already holds.
 Detectors are deterministic. Aadhaar requires a valid Verhoeff checksum. Card
 requires Luhn. IBAN requires mod-97. Phone is pattern based (E.164 with `+`,
 10 digit Indian mobile, US `(415) 555-0100`) and will have false positives.
+Credential is pattern based: AWS access key IDs, PEM private key headers,
+JWT-shaped tokens, `Bearer` tokens of 20+ characters, and GitHub `ghp_` and
+`github_pat_` tokens.
 Scanning is bounded: depth 8, 64 KiB per string, 1 MiB and 10000 nodes per
 value. Map keys are not scanned.
 
@@ -61,8 +66,9 @@ Be clear about the gaps:
 - Data sent before the decision. The objective already goes to the MCP server
   in `propose_action`, before any check runs.
 - Cluster health. The platform does not measure it. See below.
-- Orchestrated runtimes (`spec.orchestration`). This check runs only on the
-  legacy direct-action path.
+- Orchestrated runtimes (`spec.orchestration`). Invariants and packs run only
+  on the legacy direct-action path. Packs set on an orchestrated workload
+  fail closed with condition `PolicyPackInvalid`.
 
 ## Agent-claimed
 
@@ -72,15 +78,24 @@ Be clear about the gaps:
 | `clusterHealth` | `cluster_health` in the MCP `get_status` reply. Nil when absent. The threshold evaluator then uses a default of 75. |
 | `intent` | `description` in the `propose_action` reply. |
 
-These values feed the existing threshold evaluator in `pkg/opa`. They are
-logged as agent-claimed. They may only tighten an outcome.
-`decision.Combine(rulesDenied, thresholdAllowed)` returns
-`!rulesDenied && thresholdAllowed`. A high claimed confidence cannot turn a
-declared-intent violation into an allow.
+These values feed the threshold evaluator in `pkg/rules/threshold`. They are
+logged as agent-claimed. They may only tighten an outcome. A high claimed
+confidence cannot turn an invariant or pack finding into an allow.
 
 ## Outcome
 
-When `declaredIntent` is set and any violation is found:
-- strict policy: phase `PolicyDenied`, violation reasons appended to the
-  `PolicyDenied` condition message.
-- permissive or unset policy: phase `PendingApproval`.
+`decision.Decide` merges the layers. The strictest result wins.
+
+| Result | strict | permissive or unset |
+|---|---|---|
+| Any invariant finding ([list](architecture/invariants.md)) | `PolicyDenied` | `PendingApproval` |
+| Any pack deny or pack error | `PolicyDenied` | `PendingApproval` |
+| Threshold deny | `PolicyDenied` | `PendingApproval` |
+| Pack require approval, nothing denies | `PendingApproval` | `PendingApproval` |
+| Nothing objects | action executes | action executes |
+
+Under strict, reasons with rule IDs (for example `INV-02: ...` or
+`gdpr-eu@v0.1.0/GDPR-EU-01: ...`) are appended to the `PolicyDenied`
+condition message. A pack approval sets condition `ApprovalRequired`. In
+permissive mode a deny sets no condition, as before. See
+[policy packs](policy-packs.md).

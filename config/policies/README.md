@@ -1,8 +1,8 @@
 # Rego policy samples (not evaluated yet)
 
-These are sample Rego files. The operator does not execute them. The direct
-action path uses a Go threshold evaluator. A real rule engine is on the
-[roadmap](../../ROADMAP.md). See the
+These are sample Rego files. The operator does not execute them. The operator
+evaluates only the shipped policy packs in `pkg/rules/packs`. See
+[policy packs](../../docs/policy-packs.md) and the
 [decision architecture](../../docs/architecture/decision-architecture.md).
 
 ## What is included

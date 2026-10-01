@@ -134,6 +134,56 @@ func TestDetectValueSizeLimited(t *testing.T) {
 	}
 }
 
+func TestDetectCredential(t *testing.T) {
+	// Test fixtures only. None of these are live secrets.
+	tests := []struct {
+		name string
+		in   string
+		want bool
+	}{
+		{"aws key id", "key AKIAIOSFODNN7EXAMPLE here", true},
+		{"aws too short", "AKIAIOSFODNN7EXAMP", false},
+		{"aws lowercase", "akiaiosfodnn7example", false},
+		{"rsa private key", "-----BEGIN RSA PRIVATE KEY-----\nMIIE", true},
+		{"generic private key", "-----BEGIN PRIVATE KEY-----", true},
+		{"public key", "-----BEGIN PUBLIC KEY-----", false},
+		{"jwt", "token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig", true},
+		{"jwt one part", "eyJhbGciOiJIUzI1NiJ9 only", false},
+		{"bearer", "Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345", true},
+		{"bearer short", "bearer abc", false},
+		{"github classic", "ghp_" + strings.Repeat("a1", 18), true},
+		{"github fine grained", "github_pat_" + strings.Repeat("A", 30), true},
+		{"github prefix only", "ghp_short", false},
+		{"plain", "scale deployment web to 3 replicas", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := false
+			for _, c := range Detect(tc.in) {
+				if c == Credential {
+					got = true
+				}
+			}
+			if got != tc.want {
+				t.Fatalf("credential = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsPersonal(t *testing.T) {
+	for _, c := range []string{"email", "PHONE", "aadhaar", "pan", "iban", "card"} {
+		if !IsPersonal(c) {
+			t.Fatalf("%s should be personal", c)
+		}
+	}
+	for _, c := range []string{"credential", "", "other"} {
+		if IsPersonal(c) {
+			t.Fatalf("%s should not be personal", c)
+		}
+	}
+}
+
 func TestStrings(t *testing.T) {
 	if got := Strings([]Class{Card, Email}); !reflect.DeepEqual(got, []string{"card", "email"}) {
 		t.Fatalf("Strings = %v", got)

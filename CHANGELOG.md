@@ -11,8 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a working booth prepare/present flow with real provider and cost proof.
 - Added `agentctl doctor sandbox` to verify RuntimeClass and ready-node sandbox evidence before workload deployment.
 - Added optional `spec.declaredIntent` on `AgentWorkload` and observed decision inputs. The legacy action path now denies or escalates actions that send undeclared data classes or call undeclared hosts. Agent-claimed confidence and cluster health can only tighten. New packages: `pkg/dataclass`, `pkg/decision`, `pkg/decision/input`, `pkg/decision/observe`. See `docs/policy-input.md`.
+- Added invariants (`pkg/invariants`, INV-01 to INV-05), an embedded OPA rule engine (`pkg/rules/engine`, OPA v1.19.1), and opt-in policy packs `dpdp-in@v0.1.0` and `gdpr-eu@v0.1.0` via `spec.policyPacks`. Packs only add deny or require approval. Packs are engineering controls, not legal advice. The `credential` data class is now detected and always denied (INV-01), even without `declaredIntent`. Direct action path only. See `docs/policy-packs.md`.
 
 ### Changed
+- Moved the threshold evaluator from `pkg/opa` to `pkg/rules/threshold`. `pkg/opa` remains as a deprecated alias package.
+- `agentctl` table output now uses tablewriter v1 (box-drawn borders). OPA v1.19.1 requires it.
+- An unknown or unenforceable `spec.policyPacks` entry fails the workload closed with condition `PolicyPackInvalid`. The validating webhook also rejects unknown packs.
 - Docs: removed claims not backed by code. Added the decision architecture ADR (`docs/architecture/decision-architecture.md`). Rego files are labelled samples; the action path is a Go threshold evaluator.
 - Changed the internal Go `CostReporter.RecordUsage` and `Provider.CallModel` interfaces to carry operation IDs for idempotency. This breaks out-of-tree implementations.
 - Added the optional `litellm.anthropicKey` chart value. Use `litellm.existingSecret` for booth and production deployments.

@@ -50,6 +50,10 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 - [x] Grafana observability and per-workload cost dashboards
 - [x] Reproducible booth demo gate on kind
 
+## Shipped (decision architecture)
+
+- [x] Rule engine (OPA Go library) with invariants and policy packs. 5 invariants, `dpdp-in@v0.1.0` and `gdpr-eu@v0.1.0` packs. Direct action path only; orchestrated runtimes reject packs. See [policy packs](docs/policy-packs.md)
+
 ## Now
 
 Priority order. Validation before features.
@@ -64,7 +68,7 @@ Priority order. Validation before features.
 - [ ] ACP RemoteMCPServer wrapper example
 - [ ] Homebrew tap for agentctl
 - [ ] Observed decision inputs. The platform measures destination, data classes and caller. Agent self-report only tightens.
-- [ ] Rule engine (OPA Go library) with invariants and policy packs
+- [ ] Invariants and policy packs on orchestrated runtimes (`spec.orchestration`)
 - [ ] Decision model: escalate-only scoring, shadow mode first. See [decision architecture](docs/architecture/decision-architecture.md)
 
 ## Later (all validation-gated)

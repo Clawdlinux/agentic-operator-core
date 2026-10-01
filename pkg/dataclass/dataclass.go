@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package dataclass runs deterministic detectors for personal and financial
-// data classes. It returns class names only. It never returns or logs the
-// matched content.
+// Package dataclass runs deterministic detectors for personal, financial, and
+// credential data classes. It returns class names only. It never returns or
+// logs the matched content.
 package dataclass
 
 import (
@@ -38,6 +38,8 @@ const (
 	PAN     Class = "pan"
 	IBAN    Class = "iban"
 	Card    Class = "card"
+	// Credential marks a secret-shaped string. Invariant INV-01 always denies it.
+	Credential Class = "credential"
 )
 
 // Limits keep scanning bounded on hostile input.
@@ -61,6 +63,15 @@ var (
 	panRe       = regexp.MustCompile(`\b[A-Z]{5}[0-9]{4}[A-Z]\b`)
 	ibanRe      = regexp.MustCompile(`\b[A-Z]{2}[0-9]{2}(?: ?[A-Z0-9]){11,30}\b`)
 	cardRe      = regexp.MustCompile(`\b[0-9](?:[ -]?[0-9]){12,18}\b`)
+
+	credentialRes = []*regexp.Regexp{
+		regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`),
+		regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----`),
+		regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{4,}\.eyJ[A-Za-z0-9_-]{4,}`),
+		regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._~+/-]{20,}`),
+		regexp.MustCompile(`\bghp_[A-Za-z0-9]{36}\b`),
+		regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{22,}`),
+	}
 )
 
 // Detect returns the sorted, deduplicated classes found in s.
@@ -149,6 +160,12 @@ func detectInto(s string, set map[Class]struct{}) {
 	}
 	if anyIsolated(s, cardRe, luhnValid) {
 		set[Card] = struct{}{}
+	}
+	for _, re := range credentialRes {
+		if re.MatchString(s) {
+			set[Credential] = struct{}{}
+			break
+		}
 	}
 }
 
@@ -311,6 +328,16 @@ func sorted(set map[Class]struct{}) []Class {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out
+}
+
+// IsPersonal reports whether name is a personal data class. Credential is not
+// personal data; INV-01 handles it.
+func IsPersonal(name string) bool {
+	switch Class(strings.ToLower(name)) {
+	case Email, Phone, Aadhaar, PAN, IBAN, Card:
+		return true
+	}
+	return false
 }
 
 // Strings converts classes to plain strings.

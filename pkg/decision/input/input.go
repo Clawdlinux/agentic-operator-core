@@ -73,7 +73,21 @@ func (in Input) Violations() []string {
 		return nil
 	}
 	var out []string
+	if v := in.DataClassViolation(); v != "" {
+		out = append(out, v)
+	}
+	if v := in.DestinationViolation(); v != "" {
+		out = append(out, v)
+	}
+	return out
+}
 
+// UndeclaredDataClasses returns observed classes missing from the declared
+// allow list, sorted. It returns nil when nothing is declared.
+func (in Input) UndeclaredDataClasses() []string {
+	if in.Declared.IsZero() {
+		return nil
+	}
 	allowed := map[string]bool{}
 	for _, c := range in.Declared.AllowedDataClasses {
 		allowed[strings.ToLower(strings.TrimSpace(c))] = true
@@ -84,15 +98,33 @@ func (in Input) Violations() []string {
 			undeclared = append(undeclared, c)
 		}
 	}
-	if len(undeclared) > 0 {
-		sort.Strings(undeclared)
-		out = append(out, fmt.Sprintf("observed data classes not declared: %s", strings.Join(undeclared, ",")))
-	}
+	sort.Strings(undeclared)
+	return undeclared
+}
 
-	if host := Host(in.Observed.Destination); host != "" && !hostAllowed(host, in.Declared.AllowedDestinations) {
-		out = append(out, fmt.Sprintf("observed destination %q not declared", host))
+// DataClassViolation returns a reason when observed data classes fall outside
+// the declared allow list, or "" when they do not or nothing is declared.
+func (in Input) DataClassViolation() string {
+	if u := in.UndeclaredDataClasses(); len(u) > 0 {
+		return fmt.Sprintf("observed data classes not declared: %s", strings.Join(u, ","))
 	}
-	return out
+	return ""
+}
+
+// DestinationDeclared reports whether the observed destination is in the
+// declared allow list. An empty destination counts as declared.
+func (in Input) DestinationDeclared() bool {
+	host := Host(in.Observed.Destination)
+	return host == "" || hostAllowed(host, in.Declared.AllowedDestinations)
+}
+
+// DestinationViolation returns a reason when the observed destination is not
+// declared, or "" when it is or nothing is declared.
+func (in Input) DestinationViolation() string {
+	if in.Declared.IsZero() || in.DestinationDeclared() {
+		return ""
+	}
+	return fmt.Sprintf("observed destination %q not declared", Host(in.Observed.Destination))
 }
 
 // Host extracts the lower-case host from a URL or host[:port] string.

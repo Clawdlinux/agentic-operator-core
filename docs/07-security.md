@@ -41,23 +41,35 @@ Verify rendered Roles and bindings against the customer's tenancy model before p
 
 ## Action Policy And Rego Assets
 
-The legacy direct-action path uses an in-process Go evaluator selected by:
+The legacy direct-action path decides in 3 layers. The strictest result wins.
+
+1. Invariants in `pkg/invariants`. Deterministic Go. Always on. Example: a
+   credential-shaped value in the proposed action is denied. See
+   [invariants](architecture/invariants.md).
+2. Policy packs in `pkg/rules/packs`, evaluated by the embedded OPA Go library
+   in `pkg/rules/engine`. Opt in with `spec.policyPacks`. Packs only add deny
+   or require approval. See [policy packs](policy-packs.md).
+3. A Go threshold evaluator in `pkg/rules/threshold`, selected by:
 
 ```yaml
 opaPolicy: strict
 ```
 
-It evaluates action type, caller-supplied confidence, cluster health, and strict
-or permissive mode. Read-only actions use a separate allow path. Confidence comes
-from the `propose_action` tool reply. Cluster health comes from the MCP status
-reply and defaults to 75 when absent. The platform measures neither, so both are
-agent-claimed inputs.
+The threshold evaluator reads action type, caller-supplied confidence, cluster
+health, and strict or permissive mode. Read-only actions use a separate allow
+path. Confidence comes from the `propose_action` tool reply. Cluster health
+comes from the MCP status reply and defaults to 75 when absent. The platform
+measures neither, so both are agent-claimed inputs.
 They can tighten a decision. They must never loosen one. See
 [decision architecture](architecture/decision-architecture.md).
 
-The repository also ships Rego samples in a ConfigMap. The direct action path
-does not execute those Rego files or call a real OPA engine today. Treat them as
-policy assets and integration examples.
+The engine evaluates the shipped packs only. The Rego samples under
+`config/policies` and `pkg/rules/threshold/policies.rego` are still not
+evaluated. Treat them as policy assets and integration examples.
+
+Orchestrated workloads (`spec.orchestration`) do not run invariants or packs
+yet. A workload that sets `spec.policyPacks` on that path fails closed with
+condition `PolicyPackInvalid`.
 
 ## Network Isolation
 

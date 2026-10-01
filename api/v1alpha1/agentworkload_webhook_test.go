@@ -308,3 +308,34 @@ func TestValidateMCPEndpoint(t *testing.T) {
 		}
 	}
 }
+
+func TestWebhook_PolicyPacks(t *testing.T) {
+	tests := []struct {
+		name    string
+		packs   []string
+		wantErr bool
+	}{
+		{"none", nil, false},
+		{"known", []string{"dpdp-in@v0.1.0", "gdpr-eu@v0.1.0"}, false},
+		{"unknown version", []string{"dpdp-in@v9.9.9"}, true},
+		{"unknown name", []string{"hipaa@v0.1.0"}, true},
+		{"no version", []string{"gdpr-eu"}, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			w := &AgentWorkload{Spec: AgentWorkloadSpec{
+				MCPServerEndpoint: stringPtr("https://localhost:8000"),
+				Objective:         stringPtr("test objective"),
+				Agents:            []string{"agent1"},
+				PolicyPacks:       tc.packs,
+			}}
+			err := w.ValidateCreate()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("ValidateCreate err = %v, wantErr %v", err, tc.wantErr)
+			}
+			if err != nil && !strings.Contains(err.Error(), "policyPacks") {
+				t.Fatalf("error should name policyPacks: %v", err)
+			}
+		})
+	}
+}

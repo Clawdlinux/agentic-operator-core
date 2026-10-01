@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/packs"
 )
 
 var agentworkloadlog = logf.Log.WithName("agentworkload-resource")
@@ -177,6 +179,13 @@ func (r *AgentWorkload) validate() error {
 		validPolicies := []string{"strict", "permissive"}
 		if !isStringInSlice(*r.Spec.OPAPolicy, validPolicies) {
 			allErrs = append(allErrs, fmt.Sprintf("opaPolicy must be one of %v, got %q", validPolicies, *r.Spec.OPAPolicy))
+		}
+	}
+
+	// 7. Validate policyPacks against shipped packs at exact versions.
+	for _, p := range r.Spec.PolicyPacks {
+		if !packs.Valid(p) {
+			allErrs = append(allErrs, fmt.Sprintf("policyPacks: unknown pack %q, known: %v", p, packs.Known()))
 		}
 	}
 

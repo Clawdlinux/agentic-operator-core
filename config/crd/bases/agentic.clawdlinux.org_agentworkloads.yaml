@@ -218,6 +218,18 @@ spec:
                       type: string
                     type: array
                 type: object
+              policyPacks:
+                description: |-
+                  policyPacks lists Rego policy packs to evaluate, each as name@vX.Y.Z.
+                  Packs only add deny or require-approval. They are engineering controls,
+                  not legal advice. Enforced on the direct action path only.
+                  See docs/policy-packs.md.
+                items:
+                  pattern: ^(dpdp-in|gdpr-eu)@v[0-9]+\.[0-9]+\.[0-9]+$
+                  type: string
+                maxItems: 8
+                type: array
+                x-kubernetes-list-type: set
               providers:
                 description: |-
                   providers defines LLM providers available for this workload
