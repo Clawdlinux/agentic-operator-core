@@ -53,11 +53,11 @@ func TestNewHumanRecord(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if f.HumanPrincipal != "alice" || f.PolicyDecision != tc.pd {
+			if f.HumanPrincipal != IdentityDigest("alice") || f.PolicyDecision != tc.pd {
 				t.Fatalf("fields = %+v", f)
 			}
 			raw, _ := json.Marshal(rec)
-			for _, leak := range []string{"AKIA", "a@b.io"} {
+			for _, leak := range []string{"AKIA", "a@b.io", "alice"} {
 				if strings.Contains(string(raw), leak) {
 					t.Fatalf("human record leaked %q", leak)
 				}

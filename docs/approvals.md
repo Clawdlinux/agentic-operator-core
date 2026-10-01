@@ -112,8 +112,11 @@ On a stamped decision for the current pending `id`:
    action that would execute. Edit runs them on the edited action.
 2. It records the decision in `status.pendingApproval.state` (`Recording`).
 3. It writes a layer `human` receipt: outcome `approved`, `rejected`, or
-   `edited`. The receipt `human_principal` is the approver username. Reasons
-   hold the approver, `sha256:` of the reason, and the pending `id`.
+   `edited`. The receipt `human_principal` is the approver identity digest
+   (see [receipts](receipts.md)), never the raw username. Reasons hold the
+   same digest, `sha256:` of the reason, and the pending `id`. The raw
+   username appears only in the `ApprovalDecision` condition message, so an
+   operator can see which RBAC subject decided.
 4. With `RECEIPTS_REQUIRED=true` and a failed write, it stops. Condition
    reason `ReceiptFailed`. The action stays pending.
 5. It appends the dataset example.

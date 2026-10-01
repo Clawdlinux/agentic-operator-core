@@ -179,8 +179,9 @@ type DecisionRecord struct {
 	ReplayHint    string          `json:"replay_hint"`
 }
 
-// Approval is set on layer "human" records. Approver is the username the
-// admission webhook stamped. The full stamp and the reason are hashed only.
+// Approval is set on layer "human" records. Approver is the pseudonymous
+// digest of the username the admission webhook stamped (IdentityDigest),
+// never the raw username. The full stamp and the reason are hashed only.
 type Approval struct {
 	Label             string   `json:"label"`
 	Approver          string   `json:"approver"`
@@ -195,6 +196,16 @@ type Approval struct {
 	PendingPayloadSHA256 string `json:"pending_payload_sha256,omitempty"`
 	// ConsumedIDSHA256 marks the pending id as used. Set by NewHumanRecord.
 	ConsumedIDSHA256 string `json:"consumed_id_sha256"`
+}
+
+// identityDomain separates identity digests from every other hash.
+const identityDomain = "clawdlinux.org/human-identity/v1"
+
+// IdentityDigest is the pseudonymous form of a Kubernetes username stored in
+// records: "sha256:" and the hex SHA-256 of the domain, a NUL, and the name.
+func IdentityDigest(username string) string {
+	sum := sha256.Sum256([]byte(identityDomain + "\x00" + username))
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 // consumedDomain separates consumed pending id digests from other hashes.
@@ -265,6 +276,7 @@ func NewHumanRecord(p HumanParams) (DecisionRecord, error) {
 	a := p.Approval
 	a.EditedFields = sortedCopy(a.EditedFields)
 	a.ConsumedIDSHA256 = ConsumedIDSHA256(p.Workload.UID, a.PendingID)
+	a.Approver = IdentityDigest(a.Approver)
 	reason := "none"
 	if a.ReasonSHA256 != "" {
 		reason = "sha256:" + a.ReasonSHA256

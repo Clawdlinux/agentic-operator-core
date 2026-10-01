@@ -35,7 +35,7 @@ Each receipt is a v1 AgentGate receipt:
 | `policy_decision` | `allow` for allow. `deny` for deny and require_approval |
 | `status_code` | 200 allow, 202 require_approval, 403 deny |
 | `params_sha256` | SHA-256 of the canonical decision record |
-| `human_principal` | `system:clawdlinux-operator`, or the approver username for layer `human` |
+| `human_principal` | `system:clawdlinux-operator`, or the approver identity digest for layer `human` |
 | `agent_key_id` | workload UID |
 
 The decision record sits beside the receipt in `records.jsonl`. Fields:
@@ -45,7 +45,15 @@ The decision record sits beside the receipt in `records.jsonl`. Fields:
 `claimed`, `policy_packs`, `threshold_mode`, `replay_hint`. A `model` block is
 added whenever the decision model scored the action. See
 [model block](#model-block). Human decisions add an `approval`
-block and set `human_principal` to the approver. See [approvals](approvals.md).
+block and set `human_principal` to the approver identity digest. See
+[approvals](approvals.md).
+
+Records never hold a raw Kubernetes username. Usernames are often emails. The
+approver is stored as `sha256:` plus the hex SHA-256 of
+`clawdlinux.org/human-identity/v1`, a NUL, and the username. The same digest
+goes in `approval.approver`, the `approver` reason, and `human_principal`. To
+check a known user, compute the digest and compare. The digest is
+pseudonymous, not anonymous: a guessed username can be confirmed.
 
 `input_hash` is the SHA-256 of the canonical JSON of the full decision input:
 declared, observed, agent-claimed (labelled `agent_claimed`), and

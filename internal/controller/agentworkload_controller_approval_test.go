@@ -274,7 +274,7 @@ func TestReconcile_ApprovalDecisions(t *testing.T) {
 			var outcomes []string
 			for _, rec := range env.writer.records[before:after] {
 				outcomes = append(outcomes, rec.Outcome)
-				if strings.Contains(rec.Action, "AKIA") || rec.Approval != nil && rec.Approval.Approver != "alice" {
+				if strings.Contains(rec.Action, "AKIA") || rec.Approval != nil && rec.Approval.Approver != receipts.IdentityDigest("alice") {
 					t.Fatalf("bad record %+v", rec)
 				}
 			}
