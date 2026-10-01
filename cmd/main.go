@@ -381,6 +381,9 @@ func buildReceiptsConfig(cfg receipts.Config, logger logr.Logger) controller.Rec
 		return out
 	}
 	out.Writer = w
+	if cfg.InsecureNoPin && len(cfg.TrustedKeys) == 0 {
+		logger.Info("WARNING: RECEIPTS_INSECURE_NO_PIN=true. Writer receipts are not verified. Demo only.")
+	}
 	if ds, err := dataset.NewRemote(cfg.WriterURL, receipts.TokenFile(cfg.TokenFile), cfg.Timeout); err == nil {
 		out.Approvals = ds
 	} else {

@@ -63,7 +63,8 @@ func TestBuildReceiptsConfig(t *testing.T) {
 	}{
 		{"disabled", receipts.Config{}, false},
 		{"enabled without token file", receipts.Config{Enabled: true, Required: true, WriterURL: "http://w:8080"}, false},
-		{"enabled", receipts.Config{Enabled: true, WriterURL: "http://w:8080", TokenFile: "/var/run/token"}, true},
+		{"enabled without pin", receipts.Config{Enabled: true, WriterURL: "http://w:8080", TokenFile: "/var/run/token"}, false},
+		{"enabled insecure demo", receipts.Config{Enabled: true, WriterURL: "http://w:8080", TokenFile: "/var/run/token", InsecureNoPin: true}, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

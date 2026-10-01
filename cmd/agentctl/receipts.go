@@ -29,7 +29,7 @@ func newReceiptsCommand(opts *cliOptions) *cobra.Command {
 		// Receipts work offline. Do not load a kubeconfig.
 		PersistentPreRunE: func(*cobra.Command, []string) error { return opts.validateOutput() },
 	}
-	cmd.AddCommand(newReceiptsExportCommand(), newReceiptsVerifyCommand())
+	cmd.AddCommand(newReceiptsExportCommand(), newReceiptsVerifyCommand(), newReceiptsTrustRootCommand())
 	return cmd
 }
 
@@ -129,5 +129,31 @@ func newReceiptsVerifyCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&trustRoot, "trust-root", "", "trust file pinned out of band (receiptspec trust file format)")
+	return cmd
+}
+
+func newReceiptsTrustRootCommand() *cobra.Command {
+	var keyFile string
+	cmd := &cobra.Command{
+		Use:   "trust-root",
+		Short: "Print the pinned trust file for a receipt-writer signing key",
+		Long: "Reads the hex Ed25519 signing key the receipt-writer uses and prints the trust file " +
+			"(public key only) for RECEIPTS_WRITER_TRUST_FILE and --trust-root. Run it where the key already lives.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			data, err := os.ReadFile(keyFile)
+			if err != nil {
+				return err
+			}
+			trust, err := receipts.TrustRootFromKeyHex(string(data))
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), string(trust))
+			return err
+		},
+	}
+	cmd.Flags().StringVar(&keyFile, "signing-key-file", "", "file holding the hex Ed25519 signing key")
+	_ = cmd.MarkFlagRequired("signing-key-file")
 	return cmd
 }

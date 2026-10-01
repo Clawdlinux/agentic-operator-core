@@ -139,6 +139,17 @@ Operator env:
 | `RECEIPTS_WRITER_URL` | | Writer base URL |
 | `RECEIPTS_WRITER_TOKEN_FILE` | | Bearer token file, read per request |
 | `RECEIPTS_WRITER_TIMEOUT` | 5s | Per request timeout |
+| `RECEIPTS_WRITER_TRUST_FILE` | | Pinned writer public key (trust file). Required when enabled. The operator refuses to start without it |
+| `RECEIPTS_INSECURE_NO_PIN` | false | Demo only. Start without a pinned key and accept unverified writer receipts |
+
+With a pinned key, `RemoteWriter.Append` checks every receipt the writer
+returns: it binds to the submitted record, its entry hash recomputes, its
+signature verifies under a pinned key inside that key's sequence window, and
+its seq and prev hash extend the last accepted head by one. The first append
+reads `GET /v1/head` to learn the head. A forged, re-signed, or replayed
+receipt fails the append, which fails closed under `RECEIPTS_REQUIRED`. The
+head read is not signed. A MITM on the first call can shift the start point,
+but it still cannot forge a receipt. Appends are serialized per operator.
 
 receipt-writer env:
 
@@ -158,13 +169,22 @@ fields, and trailing data are rejected.
 Helm:
 
 ```sh
+(umask 077 && openssl rand -hex 32 > key.hex)
 kubectl -n agentic-system create secret generic receipt-signing-key \
-  --from-literal=signing-key=$(openssl rand -hex 32)
+  --from-file=signing-key=key.hex
+agentctl receipts trust-root --signing-key-file key.hex > trust.json
+kubectl -n agentic-system create configmap receipt-trust-root \
+  --from-file=trust.json=trust.json
 helm upgrade --install rel charts -n agentic-system \
   --set global.receipts.enabled=true \
   --set global.receipts.required=true \
-  --set global.receipts.signingKey.existingSecret=receipt-signing-key
+  --set global.receipts.signingKey.existingSecret=receipt-signing-key \
+  --set global.receipts.trustRoot.existingConfigMap=receipt-trust-root
 ```
+
+Keep `key.hex` offline after this. `trust.json` holds only the public key.
+The chart fails to render with receipts enabled and no `trustRoot` unless
+`global.receipts.insecureNoPin=true`, which is for demos only.
 
 The block lives under `global` because the operator Deployment is a subchart.
 The chart never generates the signing key. It creates the token Secret once

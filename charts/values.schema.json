@@ -366,6 +366,15 @@
         },
         "token": { "$ref": "#/$defs/secretRef" },
         "signingKey": { "$ref": "#/$defs/secretRef" },
+        "trustRoot": {
+          "type": "object",
+          "properties": {
+            "existingConfigMap": { "type": "string" },
+            "key": { "type": "string", "pattern": "^[-._a-zA-Z0-9]+$" }
+          },
+          "additionalProperties": false
+        },
+        "insecureNoPin": { "type": "boolean" },
         "resources": { "$ref": "#/$defs/resources" }
       }
     },

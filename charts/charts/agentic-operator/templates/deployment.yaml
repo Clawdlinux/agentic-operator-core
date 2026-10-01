@@ -75,6 +75,13 @@ spec:
               value: /etc/receipts/token/{{ (.token).key | default "token" }}
             - name: RECEIPTS_WRITER_TIMEOUT
               value: {{ .timeout | default "5s" | quote }}
+            {{- if (.trustRoot).existingConfigMap }}
+            - name: RECEIPTS_WRITER_TRUST_FILE
+              value: /etc/receipts/trust/{{ (.trustRoot).key | default "trust.json" }}
+            {{- else if .insecureNoPin }}
+            - name: RECEIPTS_INSECURE_NO_PIN
+              value: "true"
+            {{- end }}
             {{- end }}
             {{- end }}
             {{- with (.Values.global).decisionModel }}
@@ -132,6 +139,11 @@ spec:
             - name: receipts-token
               mountPath: /etc/receipts/token
               readOnly: true
+            {{- if (((.Values.global).receipts).trustRoot).existingConfigMap }}
+            - name: receipts-trust
+              mountPath: /etc/receipts/trust
+              readOnly: true
+            {{- end }}
             {{- end }}
             {{- if ((.Values.global).decisionModel).existingConfigMap }}
             - name: decision-model
@@ -149,6 +161,14 @@ spec:
           secret:
             secretName: {{ (.token).existingSecret | default (printf "%s-receipt-writer-token" $.Release.Name | trunc 63 | trimSuffix "-") }}
             defaultMode: 0444
+        {{- if (.trustRoot).existingConfigMap }}
+        - name: receipts-trust
+          configMap:
+            name: {{ (.trustRoot).existingConfigMap }}
+            items:
+              - key: {{ (.trustRoot).key | default "trust.json" }}
+                path: {{ (.trustRoot).key | default "trust.json" }}
+        {{- end }}
         {{- end }}
         {{- end }}
         {{- with (.Values.global).decisionModel }}

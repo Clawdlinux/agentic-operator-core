@@ -233,8 +233,10 @@ func TestConfigFromEnv(t *testing.T) {
 		wantErr  bool
 	}{
 		{"defaults off", nil, false, false, false},
-		{"enabled", map[string]string{"RECEIPTS_ENABLED": "true"}, true, false, false},
-		{"required implies enabled", map[string]string{"RECEIPTS_REQUIRED": "true"}, true, true, false},
+		{"enabled insecure", map[string]string{"RECEIPTS_ENABLED": "true", "RECEIPTS_INSECURE_NO_PIN": "true"}, true, false, false},
+		{"required implies enabled", map[string]string{"RECEIPTS_REQUIRED": "true", "RECEIPTS_INSECURE_NO_PIN": "true"}, true, true, false},
+		{"enabled without pin refused", map[string]string{"RECEIPTS_ENABLED": "true"}, false, false, true},
+		{"missing trust file refused", map[string]string{"RECEIPTS_ENABLED": "true", "RECEIPTS_WRITER_TRUST_FILE": "/nonexistent/trust.json"}, false, false, true},
 		{"bad bool", map[string]string{"RECEIPTS_ENABLED": "yes please"}, false, false, true},
 		{"bad timeout", map[string]string{"RECEIPTS_WRITER_TIMEOUT": "soon"}, false, false, true},
 	}

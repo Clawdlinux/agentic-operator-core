@@ -79,6 +79,17 @@ global:
     signingKey:
       existingSecret: ""
       key: signing-key
+    # Pinned writer public key. REQUIRED when enabled. The operator verifies
+    # every returned receipt (signature, entry hash, chain continuity) under
+    # it. Make the trust file from the signing key, then a ConfigMap:
+    #   agentctl receipts trust-root --signing-key-file key.hex > trust.json
+    #   kubectl create configmap receipt-trust-root --from-file=trust.json
+    trustRoot:
+      existingConfigMap: ""
+      key: trust.json
+    # Demo only. Accept writer receipts without verifying them. A spoofed
+    # writer or a MITM can then fake receipts.
+    insecureNoPin: false
     resources:
       requests:
         cpu: "50m"

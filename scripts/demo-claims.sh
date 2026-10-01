@@ -203,9 +203,16 @@ kc create namespace "${NS}" >/dev/null
 kc create namespace "${DEMO_NS}" >/dev/null
 kc apply -f "${REPO_ROOT}/config/crd/bases" >/dev/null
 kc wait --for=condition=Established crd/agentworkloads.agentic.clawdlinux.org --timeout=60s >/dev/null
+key_file="${WORK}/signing-key.hex"
+(umask 077 && openssl rand -hex 32 >"${key_file}")
 kc -n "${NS}" create secret generic receipt-signing-key \
-  --from-literal=signing-key="$(openssl rand -hex 32)" >/dev/null
-note "signing key Secret created (value not printed)"
+  --from-file=signing-key="${key_file}" >/dev/null
+# Pin the writer public key so the operator verifies every receipt it gets.
+"${BIN}/agentctl" receipts trust-root --signing-key-file "${key_file}" >"${WORK}/writer-trust.json"
+rm -f "${key_file}"
+kc -n "${NS}" create configmap receipt-trust-root \
+  --from-file=trust.json="${WORK}/writer-trust.json" >/dev/null
+note "signing key Secret and pinned trust root ConfigMap created (key not printed, key file removed)"
 image_repo="${IMAGE%%:*}"
 image_tag="${IMAGE##*:}"
 # kindnet enforces NetworkPolicy. The chart's default-deny egress has no rule
@@ -231,6 +238,7 @@ run helm --kube-context "kind-${CLUSTER_NAME}" upgrade --install "${RELEASE}" "$
   --set global.receipts.enabled=true \
   --set global.receipts.required=true \
   --set global.receipts.signingKey.existingSecret=receipt-signing-key \
+  --set global.receipts.trustRoot.existingConfigMap=receipt-trust-root \
   --set global.receipts.image.repository="${image_repo}" \
   --set global.receipts.image.tag="${image_tag}" \
   --set global.receipts.image.pullPolicy=IfNotPresent \

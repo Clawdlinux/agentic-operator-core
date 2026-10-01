@@ -45,6 +45,8 @@ tests:
           enabled: true
           signingKey:
             existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
     asserts:
       - hasDocuments:
           count: 4
@@ -110,6 +112,8 @@ tests:
           enabled: true
           signingKey:
             existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
     asserts:
       - isKind:
           of: NetworkPolicy
@@ -155,6 +159,8 @@ tests:
           enabled: true
           signingKey:
             existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
           token:
             existingSecret: my-token
             key: bearer
@@ -184,6 +190,8 @@ tests:
           required: true
           signingKey:
             existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -202,4 +210,75 @@ tests:
           content:
             name: RECEIPTS_WRITER_TOKEN_FILE
             value: /etc/receipts/token/token
+        template: charts/agentic-operator/templates/deployment.yaml
+
+  - it: fails without a pinned trust root
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+    asserts:
+      - failedTemplate:
+          errorPattern: "trustRoot.existingConfigMap is required"
+        template: receipt-writer.yaml
+
+  - it: mounts the pinned trust root into the operator
+    release:
+      name: rel
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_WRITER_TRUST_FILE
+            value: /etc/receipts/trust/trust.json
+        template: charts/agentic-operator/templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: receipts-trust
+            configMap:
+              name: receipt-trust-root
+              items:
+                - key: trust.json
+                  path: trust.json
+        template: charts/agentic-operator/templates/deployment.yaml
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_INSECURE_NO_PIN
+            value: "true"
+        template: charts/agentic-operator/templates/deployment.yaml
+
+  - it: insecureNoPin sets the demo-only env
+    release:
+      name: rel
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          insecureNoPin: true
+          signingKey:
+            existingSecret: receipt-signing-key
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_INSECURE_NO_PIN
+            value: "true"
         template: charts/agentic-operator/templates/deployment.yaml

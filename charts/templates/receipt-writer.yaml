@@ -9,6 +9,9 @@ The signing key must come from an existing Secret. The chart never makes one.
 {{- if not ($r.signingKey).existingSecret -}}
 {{- fail "global.receipts.signingKey.existingSecret is required when global.receipts.enabled=true. The chart never generates the signing key. See docs/receipts.md." -}}
 {{- end -}}
+{{- if and (not ($r.trustRoot).existingConfigMap) (not $r.insecureNoPin) -}}
+{{- fail "global.receipts.trustRoot.existingConfigMap is required when global.receipts.enabled=true. It pins the writer public key. Make it with agentctl receipts trust-root. global.receipts.insecureNoPin=true is for demos only. See docs/receipts.md." -}}
+{{- end -}}
 {{- $name := printf "%s-receipt-writer" .Release.Name | trunc 63 | trimSuffix "-" -}}
 {{- $ns := .Release.Namespace -}}
 {{- $port := int ($r.port | default 8080) -}}

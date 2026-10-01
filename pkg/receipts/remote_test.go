@@ -7,6 +7,7 @@ package receipts
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -21,7 +22,7 @@ import (
 
 // fakeWriterServer is a minimal receipt-writer backed by a LocalWriter.
 // mutate, when set, changes the record before it is signed.
-func fakeWriterServer(t *testing.T, status int, mutate func(*DecisionRecord)) *httptest.Server {
+func fakeWriterServer(t *testing.T, status int, mutate func(*DecisionRecord)) (*httptest.Server, *LocalWriter) {
 	t.Helper()
 	lw := openTest(t, t.TempDir(), 1)
 	t.Cleanup(func() { _ = lw.Close() })
@@ -36,6 +37,11 @@ func fakeWriterServer(t *testing.T, status int, mutate func(*DecisionRecord)) *h
 		}
 		if status != http.StatusOK {
 			w.WriteHeader(status)
+			return
+		}
+		if r.URL.Path == "/v1/head" {
+			seq, h := lw.Head()
+			_ = json.NewEncoder(w).Encode(HeadResponse{Seq: seq, EntryHash: hex.EncodeToString(h[:]), SignerKID: lw.KID()})
 			return
 		}
 		var rec DecisionRecord
@@ -53,7 +59,7 @@ func fakeWriterServer(t *testing.T, status int, mutate func(*DecisionRecord)) *h
 		}
 		line, _ := receiptspec.MarshalJSONLReceipt(rc)
 		_ = json.NewEncoder(w).Encode(AppendResponse{Receipt: line})
-	}))
+	})), lw
 }
 
 func staticToken(tok string) func() (string, error) {
@@ -76,10 +82,13 @@ func TestRemoteWriterAppend(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			srv := fakeWriterServer(t, tc.status, tc.mutate)
+			srv, lw := fakeWriterServer(t, tc.status, tc.mutate)
 			defer srv.Close()
 			rw, err := NewRemoteWriter(srv.URL, tc.token, time.Second)
 			if err != nil {
+				t.Fatal(err)
+			}
+			if err := rw.Pin([]receiptspec.TrustedKey{lw.TrustedKey()}); err != nil {
 				t.Fatal(err)
 			}
 			r, err := rw.Append(context.Background(), mustRecord(t, testParams()))
@@ -102,6 +111,7 @@ func TestRemoteWriterTimeoutFailsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	rw.AllowUnpinned()
 	if _, err := rw.Append(context.Background(), mustRecord(t, testParams())); err == nil {
 		t.Fatal("append succeeded against a hung writer")
 	}
@@ -115,7 +125,7 @@ func TestRemoteWriterReady(t *testing.T) {
 		status int
 		want   bool
 	}{{http.StatusOK, true}, {http.StatusServiceUnavailable, false}} {
-		srv := fakeWriterServer(t, tc.status, nil)
+		srv, _ := fakeWriterServer(t, tc.status, nil)
 		rw, _ := NewRemoteWriter(srv.URL, staticToken("tok"), time.Second)
 		if got := rw.Ready(context.Background()); got != tc.want {
 			t.Errorf("status %d: ready = %v, want %v", tc.status, got, tc.want)
