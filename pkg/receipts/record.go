@@ -32,7 +32,7 @@ const Service = "clawdlinux"
 // ReplayHint tells a reviewer how to reproduce the outcome.
 const ReplayHint = "deterministic-v1: rerun invariants, policy_packs, and threshold_mode on an input matching input_hash"
 
-// Record layers. "model" is reserved until a model decides.
+// Record layers.
 const (
 	LayerInvariant = "invariant"
 	LayerRules     = "rules"
@@ -91,15 +91,60 @@ type ClaimedSummary struct {
 	ClusterHealth string `json:"cluster_health,omitempty"`
 }
 
-// Model is reserved for the decision model layer. It is nil until a model
-// decides. Probabilities and numbers are decimal strings.
+// ModelBlockVersion is the schema version of the Model block. The record
+// SchemaVersion stays 1: the block was reserved and never emitted before.
+const ModelBlockVersion = 1
+
+// Model is the decision model block. It is set whenever a model scored the
+// action, in shadow or escalate mode, so the score can be replayed. Every
+// number is an integer in micro-units (1000000 is 1.0).
 type Model struct {
-	ID            string   `json:"id"`
-	Version       string   `json:"version"`
-	OptionSet     []string `json:"option_set"`
-	Probabilities []string `json:"probabilities"`
-	Threshold     string   `json:"threshold"`
-	Calibration   string   `json:"calibration"`
+	SchemaVersion  int      `json:"schema_version"`
+	Mode           string   `json:"mode"`
+	ID             string   `json:"id"`
+	Version        string   `json:"version"`
+	ArtifactSHA256 string   `json:"artifact_sha256"`
+	FeatureSpec    string   `json:"feature_spec"`
+	FeatureHash    string   `json:"feature_hash"`
+	OptionSet      []string `json:"option_set"`
+	OptionMicro    []int64  `json:"option_micro"`
+	RiskMicro      int64    `json:"risk_micro"`
+	ThresholdMicro int64    `json:"threshold_micro"`
+	Calibration    string   `json:"calibration"`
+	ReasonCodes    []string `json:"reason_codes"`
+	// BaseOutcome is the outcome before the model. Outcome is after it.
+	BaseOutcome string `json:"base_outcome"`
+	Outcome     string `json:"outcome"`
+	// Error is set when the scorer failed. Shadow logs it, escalate escalates.
+	Error string `json:"error,omitempty"`
+}
+
+// NewModelBlock records one model evaluation. s may be zero when err is set.
+func NewModelBlock(mode decision.ModelMode, s decision.Score, scoreErr error, base, final decision.Result) Model {
+	m := Model{
+		SchemaVersion:  ModelBlockVersion,
+		Mode:           string(mode),
+		ID:             s.ModelID,
+		Version:        s.Version,
+		ArtifactSHA256: s.ArtifactSHA256,
+		FeatureSpec:    s.FeatureSpec,
+		FeatureHash:    s.FeatureHash,
+		OptionSet:      append([]string{}, decision.OptionSet...),
+		OptionMicro:    make([]int64, len(decision.OptionSet)),
+		RiskMicro:      s.RiskMicro,
+		ThresholdMicro: s.ThresholdMicro,
+		Calibration:    s.Calibration,
+		ReasonCodes:    append([]string{}, s.ReasonCodes...),
+		BaseOutcome:    string(base.Outcome),
+		Outcome:        string(final.Outcome),
+	}
+	for i, o := range decision.OptionSet {
+		m.OptionMicro[i] = s.OptionMicro[o]
+	}
+	if scoreErr != nil {
+		m.Error = scoreErr.Error()
+	}
+	return m
 }
 
 // DecisionRecord is the record bound to a receipt by its hash. Fields are
@@ -213,6 +258,8 @@ type Params struct {
 	Result        decision.Result
 	PolicyPacks   []string
 	ThresholdMode string
+	// Model is the model block, or nil when no model scored the action.
+	Model *Model
 }
 
 // NewDecisionRecord builds the record for one decided action. The same params
@@ -267,6 +314,7 @@ func NewDecisionRecord(p Params) (DecisionRecord, error) {
 		},
 		PolicyPacks:   sortedCopy(p.PolicyPacks),
 		ThresholdMode: p.ThresholdMode,
+		Model:         p.Model,
 		ReplayHint:    ReplayHint,
 	}, nil
 }
@@ -319,6 +367,8 @@ func mapResult(r decision.Result) (outcome, layer string, err error) {
 		layer = LayerRules
 	case decision.LayerThreshold:
 		layer = LayerThreshold
+	case decision.LayerModel:
+		layer = LayerModel
 	default:
 		return "", "", fmt.Errorf("receipts: unknown layer %q", r.Layer)
 	}
