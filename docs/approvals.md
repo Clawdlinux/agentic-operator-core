@@ -22,6 +22,7 @@ annotations:
 | `clawdlinux.org/approval-edit` | client | For `edit`: `{"name", "description", "params"}`, at most 16 KiB |
 | `clawdlinux.org/approval-by` | webhook | JSON `{"username", "groups_sha256"}` from the admission request |
 | `clawdlinux.org/approval-for` | webhook | The pending action `id` the decision is for |
+| `clawdlinux.org/approval-mac` | webhook | Hex HMAC-SHA256 over the stamp, see below |
 
 With agentctl:
 
@@ -39,7 +40,8 @@ add the protocol annotations only when a direct-path action is pending.
 The approver is never taken from the client. The mutating webhook stamps
 `approval-by` and `approval-for` from the admission request user. It rejects:
 
-- a request that sets either stamp itself,
+- a request that sets any stamp (`approval-by`, `approval-for`,
+  `approval-mac`) itself,
 - a change or removal of a decision already recorded for the pending action
   (decisions are append-once per pending action),
 - a decision when no action is pending.
@@ -50,10 +52,57 @@ turns on the existing validating rules, for example `https` MCP endpoints.
 Before this change the AgentWorkload webhook registered no handler at all.
 `SetupWebhookWithManager` now wires the defaulter and validator.
 
-Without the webhook, the controller refuses any decision that has no
-`approval-by` stamp. It sets condition `ApprovalDecision` to `False` with reason
-`MissingApprovalStamp` and does not act. Without the webhook a client could
-also forge the stamp. So run the webhook in any cluster where approvals matter.
+### Stamp key
+
+The stamp is tamper-evident. The webhook adds `approval-mac`, an HMAC-SHA256
+with a domain separator over:
+
+- the workload UID,
+- the pending action `id`,
+- a digest of the decision, reason, and edit annotations,
+- a digest of the `approval-by` stamp,
+- a digest of the stored `status.pendingApproval.proposal`.
+
+The key is a file named by `APPROVAL_STAMP_KEY_FILE`, at least 32 bytes. The
+chart mounts it from a secret with `global.approvals.stampKey.existingSecret`
+(key `stamp.key` by default):
+
+```sh
+kubectl create secret generic approval-stamp-key \
+  --from-literal=stamp.key="$(openssl rand -hex 32)"
+```
+
+The controller recomputes the MAC from the live object and compares with
+`hmac.Equal`. It does not act and sets condition `ApprovalDecision` to `False`
+when:
+
+| Reason | Cause |
+|---|---|
+| `MissingApprovalStamp` | No `approval-by` stamp |
+| `ApprovalStampKeyMissing` | No usable key configured |
+| `ApprovalStampInvalid` | MAC missing or wrong: forged stamp, decision changed after stamping, workload UID or pending proposal changed |
+
+Approvals fail closed. With no key the webhook rejects new decisions and the
+controller refuses all of them. With the webhook disabled nobody can mint a
+valid MAC, so a patcher cannot forge an approval even with the right
+`approval-by` JSON. Run the webhook and set the key in any cluster where
+approvals matter.
+
+### Trust boundary
+
+The MAC stops annotation forgery. It does not protect `status`. A principal
+with `update` or `patch` on `agentworkloads/status` can rewrite the pending
+action, its proposal, and the consumed id list. Treat such principals as
+inside the trust boundary unless a status admission policy is also enforced.
+Only these subjects should hold that verb:
+
+- the operator manager service account (`manager-role`),
+- cluster admins (`cluster-admin`).
+
+Do not grant `agentworkloads/status` to agents or CI bots. Today the
+`agentctl-web` service account (`charts/templates/webui.yaml`) holds `patch`
+and `update` on it, so the web UI is inside the trust boundary. Do not expose
+it to untrusted users.
 
 ## What the controller does
 

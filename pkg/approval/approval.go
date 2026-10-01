@@ -10,25 +10,38 @@ package approval
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"unicode/utf8"
 )
 
 // Annotation keys. Clients set Decision, Reason, and Edit. Only the admission
-// webhook sets By and For.
+// webhook sets By, For, and MAC.
 const (
 	AnnotationDecision = "clawdlinux.org/approval-decision"
 	AnnotationReason   = "clawdlinux.org/approval-reason"
 	AnnotationEdit     = "clawdlinux.org/approval-edit"
 	AnnotationBy       = "clawdlinux.org/approval-by"
 	AnnotationFor      = "clawdlinux.org/approval-for"
+	AnnotationMAC      = "clawdlinux.org/approval-mac"
+)
+
+// MinKeyBytes is the shortest stamp key accepted.
+const MinKeyBytes = 32
+
+// Domain separators for the stamp MAC and the pending payload digest.
+const (
+	macDomain      = "clawdlinux.org/approval-stamp/v1"
+	pendingDomain  = "clawdlinux.org/approval-pending-payload/v1"
+	decisionDomain = "clawdlinux.org/approval-decision/v1"
 )
 
 // Decision labels.
@@ -52,7 +65,63 @@ var (
 	ErrForged    = errors.New(AnnotationBy + " and " + AnnotationFor + " are set by the admission webhook only")
 	ErrFinal     = errors.New("a decision is already recorded for the pending action; decisions are append-once")
 	ErrNoPending = errors.New("no pending action to decide")
+	ErrNoKey     = errors.New("no approval stamp key configured (APPROVAL_STAMP_KEY_FILE); approvals are refused")
+	ErrBadMAC    = errors.New(AnnotationMAC + " does not verify for this workload, pending action, decision, and approver")
 )
+
+// Pending identifies the stored pending action a decision is bound to.
+type Pending struct {
+	ID            string
+	WorkloadUID   string
+	PayloadSHA256 string
+}
+
+// PendingSHA256 is the domain-separated digest of the stored proposal JSON.
+func PendingSHA256(proposal string) string {
+	return SHA256Hex(pendingDomain + "\x00" + proposal)
+}
+
+// LoadKey reads the stamp key file. Trailing whitespace is dropped.
+func LoadKey(path string) ([]byte, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("approval stamp key: %w", err)
+	}
+	b = bytes.TrimRight(b, " \t\r\n")
+	if len(b) < MinKeyBytes {
+		return nil, fmt.Errorf("approval stamp key: need at least %d bytes, got %d", MinKeyBytes, len(b))
+	}
+	return b, nil
+}
+
+// decisionSHA256 binds the label, reason, and edit as set by the client.
+func decisionSHA256(ann map[string]string) string {
+	return SHA256Hex(strings.Join([]string{decisionDomain, ann[AnnotationDecision], ann[AnnotationReason], ann[AnnotationEdit]}, "\x00"))
+}
+
+// MAC is the hex HMAC-SHA256 over the workload UID, pending id, decision
+// digest, approver stamp digest, and pending payload digest.
+func MAC(key []byte, p Pending, ann map[string]string) string {
+	m := hmac.New(sha256.New, key)
+	m.Write([]byte(strings.Join([]string{macDomain, p.WorkloadUID, p.ID, decisionSHA256(ann), SHA256Hex(ann[AnnotationBy]), p.PayloadSHA256}, "\x00")))
+	return hex.EncodeToString(m.Sum(nil))
+}
+
+// VerifyMAC checks the stamp MAC in constant time.
+func VerifyMAC(key []byte, p Pending, ann map[string]string) error {
+	if len(key) == 0 {
+		return ErrNoKey
+	}
+	got, err := hex.DecodeString(ann[AnnotationMAC])
+	if err != nil || len(got) != sha256.Size {
+		return ErrBadMAC
+	}
+	want, _ := hex.DecodeString(MAC(key, p, ann))
+	if !hmac.Equal(got, want) {
+		return ErrBadMAC
+	}
+	return nil
+}
 
 // Approver is the identity the webhook stamps from the admission request.
 type Approver struct {
@@ -170,10 +239,12 @@ func ValidateDecision(ann map[string]string) error {
 	return err
 }
 
-// Read returns the decision for pendingID. ok is false when no decision is
-// set or the decision targets another pending action (stale). An unstamped
-// decision returns ErrUnstamped: the controller must not act on it.
-func Read(ann map[string]string, pendingID string) (Decision, bool, error) {
+// Read returns the decision for the pending action p. ok is false when no
+// decision is set or the decision targets another pending action (stale). An
+// unstamped decision returns ErrUnstamped, a missing key ErrNoKey, and a MAC
+// that does not verify ErrBadMAC: the controller must not act on any of them.
+func Read(ann map[string]string, p Pending, key []byte) (Decision, bool, error) {
+	pendingID := p.ID
 	if ann[AnnotationDecision] == "" || pendingID == "" {
 		return Decision{}, false, nil
 	}
@@ -183,6 +254,9 @@ func Read(ann map[string]string, pendingID string) (Decision, bool, error) {
 	}
 	if ann[AnnotationFor] != pendingID {
 		return Decision{}, false, nil
+	}
+	if err := VerifyMAC(key, p, ann); err != nil {
+		return Decision{}, true, err
 	}
 	approver, err := ParseApprover(by)
 	if err != nil {
@@ -195,13 +269,15 @@ func Read(ann map[string]string, pendingID string) (Decision, bool, error) {
 	return Decision{Label: label, Reason: ann[AnnotationReason], Edit: edit, Approver: approver, ApproverRaw: by, For: pendingID}, true, nil
 }
 
-var protocolKeys = []string{AnnotationDecision, AnnotationReason, AnnotationEdit, AnnotationBy, AnnotationFor}
+var protocolKeys = []string{AnnotationDecision, AnnotationReason, AnnotationEdit, AnnotationBy, AnnotationFor, AnnotationMAC}
 
 // Admit applies the webhook rules to an update from oldAnn to newAnn.
-// pendingID is the pending action in the stored object, "" if none. On a new
-// decision it stamps approval-by and approval-for into newAnn. It returns an
-// error when the request must be rejected.
-func Admit(oldAnn, newAnn map[string]string, pendingID, username string, groups []string) error {
+// p is the pending action in the stored object, zero if none. On a new
+// decision it stamps approval-by, approval-for, and approval-mac into newAnn.
+// Without a key it refuses new decisions. It returns an error when the
+// request must be rejected.
+func Admit(oldAnn, newAnn map[string]string, p Pending, username string, groups []string, key []byte) error {
+	pendingID := p.ID
 	changed := false
 	for _, k := range protocolKeys {
 		ov, oOK := oldAnn[k]
@@ -213,7 +289,7 @@ func Admit(oldAnn, newAnn map[string]string, pendingID, username string, groups 
 	if !changed {
 		return nil
 	}
-	for _, k := range []string{AnnotationBy, AnnotationFor} {
+	for _, k := range []string{AnnotationBy, AnnotationFor, AnnotationMAC} {
 		if nv := newAnn[k]; nv != "" && nv != oldAnn[k] {
 			return ErrForged
 		}
@@ -223,8 +299,8 @@ func Admit(oldAnn, newAnn map[string]string, pendingID, username string, groups 
 	}
 	if newAnn[AnnotationDecision] == "" {
 		// Clearing a stale or absent decision. Stamps go with it.
-		if newAnn[AnnotationBy] != "" || newAnn[AnnotationFor] != "" {
-			return errors.New("clear " + AnnotationBy + " and " + AnnotationFor + " together with " + AnnotationDecision)
+		if newAnn[AnnotationBy] != "" || newAnn[AnnotationFor] != "" || newAnn[AnnotationMAC] != "" {
+			return errors.New("clear " + AnnotationBy + ", " + AnnotationFor + ", and " + AnnotationMAC + " together with " + AnnotationDecision)
 		}
 		return nil
 	}
@@ -234,12 +310,16 @@ func Admit(oldAnn, newAnn map[string]string, pendingID, username string, groups 
 	if _, _, err := validateFields(newAnn); err != nil {
 		return err
 	}
+	if len(key) == 0 {
+		return ErrNoKey
+	}
 	stamp, err := Stamp(username, groups)
 	if err != nil {
 		return err
 	}
 	newAnn[AnnotationBy] = stamp
 	newAnn[AnnotationFor] = pendingID
+	newAnn[AnnotationMAC] = MAC(key, p, newAnn)
 	return nil
 }
 

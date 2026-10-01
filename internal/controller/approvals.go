@@ -197,11 +197,16 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 			"ExecutionOutcomeUnknown", "the operator stopped while executing the approved action; it was not run again", now)
 	}
 
-	d, ok, err := approval.Read(wl.Annotations, p.ID)
+	d, ok, err := approval.Read(wl.Annotations, pendingRef(wl), r.ApprovalStampKey)
 	if err != nil {
 		reason := "InvalidDecision"
-		if errors.Is(err, approval.ErrUnstamped) {
+		switch {
+		case errors.Is(err, approval.ErrUnstamped):
 			reason = "MissingApprovalStamp"
+		case errors.Is(err, approval.ErrNoKey):
+			reason = "ApprovalStampKeyMissing"
+		case errors.Is(err, approval.ErrBadMAC):
+			reason = "ApprovalStampInvalid"
 		}
 		return r.holdApproval(ctx, wl, reason, "not acting on the approval decision: "+err.Error(), time.Hour)
 	}
@@ -463,6 +468,12 @@ func proposalParams(proposal map[string]interface{}) map[string]interface{} {
 		}
 	}
 	return out
+}
+
+// pendingRef binds a decision to this workload and its stored proposal.
+func pendingRef(wl *agenticv1alpha1.AgentWorkload) approval.Pending {
+	p := wl.Status.PendingApproval
+	return approval.Pending{ID: p.ID, WorkloadUID: string(wl.UID), PayloadSHA256: approval.PendingSHA256(p.Proposal)}
 }
 
 func receiptSeq(rc *receiptspec.Receipt) int64 {

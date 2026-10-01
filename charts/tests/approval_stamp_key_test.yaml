@@ -1,0 +1,65 @@
+# helm-unittest spec for the approval stamp key mount (docs/approvals.md).
+# Run with: helm unittest charts
+suite: approval stamp key
+templates:
+  - charts/agentic-operator/templates/deployment.yaml
+tests:
+  - it: sets no key by default, so approvals are refused
+    set:
+      license:
+        key: "test"
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: APPROVAL_STAMP_KEY_FILE
+          any: true
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: approval-stamp-key
+          any: true
+
+  - it: mounts the key secret and sets APPROVAL_STAMP_KEY_FILE
+    set:
+      license:
+        key: "test"
+      global:
+        approvals:
+          stampKey:
+            existingSecret: approval-stamp-key
+            key: hmac.key
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: APPROVAL_STAMP_KEY_FILE
+            value: /etc/approval-stamp/hmac.key
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: approval-stamp-key
+            mountPath: /etc/approval-stamp
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: approval-stamp-key
+            secret:
+              secretName: approval-stamp-key
+              defaultMode: 0444
+              items:
+                - key: hmac.key
+                  path: hmac.key
+
+  - it: rejects an unsafe key name
+    set:
+      license:
+        key: "test"
+      global:
+        approvals:
+          stampKey:
+            existingSecret: approval-stamp-key
+            key: "../etc/passwd"
+    asserts:
+      - failedTemplate: {}

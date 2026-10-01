@@ -36,11 +36,19 @@ func admissionCtx(t *testing.T, op admissionv1.Operation, old *AgentWorkload) co
 	return admission.NewContextWithRequest(context.Background(), req)
 }
 
+var testStampKey = []byte("0123456789abcdef0123456789abcdef")
+
+var keyed = workloadAdmission{stampKey: testStampKey}
+
 func pendingWorkload(ann map[string]string) *AgentWorkload {
 	return &AgentWorkload{
-		ObjectMeta: metav1.ObjectMeta{Name: "wl", Annotations: ann},
-		Status:     AgentWorkloadStatus{Phase: PhasePendingApproval, PendingApproval: &PendingApproval{ID: "p1"}},
+		ObjectMeta: metav1.ObjectMeta{Name: "wl", UID: "uid-1", Annotations: ann},
+		Status:     AgentWorkloadStatus{Phase: PhasePendingApproval, PendingApproval: &PendingApproval{ID: "p1", Proposal: `{"action":"scale"}`}},
 	}
+}
+
+func testPending() approval.Pending {
+	return approval.Pending{ID: "p1", WorkloadUID: "uid-1", PayloadSHA256: approval.PendingSHA256(`{"action":"scale"}`)}
 }
 
 func TestAdmissionStampsApproval(t *testing.T) {
@@ -63,7 +71,7 @@ func TestAdmissionStampsApproval(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			wl := &AgentWorkload{ObjectMeta: metav1.ObjectMeta{Name: "wl", Annotations: tc.ann}}
-			err := workloadAdmission{}.Default(admissionCtx(t, tc.op, tc.old), wl)
+			err := keyed.Default(admissionCtx(t, tc.op, tc.old), wl)
 			if tc.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 					t.Fatalf("err = %v, want %q", err, tc.wantErr)
@@ -77,7 +85,7 @@ func TestAdmissionStampsApproval(t *testing.T) {
 				t.Fatal("spec defaults not applied")
 			}
 			if tc.wantStamp {
-				d, ok, err := approval.Read(wl.Annotations, "p1")
+				d, ok, err := approval.Read(wl.Annotations, testPending(), testStampKey)
 				if !ok || err != nil || d.Approver.Username != "alice" {
 					t.Fatalf("decision = %+v %v %v", d, ok, err)
 				}
@@ -87,7 +95,7 @@ func TestAdmissionStampsApproval(t *testing.T) {
 
 	// A recorded decision for the live pending action cannot change.
 	first := &AgentWorkload{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{approval.AnnotationDecision: "approve"}}}
-	if err := (workloadAdmission{}).Default(admissionCtx(t, admissionv1.Update, pendingWorkload(nil)), first); err != nil {
+	if err := keyed.Default(admissionCtx(t, admissionv1.Update, pendingWorkload(nil)), first); err != nil {
 		t.Fatal(err)
 	}
 	second := &AgentWorkload{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}}
@@ -95,9 +103,17 @@ func TestAdmissionStampsApproval(t *testing.T) {
 		second.Annotations[k] = v
 	}
 	second.Annotations[approval.AnnotationDecision] = "reject"
-	err := workloadAdmission{}.Default(admissionCtx(t, admissionv1.Update, pendingWorkload(first.Annotations)), second)
+	err := keyed.Default(admissionCtx(t, admissionv1.Update, pendingWorkload(first.Annotations)), second)
 	if err == nil || !strings.Contains(err.Error(), "append-once") {
 		t.Fatalf("changed decision err = %v", err)
+	}
+}
+
+func TestAdmissionWithoutKeyRefusesDecision(t *testing.T) {
+	wl := &AgentWorkload{ObjectMeta: metav1.ObjectMeta{Name: "wl", Annotations: map[string]string{approval.AnnotationDecision: "approve"}}}
+	err := workloadAdmission{}.Default(admissionCtx(t, admissionv1.Update, pendingWorkload(nil)), wl)
+	if err == nil || !strings.Contains(err.Error(), "APPROVAL_STAMP_KEY_FILE") {
+		t.Fatalf("err = %v, want stamp key refusal", err)
 	}
 }
 

@@ -90,6 +90,12 @@ spec:
               value: /etc/decision-model/{{ .key | default "model.json" }}
             {{- end }}
             {{- end }}
+            {{- with ((.Values.global).approvals).stampKey }}
+            {{- if .existingSecret }}
+            - name: APPROVAL_STAMP_KEY_FILE
+              value: /etc/approval-stamp/{{ .key | default "stamp.key" }}
+            {{- end }}
+            {{- end }}
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}
@@ -145,6 +151,11 @@ spec:
               readOnly: true
             {{- end }}
             {{- end }}
+            {{- if (((.Values.global).approvals).stampKey).existingSecret }}
+            - name: approval-stamp-key
+              mountPath: /etc/approval-stamp
+              readOnly: true
+            {{- end }}
             {{- if ((.Values.global).decisionModel).existingConfigMap }}
             - name: decision-model
               mountPath: /etc/decision-model
@@ -179,6 +190,17 @@ spec:
             items:
               - key: {{ .key | default "model.json" }}
                 path: {{ .key | default "model.json" }}
+        {{- end }}
+        {{- end }}
+        {{- with ((.Values.global).approvals).stampKey }}
+        {{- if .existingSecret }}
+        - name: approval-stamp-key
+          secret:
+            secretName: {{ .existingSecret }}
+            defaultMode: 0444
+            items:
+              - key: {{ .key | default "stamp.key" }}
+                path: {{ .key | default "stamp.key" }}
         {{- end }}
         {{- end }}
       securityContext:

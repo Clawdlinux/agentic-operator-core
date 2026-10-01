@@ -108,6 +108,15 @@ global:
     existingConfigMap: ""
     key: model.json
 
+  # Approval stamp HMAC key. See docs/approvals.md. Without it every human
+  # approval is refused (fail closed). Create a key of at least 32 bytes:
+  #   kubectl create secret generic approval-stamp-key \
+  #     --from-literal=stamp.key="$(openssl rand -hex 32)"
+  approvals:
+    stampKey:
+      existingSecret: ""
+      key: stamp.key
+
 # ---------------------------------------------------------------------------
 # License (REQUIRED)
 # ---------------------------------------------------------------------------

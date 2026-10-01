@@ -111,7 +111,7 @@ func newApprovalEnv(t *testing.T, name, policy, description string, declared *ag
 		WithObjects(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, wl).Build()
 	writer := &fakeReceiptWriter{log: events, ready: true}
 	ds := &fakeApprovals{}
-	r := &AgentWorkloadReconciler{Client: k8s, Scheme: scheme, Receipts: ReceiptsConfig{Enabled: true, Required: true, Writer: writer, Approvals: ds}}
+	r := &AgentWorkloadReconciler{Client: k8s, Scheme: scheme, Receipts: ReceiptsConfig{Enabled: true, Required: true, Writer: writer, Approvals: ds}, ApprovalStampKey: testStampKey}
 	env := &approvalEnv{ctx: ctx, k8s: k8s, r: r, writer: writer, ds: ds, exec: exec, events: events, key: types.NamespacedName{Name: name, Namespace: "default"}}
 	env.reconcile(t)
 	got := env.get(t)
@@ -141,8 +141,18 @@ func (e *approvalEnv) get(t *testing.T) *agenticv1alpha1.AgentWorkload {
 	return wl
 }
 
+var testStampKey = []byte("0123456789abcdef0123456789abcdef")
+
+// stampTamper changes what the stamp MAC is computed over, as a forger would.
+type stampTamper func(p approval.Pending, key []byte) (approval.Pending, []byte)
+
 // decide sets the decision annotations as the webhook would leave them.
 func (e *approvalEnv) decide(t *testing.T, ann map[string]string, stamp bool, forID string) {
+	t.Helper()
+	e.decideTampered(t, ann, stamp, forID, nil)
+}
+
+func (e *approvalEnv) decideTampered(t *testing.T, ann map[string]string, stamp bool, forID string, tamper stampTamper) {
 	t.Helper()
 	wl := e.get(t)
 	if wl.Annotations == nil {
@@ -158,6 +168,12 @@ func (e *approvalEnv) decide(t *testing.T, ann map[string]string, stamp bool, fo
 		}
 		wl.Annotations[approval.AnnotationBy] = s
 		wl.Annotations[approval.AnnotationFor] = forID
+		p, key := pendingRef(wl), testStampKey
+		p.ID = forID
+		if tamper != nil {
+			p, key = tamper(p, key)
+		}
+		wl.Annotations[approval.AnnotationMAC] = approval.MAC(key, p, wl.Annotations)
 	}
 	if err := e.k8s.Update(e.ctx, wl); err != nil {
 		t.Fatal(err)
@@ -176,6 +192,8 @@ func TestReconcile_ApprovalDecisions(t *testing.T) {
 		unstamped    bool
 		staleFor     bool
 		failAppend   bool
+		tamper       stampTamper
+		noKey        bool
 		wantPhase    string
 		wantExecuted []string
 		wantOutcomes []string
@@ -196,6 +214,25 @@ func TestReconcile_ApprovalDecisions(t *testing.T) {
 			wantPhase: "PolicyDenied", wantOutcomes: []string{receipts.OutcomeApproved, receipts.OutcomeDeny}, wantExamples: 1, wantLabel: "approve", wantCond: "HumanDecisionBlocked"},
 		{name: "unstamped decision fails closed", ann: map[string]string{approval.AnnotationDecision: approval.Approve}, unstamped: true,
 			wantPhase: agenticv1alpha1.PhasePendingApproval, wantCond: "MissingApprovalStamp"},
+		{name: "forged stamp is rejected", ann: map[string]string{approval.AnnotationDecision: approval.Approve},
+			tamper: func(p approval.Pending, _ []byte) (approval.Pending, []byte) {
+				return p, []byte("attacker-key-attacker-key-attack")
+			},
+			wantPhase: agenticv1alpha1.PhasePendingApproval, wantCond: "ApprovalStampInvalid"},
+		{name: "absent key refuses approvals", ann: map[string]string{approval.AnnotationDecision: approval.Approve}, noKey: true,
+			wantPhase: agenticv1alpha1.PhasePendingApproval, wantCond: "ApprovalStampKeyMissing"},
+		{name: "uid mismatch is rejected", ann: map[string]string{approval.AnnotationDecision: approval.Approve},
+			tamper: func(p approval.Pending, k []byte) (approval.Pending, []byte) {
+				p.WorkloadUID = "uid-other"
+				return p, k
+			},
+			wantPhase: agenticv1alpha1.PhasePendingApproval, wantCond: "ApprovalStampInvalid"},
+		{name: "payload digest mismatch is rejected", ann: map[string]string{approval.AnnotationDecision: approval.Approve},
+			tamper: func(p approval.Pending, k []byte) (approval.Pending, []byte) {
+				p.PayloadSHA256 = approval.PendingSHA256(`{"action":"delete_namespace"}`)
+				return p, k
+			},
+			wantPhase: agenticv1alpha1.PhasePendingApproval, wantCond: "ApprovalStampInvalid"},
 		{name: "stale decision is ignored", ann: map[string]string{approval.AnnotationDecision: approval.Approve}, staleFor: true,
 			wantPhase: agenticv1alpha1.PhasePendingApproval},
 		{name: "required receipt failure does not act", ann: map[string]string{approval.AnnotationDecision: approval.Approve}, failAppend: true,
@@ -210,7 +247,10 @@ func TestReconcile_ApprovalDecisions(t *testing.T) {
 			if tc.staleFor {
 				forID = "some-older-action"
 			}
-			env.decide(t, tc.ann, !tc.unstamped, forID)
+			env.decideTampered(t, tc.ann, !tc.unstamped, forID, tc.tamper)
+			if tc.noKey {
+				env.r.ApprovalStampKey = nil
+			}
 			if tc.failAppend {
 				env.writer.appendErr = errors.New("writer down")
 			}

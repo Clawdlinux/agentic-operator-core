@@ -57,6 +57,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/internal/controller"
 	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy"
 	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy/netprobe"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/approval"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/dataset"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/decision/learned"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
@@ -294,6 +295,8 @@ func main() {
 	}
 	workloadReconciler.Receipts = buildReceiptsConfig(receiptsCfg, setupLog)
 	workloadReconciler.DecisionModel = buildDecisionModelConfig(os.Getenv("DECISION_MODEL_PATH"), setupLog)
+	workloadReconciler.ApprovalStampKey = buildApprovalStampKey(os.Getenv("APPROVAL_STAMP_KEY_FILE"), setupLog)
+	agenticv1alpha1.SetApprovalStampKey(workloadReconciler.ApprovalStampKey)
 
 	if err := workloadReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "AgentWorkload")
@@ -391,6 +394,23 @@ func buildReceiptsConfig(cfg receipts.Config, logger logr.Logger) controller.Rec
 	}
 	logger.Info("Decision receipts enabled", "writer", cfg.WriterURL, "required", cfg.Required)
 	return out
+}
+
+// buildApprovalStampKey loads the approval stamp HMAC key. Without a usable
+// key the webhook refuses new decisions and the controller refuses to act on
+// any decision. Startup is never blocked.
+func buildApprovalStampKey(path string, logger logr.Logger) []byte {
+	if path == "" {
+		logger.Info("Approvals refused: APPROVAL_STAMP_KEY_FILE not set")
+		return nil
+	}
+	key, err := approval.LoadKey(path)
+	if err != nil {
+		logger.Error(err, "Approval stamp key rejected; approvals are refused", "path", path)
+		return nil
+	}
+	logger.Info("Approval stamp key loaded")
+	return key
 }
 
 // buildDecisionModelConfig loads the decision model artifact. No path means

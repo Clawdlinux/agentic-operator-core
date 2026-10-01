@@ -104,3 +104,30 @@ func TestBuildDecisionModelConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildApprovalStampKey(t *testing.T) {
+	dir := t.TempDir()
+	good := dir + "/key"
+	if err := os.WriteFile(good, []byte("0123456789abcdef0123456789abcdef\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	short := dir + "/short"
+	if err := os.WriteFile(short, []byte("short"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, path string
+		want       bool
+	}{
+		{"unset refuses approvals", "", false},
+		{"missing file refuses approvals", dir + "/none", false},
+		{"short key refuses approvals", short, false},
+		{"good key loads", good, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := buildApprovalStampKey(tc.path, logr.Discard()); (len(got) > 0) != tc.want {
+				t.Fatalf("key loaded = %v, want %v", len(got) > 0, tc.want)
+			}
+		})
+	}
+}

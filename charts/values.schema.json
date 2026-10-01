@@ -37,6 +37,22 @@
             "key": { "type": "string", "pattern": "^[-._a-zA-Z0-9]+$" }
           },
           "additionalProperties": false
+        },
+        "approvals": {
+          "type": "object",
+          "description": "Human approval protocol. See docs/approvals.md.",
+          "properties": {
+            "stampKey": {
+              "type": "object",
+              "description": "Secret holding the approval stamp HMAC key. Unset refuses approvals.",
+              "properties": {
+                "existingSecret": { "type": "string" },
+                "key": { "type": "string", "pattern": "^[-._a-zA-Z0-9]+$" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       }
     },

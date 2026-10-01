@@ -7,9 +7,16 @@ package approval
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 )
+
+var testKey = []byte("0123456789abcdef0123456789abcdef")
+
+func pend(id string) Pending {
+	return Pending{ID: id, WorkloadUID: "uid-1", PayloadSHA256: PendingSHA256(`{"action":"scale"}`)}
+}
 
 func stamped(t *testing.T, ann map[string]string, pendingID string) map[string]string {
 	t.Helper()
@@ -19,6 +26,7 @@ func stamped(t *testing.T, ann map[string]string, pendingID string) map[string]s
 	}
 	ann[AnnotationBy] = s
 	ann[AnnotationFor] = pendingID
+	ann[AnnotationMAC] = MAC(testKey, pend(pendingID), ann)
 	return ann
 }
 
@@ -55,6 +63,7 @@ func TestAdmit(t *testing.T) {
 		{name: "new decision is stamped", old: nil, new: map[string]string{AnnotationDecision: Approve}, pending: "p1", wantStamp: true},
 		{name: "client set approval-by rejected", new: map[string]string{AnnotationDecision: Approve, AnnotationBy: `{"username":"root"}`}, pending: "p1", wantErr: ErrForged},
 		{name: "client set approval-for rejected", new: map[string]string{AnnotationDecision: Approve, AnnotationFor: "p1"}, pending: "p1", wantErr: ErrForged},
+		{name: "client set approval-mac rejected", new: map[string]string{AnnotationDecision: Approve, AnnotationMAC: "00"}, pending: "p1", wantErr: ErrForged},
 		{name: "no pending action rejected", new: map[string]string{AnnotationDecision: Approve}, pending: "", wantErr: ErrNoPending},
 		{name: "changing a live decision rejected", old: live, new: copyWith(live, AnnotationDecision, Reject), pending: "p1", wantErr: ErrFinal},
 		{name: "removing a live decision rejected", old: live, new: map[string]string{}, pending: "p1", wantErr: ErrFinal},
@@ -72,7 +81,11 @@ func TestAdmit(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			newAnn := copyWith(tc.new, "", "")
-			err := Admit(tc.old, newAnn, tc.pending, "alice", []string{"sre"})
+			p := Pending{}
+			if tc.pending != "" {
+				p = pend(tc.pending)
+			}
+			err := Admit(tc.old, newAnn, p, "alice", []string{"sre"}, testKey)
 			switch {
 			case tc.wantErr != nil:
 				if !errors.Is(err, tc.wantErr) {
@@ -91,7 +104,7 @@ func TestAdmit(t *testing.T) {
 				if newAnn[AnnotationFor] != tc.pending || !strings.Contains(newAnn[AnnotationBy], `"username":"alice"`) {
 					t.Fatalf("not stamped: %v", newAnn)
 				}
-				if _, ok, err := Read(newAnn, tc.pending); !ok || err != nil {
+				if _, ok, err := Read(newAnn, pend(tc.pending), testKey); !ok || err != nil {
 					t.Fatalf("stamped decision unreadable: %v %v", ok, err)
 				}
 			}
@@ -116,7 +129,7 @@ func TestRead(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			d, ok, err := Read(tc.ann, tc.pending)
+			d, ok, err := Read(tc.ann, pend(tc.pending), testKey)
 			if ok != tc.wantOK || !errors.Is(err, tc.wantErr) {
 				t.Fatalf("ok=%v err=%v, want %v %v", ok, err, tc.wantOK, tc.wantErr)
 			}
@@ -130,6 +143,65 @@ func TestRead(t *testing.T) {
 				t.Fatalf("hashes = %q %q", d.ApproverSHA256(), d.ReasonSHA256())
 			}
 		})
+	}
+}
+
+func TestAdmitWithoutKeyRefuses(t *testing.T) {
+	ann := map[string]string{AnnotationDecision: Approve}
+	if err := Admit(nil, ann, pend("p1"), "alice", nil, nil); !errors.Is(err, ErrNoKey) {
+		t.Fatalf("err = %v, want ErrNoKey", err)
+	}
+	if ann[AnnotationBy] != "" || ann[AnnotationMAC] != "" {
+		t.Fatalf("stamped without a key: %v", ann)
+	}
+}
+
+func TestReadRejectsForgedOrRebound(t *testing.T) {
+	good := stamped(t, map[string]string{AnnotationDecision: Approve}, "p1")
+	forged := copyWith(good, AnnotationMAC, MAC([]byte("attacker-key-attacker-key-attack"), pend("p1"), good))
+	noMAC := copyWith(good, AnnotationMAC, "")
+	edited := copyWith(good, AnnotationReason, "changed after stamping")
+	tests := []struct {
+		name    string
+		ann     map[string]string
+		p       Pending
+		key     []byte
+		wantErr error
+	}{
+		{name: "absent key refused", ann: good, p: pend("p1"), key: nil, wantErr: ErrNoKey},
+		{name: "forged stamp rejected", ann: forged, p: pend("p1"), key: testKey, wantErr: ErrBadMAC},
+		{name: "unmac'd stamp rejected", ann: noMAC, p: pend("p1"), key: testKey, wantErr: ErrBadMAC},
+		{name: "decision changed after stamp rejected", ann: edited, p: pend("p1"), key: testKey, wantErr: ErrBadMAC},
+		{name: "uid mismatch rejected", ann: good, p: Pending{ID: "p1", WorkloadUID: "uid-2", PayloadSHA256: pend("p1").PayloadSHA256}, key: testKey, wantErr: ErrBadMAC},
+		{name: "payload digest mismatch rejected", ann: good, p: Pending{ID: "p1", WorkloadUID: "uid-1", PayloadSHA256: PendingSHA256(`{"action":"delete"}`)}, key: testKey, wantErr: ErrBadMAC},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, ok, err := Read(tc.ann, tc.p, tc.key); !ok || !errors.Is(err, tc.wantErr) {
+				t.Fatalf("ok=%v err=%v, want %v", ok, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoadKey(t *testing.T) {
+	dir := t.TempDir()
+	short := dir + "/short"
+	long := dir + "/long"
+	if err := os.WriteFile(short, []byte("tooshort\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(long, append(append([]byte(nil), testKey...), '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadKey(short); err == nil {
+		t.Fatal("short key accepted")
+	}
+	if k, err := LoadKey(long); err != nil || string(k) != string(testKey) {
+		t.Fatalf("LoadKey = %q, %v", k, err)
+	}
+	if _, err := LoadKey(dir + "/missing"); err == nil {
+		t.Fatal("missing key accepted")
 	}
 }
 

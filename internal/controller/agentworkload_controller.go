@@ -111,6 +111,7 @@ type AgentWorkloadReconciler struct {
 	Recorder         events.EventRecorder     // Optional Kubernetes event recorder
 	Receipts         ReceiptsConfig           // Decision receipts; zero value disables them
 	DecisionModel    DecisionModelConfig      // Decision model; zero value scores nothing
+	ApprovalStampKey []byte                   // HMAC key for approval stamps; nil refuses approvals
 }
 
 type quotaChecker interface {

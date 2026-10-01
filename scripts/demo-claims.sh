@@ -213,6 +213,12 @@ rm -f "${key_file}"
 kc -n "${NS}" create configmap receipt-trust-root \
   --from-file=trust.json="${WORK}/writer-trust.json" >/dev/null
 note "signing key Secret and pinned trust root ConfigMap created (key not printed, key file removed)"
+stamp_file="${WORK}/approval-stamp.key"
+(umask 077 && openssl rand -hex 32 >"${stamp_file}")
+kc -n "${NS}" create secret generic approval-stamp-key \
+  --from-file=stamp.key="${stamp_file}" >/dev/null
+rm -f "${stamp_file}"
+note "approval stamp HMAC key Secret created (key not printed, key file removed)"
 image_repo="${IMAGE%%:*}"
 image_tag="${IMAGE##*:}"
 # kindnet enforces NetworkPolicy. The chart's default-deny egress has no rule
@@ -239,6 +245,7 @@ run helm --kube-context "kind-${CLUSTER_NAME}" upgrade --install "${RELEASE}" "$
   --set global.receipts.required=true \
   --set global.receipts.signingKey.existingSecret=receipt-signing-key \
   --set global.receipts.trustRoot.existingConfigMap=receipt-trust-root \
+  --set global.approvals.stampKey.existingSecret=approval-stamp-key \
   --set global.receipts.image.repository="${image_repo}" \
   --set global.receipts.image.tag="${image_tag}" \
   --set global.receipts.image.pullPolicy=IfNotPresent \

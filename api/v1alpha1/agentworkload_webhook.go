@@ -43,8 +43,8 @@ var agentworkloadlog = logf.Log.WithName("agentworkload-resource")
 // Without WithDefaulter and WithValidator the builder registers no handler.
 func (r *AgentWorkload) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, r).
-		WithDefaulter(workloadAdmission{}).
-		WithValidator(workloadAdmission{}).
+		WithDefaulter(workloadAdmission{stampKey: approvalStampKey}).
+		WithValidator(workloadAdmission{stampKey: approvalStampKey}).
 		Complete()
 }
 

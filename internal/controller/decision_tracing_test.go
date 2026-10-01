@@ -192,6 +192,7 @@ func TestDecisionTraceCoverage(t *testing.T) {
 					t.Fatal(err)
 				}
 				workload.Annotations[approval.AnnotationBy] = stamp
+				workload.Annotations[approval.AnnotationMAC] = approval.MAC(testStampKey, pendingRef(workload), workload.Annotations)
 				if err := env.k8s.Update(env.ctx, workload); err != nil {
 					t.Fatal(err)
 				}
