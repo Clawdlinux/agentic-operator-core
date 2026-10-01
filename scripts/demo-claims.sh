@@ -101,14 +101,18 @@ Plan (cluster ${CLUSTER_NAME}):
   4. dpdp-in@v0.1.0, decisionType automated, personal data, permissive mode:
      PendingApproval
   5. forged approval-by rejected by the webhook, agentctl approve stamped with
-     the real identity, human receipt plus approvals.jsonl example; then a
-     human edit that adds a credential is denied by INV-01
-  6. receipts export and verify, tamper checks, AgentGate verifier agreement,
-     dataset verify
+     the real identity (HMAC stamp key Secret), human receipt carries the
+     identity digest, approvals.jsonl example; a restored consumed approval
+     does not run again; a human edit that adds a credential is denied by INV-01
+  6. receipts export and verify under the pin made at install, manifest
+     removal and a wrong pin rejected, tamper checks, AgentGate verifier
+     agreement, dataset verify
   7. decision model in shadow via the chart value, receipt model block,
      agentctl decision eval WARNING
-  8. trace coverage via make trace-coverage (no collector)
-  9. cleanup (kind delete) unless --keep
+  8. a credential past the 64 KiB scan window: INV-06 deny
+  9. operator restarted with a wrong writer pin: INV-05 deny, nothing runs
+ 10. trace coverage via make trace-coverage (no collector)
+ 11. cleanup (kind delete) unless --keep
 EOF
 }
 
@@ -478,15 +482,19 @@ s4() {
 }
 
 s5() {
-  local me stamp out pending
+  local me stamp out pending msg
+  local me_digest
   me="$(kc auth whoami -o jsonpath='{.status.userInfo.username}')"
+  me_digest="$(python3 "${CHECK}" digest "${me}")"
   note "kubectl identity: ${me}"
+  note "identity digest (sha256 of clawdlinux.org/human-identity/v1, NUL, name): ${me_digest}"
 
   say "-- 5a: forged stamp, then a real approve"
   apply_workload s5-approve s5-approve permissive "${DPDP_INTENT}"
   wait_phase s5-approve PendingApproval
   pending="$(kc -n "${DEMO_NS}" get agentworkload s5-approve -o jsonpath='{.status.pendingApproval.id}')"
   note "pending id: ${pending}"
+  kc -n "${DEMO_NS}" get agentworkload s5-approve -o jsonpath='{.status.pendingApproval}' >"${WORK}/s5-pending.json"
   printf '$ kubectl annotate agentworkload s5-approve clawdlinux.org/approval-decision=approve %s\n' \
     "'clawdlinux.org/approval-by={\"username\":\"mallory\",\"groups_sha256\":\"x\"}'"
   if out="$(kc -n "${DEMO_NS}" annotate agentworkload s5-approve clawdlinux.org/approval-decision=approve \
@@ -503,15 +511,41 @@ s5() {
   stamp="$(kc -n "${DEMO_NS}" get agentworkload s5-approve -o jsonpath='{.metadata.annotations.clawdlinux\.org/approval-by}')"
   note "approval-by: ${stamp}"
   check "webhook stamped the real kubectl identity" contains "${stamp}" "\"username\":\"${me}\""
+  check "webhook stamped an HMAC over the decision" \
+    test -n "$(kc -n "${DEMO_NS}" get agentworkload s5-approve -o jsonpath='{.metadata.annotations.clawdlinux\.org/approval-mac}')"
+  msg="$(condition_message s5-approve ApprovalDecision)"
+  note "ApprovalDecision message: ${msg}"
+  check "status message names the approver" contains "${msg}" "after human approve by ${me}"
   check "execute_action called once after approval" eq "$(calls s5-approve execute_action)" 1
   export_dataset "${WORK}/s5"
   run python3 "${CHECK}" records "${WORK}/s5" s5-approve
-  check "layer human receipt with the approver as principal" \
-    bash -c "python3 '${CHECK}' records '${WORK}/s5' s5-approve | grep -q 'layer=human outcome=approved policy_decision=allow principal=${me} '"
+  check "layer human receipt with the approver identity digest as principal" \
+    bash -c "python3 '${CHECK}' records '${WORK}/s5' s5-approve | grep -q 'layer=human outcome=approved policy_decision=allow principal=${me_digest} '"
+  check "no receipt or record carries the raw username" \
+    bash -c "! grep -Fq '\"${me}\"' '${WORK}/s5/receipts.jsonl' '${WORK}/s5/records.jsonl'"
   run python3 "${CHECK}" approvals "${WORK}/s5/approvals.jsonl" s5-approve
   check "one approvals.jsonl example" eq "$(python3 "${CHECK}" approvals "${WORK}/s5/approvals.jsonl" s5-approve | tail -1)" 1
   note "example line:"
   grep -F '"s5-approve"' "${WORK}/s5/approvals.jsonl" | head -1 | sed 's/^/  | /'
+
+  say "-- 5c: a restored, already consumed approval does not run again"
+  python3 -c 'import json,sys; print(json.dumps({"status": {"phase": "PendingApproval", "pendingApproval": json.load(open(sys.argv[1]))}}))' \
+    "${WORK}/s5-pending.json" >"${WORK}/s5-replay.json"
+  note "restore the decided pending action; the stamped approval annotations are still on the object"
+  run kubectl --context "kind-${CLUSTER_NAME}" -n "${DEMO_NS}" patch agentworkload s5-approve \
+    --subresource=status --type=merge --patch-file "${WORK}/s5-replay.json"
+  run kubectl --context "kind-${CLUSTER_NAME}" -n "${DEMO_NS}" annotate agentworkload s5-approve demo.clawdlinux.org/nudge=1
+  local end reason=""
+  end=$(( $(date +%s) + 90 ))
+  while (( $(date +%s) < end )); do
+    reason="$(kc -n "${DEMO_NS}" get agentworkload s5-approve -o jsonpath='{.status.conditions[?(@.type=="ApprovalDecision")].reason}')"
+    [[ "${reason}" == "ApprovalReplay" ]] && break
+    sleep 2
+  done
+  note "ApprovalDecision ${reason}: $(condition_message s5-approve ApprovalDecision)"
+  check "controller refused the consumed pending id" eq "${reason}" "ApprovalReplay"
+  sleep 5
+  check "execute_action still called exactly once" eq "$(calls s5-approve execute_action)" 1
   delete_workload s5-approve
 
   say "-- 5b: a human edit cannot bypass an invariant"
@@ -523,7 +557,6 @@ JSON
   sed 's/^/  | /' "${WORK}/edit.json"
   run agentctl -n "${DEMO_NS}" edit-approve s5-edit --edit-file "${WORK}/edit.json" --reason "use backup creds"
   wait_phase s5-edit PolicyDenied
-  local msg
   msg="$(condition_message s5-edit PolicyDenied)"
   note "PolicyDenied message: ${msg}"
   check "edited action denied by INV-01" contains "${msg}" "INV-01"
@@ -544,11 +577,26 @@ expect_fail() {
 }
 
 s6() {
-  local ev="${WORK}/s6" pinned="${WORK}/pinned-trust.json"
+  local ev="${WORK}/s6" pinned="${WORK}/writer-trust.json" out
   export_dataset "${ev}"
-  cp "${ev}/trust.json" "${pinned}"
-  note "pinned trust root copied to ${pinned}"
-  run agentctl receipts verify "${ev}" --trust-root "${pinned}"
+  note "pinned trust root made at install from the signing key: ${pinned}"
+  run agentctl receipts verify "${ev}" --trust-root "${pinned}" | tee "${WORK}/s6-verify.txt"
+  out="$(cat "${WORK}/s6-verify.txt")"
+  check "completeness proven against the signed export manifest" contains "${out}" "completeness: proven"
+
+  cp -R "${ev}" "${WORK}/s6-no-manifest"
+  run python3 "${CHECK}" strip-manifest "${WORK}/s6-no-manifest/receipts.jsonl"
+  expect_fail "agentctl rejects an export with the manifest removed" \
+    "${BIN}/agentctl" receipts verify "${WORK}/s6-no-manifest" --trust-root "${pinned}"
+  run agentctl receipts verify "${WORK}/s6-no-manifest" --trust-root "${pinned}" --allow-prefix
+  note "ok: --allow-prefix accepts it and warns that completeness is not proven"
+
+  local wrong_key="${WORK}/wrong-key.hex"
+  (umask 077 && openssl rand -hex 32 >"${wrong_key}")
+  "${BIN}/agentctl" receipts trust-root --signing-key-file "${wrong_key}" >"${WORK}/wrong-trust.json"
+  rm -f "${wrong_key}"
+  expect_fail "agentctl rejects the export under a wrong pin" \
+    "${BIN}/agentctl" receipts verify "${ev}" --trust-root "${WORK}/wrong-trust.json"
   local agentgate=false
   if [[ -x "${BIN}/agentgate-verify" ]]; then
     agentgate=true
@@ -600,7 +648,7 @@ s7() {
 
   local out
   run agentctl decision eval --dataset "${WORK}/s7" --model "${MODEL_JSON}" \
-    --trust-root "${WORK}/pinned-trust.json" --baseline | tee "${WORK}/eval-export.txt"
+    --trust-root "${WORK}/writer-trust.json" --baseline | tee "${WORK}/eval-export.txt"
   out="$(cat "${WORK}/eval-export.txt")"
   check "eval on the exported dataset prints a WARNING" contains "${out}" "WARNING"
   run agentctl decision eval --dataset "${SYNTH_APPROVALS}" --model "${MODEL_JSON}" \
@@ -608,6 +656,52 @@ s7() {
   sed -n '1,8p' "${WORK}/eval-synthetic.txt"
   out="$(cat "${WORK}/eval-synthetic.txt")"
   check "eval on the shipped training set warns the data is synthetic" contains "${out}" "are synthetic"
+}
+
+s9() {
+  note "propose_action returns a 70 KiB string with an AKIA key after it."
+  apply_workload s9-oversize s9-oversize strict ""
+  wait_phase s9-oversize PolicyDenied
+  local msg
+  msg="$(condition_message s9-oversize PolicyDenied)"
+  note "PolicyDenied message: ${msg}"
+  check "condition names INV-06 (scan incomplete)" contains "${msg}" "INV-06"
+  export_receipts "${WORK}/s9"
+  run python3 "${CHECK}" records "${WORK}/s9" s9-oversize
+  check "deny receipt with INV-06" \
+    bash -c "python3 '${CHECK}' records '${WORK}/s9' s9-oversize | grep -q 'outcome=deny .*INV-06'"
+  check "execute_action was never called" eq "$(calls s9-oversize execute_action)" 0
+  check "operator log does not contain the key" operator_log_clean "${FAKE_AWS_KEY}"
+  delete_workload s9-oversize
+}
+
+s10() {
+  note "Repin the operator to a throwaway key. The real writer still signs with its own key."
+  local wrong_key="${WORK}/wrong-pin.hex" deploy
+  (umask 077 && openssl rand -hex 32 >"${wrong_key}")
+  "${BIN}/agentctl" receipts trust-root --signing-key-file "${wrong_key}" >"${WORK}/wrong-pin.json"
+  rm -f "${wrong_key}"
+  kc -n "${NS}" create configmap receipt-trust-root --from-file=trust.json="${WORK}/wrong-pin.json" \
+    --dry-run=client -o yaml | kc apply -f - >/dev/null
+  deploy="$(kc -n "${NS}" get deployment -l "${OPERATOR_SEL}" -o name)"
+  run kubectl --context "kind-${CLUSTER_NAME}" -n "${NS}" rollout restart "${deploy}"
+  kc -n "${NS}" rollout status "${deploy}" --timeout="${HELM_TIMEOUT}" >/dev/null
+  apply_workload s10-wrong-pin s10-wrong-pin strict "  declaredIntent:
+    purpose: \"scale the web tier\"
+    decisionType: assisted
+    allowedDataClasses: []
+    allowedDestinations: [\"${MOCK_HOST}\"]"
+  wait_phase s10-wrong-pin PolicyDenied
+  local msg
+  msg="$(condition_message s10-wrong-pin PolicyDenied)"
+  note "PolicyDenied message: ${msg}"
+  check "condition names INV-05 (receipt required)" contains "${msg}" "INV-05"
+  check "execute_action was never called" eq "$(calls s10-wrong-pin execute_action)" 0
+  kc -n "${NS}" logs -l "${OPERATOR_SEL}" --tail=-1 >"${WORK}/operator-wrong-pin.log"
+  grep -F "unpinned key" "${WORK}/operator-wrong-pin.log" | tail -1 | cut -c1-300 || true
+  check "operator refused the writer receipt as signed by an unpinned key" \
+    grep -Fq "unpinned key" "${WORK}/operator-wrong-pin.log"
+  delete_workload s10-wrong-pin
 }
 
 s8() {
@@ -624,7 +718,9 @@ scenario 4 "dpdp-in pack escalation in permissive mode" s4
 scenario 5 "human approve with a stamped identity, edit cannot bypass invariants" s5
 scenario 6 "offline verification and tamper detection" s6
 scenario 7 "decision model in shadow mode" s7
-scenario 8 "decision tracing coverage (Go test, no collector)" s8
+scenario 8 "credential past the scan window, INV-06" s9
+scenario 9 "operator pinned to the wrong writer key, INV-05" s10
+scenario 10 "decision tracing coverage (Go test, no collector)" s8
 
 heading "Results ($(( $(date +%s) - T0 ))s of scenarios)"
 cat "${RESULTS}"
@@ -636,10 +732,16 @@ Proven by this demo, on a kind cluster:
 - a signed receipt is stored before the action runs, and denied actions are
   never executed
 - a policy pack approval finding holds an action even in permissive mode
-- the webhook stamps the approver and rejects a forged stamp
+- the webhook stamps the approver under an HMAC and rejects a forged stamp
+- receipts carry the approver identity digest, not the username
+- a restored, already consumed approval does not run again
 - a human edit is re-checked and cannot bypass an invariant
-- receipts verify offline, tamper is detected, and AgentGate verifies the
+- receipts verify offline under a pin made at install, a removed manifest
+  and a wrong pin fail, tamper is detected, and AgentGate verifies the
   same chain
+- a credential past the 64 KiB scan window is denied by INV-06
+- an operator pinned to the wrong writer key refuses every receipt and
+  denies by INV-05
 - the decision model scores in shadow without changing the outcome
 - decision spans are covered by a Go test
 
