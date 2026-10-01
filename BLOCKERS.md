@@ -71,3 +71,4 @@ An independent review of this branch found these gaps. They are documented, not 
 - `callerIdentity` is always empty.
 - `TestControllers` needs envtest binaries (`bin/k8s` or
   `/usr/local/kubebuilder/bin`). It fails locally without them.
+- **Denied direct-path workloads are not terminal.** A `PolicyDenied` or `Completed` direct-path workload is proposed again on any later reconcile (stale event, hourly or 30s requeue). Each proposal is fully re-decided and receipted, so no guard is skipped. But a deny caused by a temporary condition, such as an unreachable receipt writer under INV-05, can be followed by an execution seconds later. The demo hit this once. This predates the branch. Fix: make terminal phases sticky until the spec generation changes.
