@@ -125,6 +125,22 @@ On a stamped decision for the current pending `id`:
    - otherwise: state `Executing`, then `execute_action`, then `Completed` or
      `Failed` as on the allow path.
 
+Pending ids do not repeat. With receipts on, the id is derived from the
+decision receipt entry hash and the workload UID, so a new pending action
+always gets a new id and an old stamped decision is stale for it.
+
+A decided id is consumed. The controller keeps the last 32 decided ids in
+`status.consumedApprovalIDs`. The human receipt records
+`consumed_id_sha256`, a domain-separated digest of the workload UID and
+pending id, and `pending_payload_sha256`, the digest of the stored proposal
+the decision was stamped against. If a status write restores a pending action
+whose id is consumed, the controller does not act. Condition reason
+`ApprovalReplay`.
+
+The stamp MAC binds the decision to the workload UID and the stored proposal
+digest. A decision copied to a recreated workload, or a proposal rewritten
+after stamping, gives reason `ApprovalStampInvalid`.
+
 `status.lastApproval` records the outcome: `executed`, `failed`, `rejected`,
 `denied`, or `unknown`.
 

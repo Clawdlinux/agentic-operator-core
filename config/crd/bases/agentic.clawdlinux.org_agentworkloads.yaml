@@ -556,6 +556,14 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              consumedApprovalIDs:
+                description: |-
+                  consumedApprovalIDs holds the most recent decided pending ids. A pending
+                  action restored with one of them is never acted on again.
+                items:
+                  type: string
+                maxItems: 32
+                type: array
               executedActions:
                 description: executedActions is a list of actions that were approved
                   and executed

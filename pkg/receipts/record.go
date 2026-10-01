@@ -190,6 +190,21 @@ type Approval struct {
 	OriginalSeq       uint64   `json:"original_seq"`
 	OriginalInputHash string   `json:"original_input_hash"`
 	EditedFields      []string `json:"edited_fields"`
+	// PendingPayloadSHA256 is the digest of the stored pending proposal the
+	// decision was stamped against.
+	PendingPayloadSHA256 string `json:"pending_payload_sha256,omitempty"`
+	// ConsumedIDSHA256 marks the pending id as used. Set by NewHumanRecord.
+	ConsumedIDSHA256 string `json:"consumed_id_sha256"`
+}
+
+// consumedDomain separates consumed pending id digests from other hashes.
+const consumedDomain = "clawdlinux.org/approval-consumed/v1"
+
+// ConsumedIDSHA256 is the hex SHA-256 of the domain, workload UID, and
+// pending id, each NUL separated.
+func ConsumedIDSHA256(workloadUID, pendingID string) string {
+	sum := sha256.Sum256([]byte(consumedDomain + "\x00" + workloadUID + "\x00" + pendingID))
+	return hex.EncodeToString(sum[:])
 }
 
 // Human decision labels, as in the approval-decision annotation.
@@ -249,6 +264,7 @@ func NewHumanRecord(p HumanParams) (DecisionRecord, error) {
 	}
 	a := p.Approval
 	a.EditedFields = sortedCopy(a.EditedFields)
+	a.ConsumedIDSHA256 = ConsumedIDSHA256(p.Workload.UID, a.PendingID)
 	reason := "none"
 	if a.ReasonSHA256 != "" {
 		reason = "sha256:" + a.ReasonSHA256

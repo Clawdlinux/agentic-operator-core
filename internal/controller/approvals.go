@@ -155,9 +155,8 @@ func newPendingApproval(
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256([]byte(strings.Join([]string{string(wl.UID), recorded.record.InputHash, now.UTC().Format(time.RFC3339Nano), string(prop)}, "\n")))
 	p := &agenticv1alpha1.PendingApproval{
-		ID:            hex.EncodeToString(sum[:16]),
+		ID:            pendingID(wl, recorded, now, prop),
 		Action:        action.Name,
 		Description:   action.Description,
 		Confidence:    action.Confidence,
@@ -176,6 +175,35 @@ func newPendingApproval(
 	return p, nil
 }
 
+// pendingID names a pending action. With a receipt it is derived from the
+// decision receipt entry hash and the workload UID, so an id cannot repeat
+// for a new action.
+func pendingID(wl *agenticv1alpha1.AgentWorkload, recorded decided, now metav1.Time, prop []byte) string {
+	parts := []string{"clawdlinux.org/pending-id/v1", string(wl.UID)}
+	if recorded.receipt != nil {
+		parts = append(parts, "receipt", hex.EncodeToString(recorded.receipt.EntryHash[:]))
+	} else {
+		parts = append(parts, "no-receipt", recorded.record.InputHash, now.UTC().Format(time.RFC3339Nano), string(prop))
+	}
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	return hex.EncodeToString(sum[:16])
+}
+
+// maxConsumedApprovalIDs bounds status.consumedApprovalIDs.
+const maxConsumedApprovalIDs = 32
+
+func approvalConsumed(wl *agenticv1alpha1.AgentWorkload, id string) bool {
+	if wl.Status.LastApproval != nil && wl.Status.LastApproval.ID == id {
+		return true
+	}
+	for _, c := range wl.Status.ConsumedApprovalIDs {
+		if c == id {
+			return true
+		}
+	}
+	return false
+}
+
 // target is the action a human decision applies to.
 type target struct {
 	name        string
@@ -190,6 +218,11 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 	log := logf.FromContext(ctx)
 	p := wl.Status.PendingApproval
 	now := metav1.Now()
+
+	if approvalConsumed(wl, p.ID) {
+		// A restored pending action with a decided id. Never act on it again.
+		return r.holdApproval(ctx, wl, "ApprovalReplay", "pending action "+p.ID+" was already decided; not acting again", time.Hour)
+	}
 
 	if p.State == agenticv1alpha1.ApprovalStateExecuting {
 		// The previous reconcile may have executed. Never run it again.
@@ -302,14 +335,15 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 		PolicyPacks:   wl.Spec.PolicyPacks,
 		ThresholdMode: mode,
 		Approval: receipts.Approval{
-			Label:             d.Label,
-			Approver:          d.Approver.Username,
-			ApproverSHA256:    d.ApproverSHA256(),
-			ReasonSHA256:      d.ReasonSHA256(),
-			PendingID:         p.ID,
-			OriginalSeq:       uint64(p.ReceiptSeq),
-			OriginalInputHash: original.InputHash,
-			EditedFields:      editedFields,
+			Label:                d.Label,
+			Approver:             d.Approver.Username,
+			ApproverSHA256:       d.ApproverSHA256(),
+			ReasonSHA256:         d.ReasonSHA256(),
+			PendingID:            p.ID,
+			PendingPayloadSHA256: approval.PendingSHA256(p.Proposal),
+			OriginalSeq:          uint64(p.ReceiptSeq),
+			OriginalInputHash:    original.InputHash,
+			EditedFields:         editedFields,
 		},
 	})
 	var humanReceipt *receiptspec.Receipt
@@ -427,6 +461,11 @@ func (r *AgentWorkloadReconciler) finishApproval(
 	wl.Status.LastApproval = &agenticv1alpha1.ApprovalOutcome{
 		ID: p.ID, Decision: label, Outcome: outcome, ApproverSHA256: approverSHA, DecisionReceiptSeq: seq, DecidedAt: now,
 	}
+	consumed := append(wl.Status.ConsumedApprovalIDs, p.ID)
+	if len(consumed) > maxConsumedApprovalIDs {
+		consumed = consumed[len(consumed)-maxConsumedApprovalIDs:]
+	}
+	wl.Status.ConsumedApprovalIDs = consumed
 	wl.Status.PendingApproval = nil
 	wl.Status.Phase = phase
 	wl.Status.LastReconcileTime = &now

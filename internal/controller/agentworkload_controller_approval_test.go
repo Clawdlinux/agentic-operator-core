@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/Clawdlinux/agentgate/pkg/receiptspec"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/approval"
@@ -388,5 +391,66 @@ func TestReconcile_RejectedIsTerminal(t *testing.T) {
 	env.reconcile(t)
 	if after, _ := env.exec.snapshot(); len(after) != len(tools) {
 		t.Fatalf("rejected workload called MCP again: %v", after[len(tools):])
+	}
+}
+
+func TestReconcile_ApprovalConsumedIDReplayDoesNothing(t *testing.T) {
+	t.Parallel()
+	env := newApprovalEnv(t, "approval-replay", "", "", nil)
+	saved := env.get(t).Status.PendingApproval.DeepCopy()
+	env.decide(t, map[string]string{approval.AnnotationDecision: approval.Approve}, true, env.pendingI)
+	env.reconcile(t)
+	if _, executed := env.exec.snapshot(); len(executed) != 1 {
+		t.Fatalf("setup: executed %v", executed)
+	}
+	wl := env.get(t)
+	if !slices.Contains(wl.Status.ConsumedApprovalIDs, env.pendingI) {
+		t.Fatalf("consumed ids = %v, want %s", wl.Status.ConsumedApprovalIDs, env.pendingI)
+	}
+	human := env.writer.records[len(env.writer.records)-1]
+	if human.Approval == nil || human.Approval.ConsumedIDSHA256 != receipts.ConsumedIDSHA256(string(wl.UID), env.pendingI) {
+		t.Fatalf("human receipt does not record the consumed id: %+v", human.Approval)
+	}
+	if human.Approval.PendingPayloadSHA256 != approval.PendingSHA256(saved.Proposal) {
+		t.Fatalf("human receipt pending payload = %q", human.Approval.PendingPayloadSHA256)
+	}
+
+	// A status writer restores the decided pending action and clears lastApproval.
+	// The stamped annotations still carry a valid MAC for that id.
+	saved.State, saved.Decision = "", ""
+	wl.Status.PendingApproval = saved
+	wl.Status.Phase = agenticv1alpha1.PhasePendingApproval
+	wl.Status.LastApproval = nil
+	if err := env.k8s.Status().Update(env.ctx, wl); err != nil {
+		t.Fatal(err)
+	}
+	records := len(env.writer.records)
+	env.reconcile(t)
+	if _, executed := env.exec.snapshot(); len(executed) != 1 || len(env.writer.records) != records {
+		t.Fatalf("replay acted: executed %v, receipts %d -> %d", executed, records, len(env.writer.records))
+	}
+	c := findCondition(env.get(t).Status.Conditions, approvalDecisionCondition)
+	if c == nil || c.Reason != "ApprovalReplay" {
+		t.Fatalf("condition = %#v, want ApprovalReplay", c)
+	}
+}
+
+func TestPendingIDBindsReceiptAndUID(t *testing.T) {
+	now := metav1.Now()
+	rec := decided{receipt: &receiptspec.Receipt{}}
+	rec.receipt.EntryHash[0] = 1
+	a := &agenticv1alpha1.AgentWorkload{ObjectMeta: metav1.ObjectMeta{UID: "uid-a"}}
+	b := &agenticv1alpha1.AgentWorkload{ObjectMeta: metav1.ObjectMeta{UID: "uid-b"}}
+	idA := pendingID(a, rec, now, []byte(`{}`))
+	if idA != pendingID(a, rec, metav1.NewTime(now.Add(time.Hour)), []byte(`{"x":1}`)) {
+		t.Fatal("receipt-derived id must depend only on the entry hash and UID")
+	}
+	if idA == pendingID(b, rec, now, []byte(`{}`)) {
+		t.Fatal("id must bind the workload UID")
+	}
+	next := decided{receipt: &receiptspec.Receipt{}}
+	next.receipt.EntryHash[0] = 2
+	if idA == pendingID(a, next, now, []byte(`{}`)) {
+		t.Fatal("a new receipt must give a new id")
 	}
 }

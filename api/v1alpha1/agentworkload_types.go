@@ -508,6 +508,12 @@ type AgentWorkloadStatus struct {
 	// lastApproval records the last human decision the controller handled.
 	// +optional
 	LastApproval *ApprovalOutcome `json:"lastApproval,omitempty"`
+
+	// consumedApprovalIDs holds the most recent decided pending ids. A pending
+	// action restored with one of them is never acted on again.
+	// +kubebuilder:validation:MaxItems=32
+	// +optional
+	ConsumedApprovalIDs []string `json:"consumedApprovalIDs,omitempty"`
 }
 
 // Workload phases set by the direct action path.
