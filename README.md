@@ -61,10 +61,14 @@ The target contract connects caller identity, declared access, action policy, ap
 How an action is decided, as a target design (see [decision architecture](docs/architecture/decision-architecture.md)):
 
 1. Invariants in code. Credentials never reach the agent. Egress only to declared destinations.
-2. A decision model scores each action. It can only escalate to a human at first.
+2. A decision model scores each action. It can only escalate to a human.
 3. Humans approve or reject. Every decision is a signed, labelled example.
 
-Today the repo ships a threshold evaluator, not this model. The ADR lists what is built and what is not.
+Today the repo ships invariants, policy packs, a threshold evaluator, and
+human approvals. The decision model exists but is escalate-only, runs in
+shadow mode by default, and only once an artifact is mounted. The shipped
+artifact is trained on synthetic DRAFT scenarios and is not validated on real
+decisions. The ADR lists what is built and what is not.
 
 | Capability | Current repository state |
 |---|---|
@@ -296,6 +300,7 @@ assets/                 Branding assets (logo, etc.)
 | [Policy packs](docs/policy-packs.md) | Invariants and opt-in Rego packs (`dpdp-in`, `gdpr-eu`) |
 | [Receipts](docs/receipts.md) | Opt-in signed decision receipts, receipt-writer, offline verify |
 | [Approvals](docs/approvals.md) | Human approve, reject, edit protocol and the signed approval dataset |
+| [Decision model](docs/architecture/decision-model.md) | Escalate-only scoring, shadow by default, offline eval, not production-validated |
 | [Troubleshooting](docs/10-troubleshooting.md) | Common issues and fixes |
 
 ---

@@ -34,8 +34,8 @@ model id and version, input hash, option set and order, per-option probabilities
   `RECEIPTS_REQUIRED=true` and no receipt can be written.
 - Receipts (pkg/receipts, cmd/receipt-writer) are opt-in. With receipts on,
   every direct-path decision gets a signed AgentGate-format receipt before the
-  action runs. See [receipts](../receipts.md). No model block yet, because no
-  model decides. Execution outcome and the runtime-adapter path are not
+  action runs. See [receipts](../receipts.md). A scored action carries a
+  `model` block. Execution outcome and the runtime-adapter path are not
   receipted.
 - Layers combine in pkg/decision.Decide. Strictest wins.
 - Human approval (layer 3) works on the direct path. Decisions are
@@ -49,7 +49,13 @@ model id and version, input hash, option set and order, per-option probabilities
 - "Destructive" = string match on action name.
 - pkg/evaluation/scorer.go: keyword heuristic, post hoc, blocks nothing.
 - AgentGate: deterministic, fine as invariant layer example.
-- No learned gate exists. Layer 2 is new work.
+- Layer 2, phase A exists: a logistic regression decision model
+  (pkg/decision/learned) with integer-only inference, escalate-only via
+  pkg/decision.ApplyModel, shadow by default, scored after Decide on the
+  direct path. Nothing runs until DECISION_MODEL_PATH points at an artifact.
+  The shipped artifact is trained on 30 DRAFT synthetic scenarios and is not
+  production-validated. Offline evaluation: `agentctl decision eval`. See
+  [decision model](decision-model.md). Phase B (bounded autonomy) is not built.
 
 ## Build order
 1. Measure, stop trusting agent self-report (observed inputs). See
@@ -60,12 +66,17 @@ model id and version, input hash, option set and order, per-option probabilities
 4. Approval dataset (already in goal prompt phase 4). Shipped on the direct
    path: signed approve, reject, edit receipts plus approvals.jsonl. See
    [approvals](../approvals.md).
-5. Decision model phase A (escalate-only), evaluated offline on approval dataset first, shadow mode before it can affect anything.
+5. Decision model phase A (escalate-only), evaluated offline on approval
+   dataset first, shadow mode before it can affect anything. Shipped:
+   classifier, shadow and escalate modes, model block in receipts, offline
+   eval with a baseline, deterministic stdlib trainer. Not done: training on
+   real labels, the gate in [decision model](decision-model.md), the LLM
+   judge as a second signal. See [decision model](decision-model.md).
 6. Phase B only after shadow results and calibration are documented.
 
 ## Candidate model types (decide by spike, not now)
 Small fine-tuned classifier on structured features (cheap, fast, auditable features). Small local LLM judge with typed options (Jev-style, AgentJev-0.6B is Apache-2.0). Start with the classifier. LLM judge as second signal. Both escalate-only at first.
 
 ## Open
-- Feature set and labels: seeded from approval dataset, but dataset is empty until first PoC. Need synthetic seed from founder-written scenarios (50 to 100) to bootstrap shadow mode.
+- Feature set and labels: seeded from approval dataset, but dataset is empty until first PoC. Need synthetic seed from founder-written scenarios (50 to 100) to bootstrap shadow mode. Today: feature spec v1 and 30 engineer-written DRAFT scenarios in tools/decision-train/scenarios.json, to be replaced.
 - Who owns threshold changes (customer security team) and how they are versioned.

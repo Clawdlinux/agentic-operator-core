@@ -92,6 +92,7 @@ confidence cannot turn an invariant or pack finding into an allow.
 | Any pack deny or pack error | `PolicyDenied` | `PendingApproval` |
 | Threshold deny | `PolicyDenied` | `PendingApproval` |
 | Pack require approval, nothing denies | `PendingApproval` | `PendingApproval` |
+| Nothing objects, model in escalate mode scores at or above threshold | `PendingApproval` | `PendingApproval` |
 | Nothing objects | action executes | action executes |
 
 Under strict, reasons with rule IDs (for example `INV-02: ...` or
@@ -99,3 +100,10 @@ Under strict, reasons with rule IDs (for example `INV-02: ...` or
 condition message. A pack approval sets condition `ApprovalRequired`. In
 permissive mode a deny sets no condition, as before. See
 [policy packs](policy-packs.md).
+
+The decision model runs after `Decide` and is escalate-only. Its features
+come from the same declared, observed, and agent-claimed input. In shadow
+mode (the default) it records a score and changes nothing. In escalate mode
+it can only move an allow to require_approval, with condition
+`ApprovalRequired` reason `ModelEscalation`. It never loosens a deny or an
+approval. See [decision model](architecture/decision-model.md).

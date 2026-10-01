@@ -55,6 +55,7 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 - [x] Rule engine (OPA Go library) with invariants and policy packs. 5 invariants, `dpdp-in@v0.1.0` and `gdpr-eu@v0.1.0` packs. Direct action path only; orchestrated runtimes reject packs. See [policy packs](docs/policy-packs.md)
 - [x] Signed decision receipts, opt-in. AgentGate receipt format, `receipt-writer` service, write-ahead, fail closed with `RECEIPTS_REQUIRED`, `agentctl receipts export|verify`. Direct action path only. See [receipts](docs/receipts.md)
 - [x] Human approval protocol and signed approval dataset. Webhook-stamped approver, append-once decisions, edit re-validated against invariants, `spec.approvalCapture`, `approvals.jsonl` on the receipt-writer, `agentctl dataset export|verify`. Direct action path only; Argo approval gates not covered. See [approvals](docs/approvals.md)
+- [x] Decision model phase A: logistic regression with integer-only inference, escalate-only, `spec.decisionModel.mode` shadow by default, `DECISION_MODEL_PATH`, receipt `model` block, `agentctl decision eval` with a hand-weighted baseline, stdlib trainer with byte-identical reruns. Shipped artifact trained on synthetic DRAFT scenarios, not production-validated. Phase B not built. See [decision model](docs/architecture/decision-model.md)
 
 ## Now
 
@@ -72,7 +73,7 @@ Priority order. Validation before features.
 - [x] Observed decision inputs on the direct action path: destination host, deterministic data-class detection, action history. Caller identity is not observed yet. Agent self-report only tightens. See [policy input](docs/policy-input.md)
 - [ ] Invariants and policy packs on orchestrated runtimes (`spec.orchestration`)
 - [ ] Receipt gaps: runtime-adapter path, execution outcome, approval receipts, key rotation, retention, writer TLS, published writer image
-- [ ] Decision model: escalate-only scoring, shadow mode first. See [decision architecture](docs/architecture/decision-architecture.md)
+- [ ] Decision model on real labels: founder-written scenarios, retrain on human rows, pass the escalate gate. Runtime-adapter path not scored. LLM judge not started. See [decision model](docs/architecture/decision-model.md)
 
 ## Later (all validation-gated)
 

@@ -125,6 +125,7 @@ One example per line:
 | `timestamp` | RFC 3339 UTC |
 | `capture_mode`, `content` | Per the capture mode |
 | `edit_diff` | For edit: fields changed (`name`, `description`, `params`) and the edited content per mode |
+| `source` | Absent for a human decision. `synthetic` marks generated training rows from `tools/decision-train`. Synthetic rows never bind to a receipt, so verify rejects them |
 
 A failed dataset write is logged and shown in condition `ApprovalDataset`. It
 does not block the decision.

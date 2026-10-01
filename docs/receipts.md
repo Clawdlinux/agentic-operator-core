@@ -38,10 +38,11 @@ Each receipt is a v1 AgentGate receipt:
 
 The decision record sits beside the receipt in `records.jsonl`. Fields:
 `schema_version`, `workload` (namespace, name, uid), `action`, `layer`
-(`invariant`, `rules`, `threshold`, `human`; `model` reserved), `outcome`,
+(`invariant`, `rules`, `threshold`, `human`, `model`), `outcome`,
 `reasons` (rule ID plus reason), `input_hash`, `declared`, `observed`,
 `claimed`, `policy_packs`, `threshold_mode`, `replay_hint`. A `model` block is
-reserved and absent until a model decides. Human decisions add an `approval`
+added whenever the decision model scored the action. See
+[model block](#model-block). Human decisions add an `approval`
 block and set `human_principal` to the approver. See [approvals](approvals.md).
 
 `input_hash` is the SHA-256 of the canonical JSON of the full decision input:
@@ -50,6 +51,32 @@ the raw values without storing them.
 
 Numbers are integers or decimal strings. Never floats. Canonical JSON follows
 receiptspec `DECISION.md` (RFC 8785 subset).
+
+## Model block
+
+Present only when `DECISION_MODEL_PATH` loaded an artifact and the workload
+mode is `shadow` or `escalate`. Absent otherwise, so records without a model
+are byte-identical to before. The record `schema_version` stays 1; the block
+has its own `schema_version` (1). See
+[decision model](architecture/decision-model.md).
+
+| Field | Meaning |
+|---|---|
+| `schema_version` | model block version, 1 |
+| `mode` | `shadow` or `escalate` |
+| `id`, `version`, `artifact_sha256` | the artifact that scored |
+| `feature_spec`, `feature_hash` | feature spec version and SHA-256 of the feature vector |
+| `option_set` | `["allow", "require_approval"]`, fixed order |
+| `option_micro` | per-option probability in micro-units, same order, sums to 1000000 |
+| `risk_micro` | P(human rejects or edits), micro-units |
+| `threshold_micro` | effective threshold, after a stricter workload override |
+| `calibration` | calibration note from the artifact |
+| `reason_codes` | top 3 positive feature contributions |
+| `base_outcome`, `outcome` | outcome before and after the model |
+| `error` | scorer error, if any |
+
+In shadow mode `outcome` equals `base_outcome`. In escalate mode the record
+`layer` is `model` when the model moved allow to require_approval.
 
 ## What is not recorded
 
@@ -167,7 +194,8 @@ That checks receipts only, not decision records.
 
 ## Gaps
 
-- Runtime-adapter path (`spec.orchestration`) writes no receipts.
+- Runtime-adapter path (`spec.orchestration`) writes no receipts and is not
+  scored by the decision model.
 - Execution outcome is not receipted. Only the pre-execution decision.
 - Human approve, reject, and edit receipts are written on the direct path. See
   [approvals](approvals.md). Argo approval gates are not receipted.
