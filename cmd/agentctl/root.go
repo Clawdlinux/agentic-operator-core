@@ -115,6 +115,7 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(newMCPCommand(opts))
 	cmd.AddCommand(newReceiptsCommand(opts))
 	cmd.AddCommand(newDatasetCommand(opts))
+	cmd.AddCommand(newDecisionCommand(opts))
 
 	return cmd
 }
