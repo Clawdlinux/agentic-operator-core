@@ -120,14 +120,24 @@ func FailedEvaluation(ctx context.Context, err error, class string) {
 	}
 }
 
+func RuleIDs(ctx context.Context) []string {
+	if root, ok := ctx.Value(evaluationKey{}).(*evaluation); ok {
+		return slices.Clone(root.ruleIDs)
+	}
+	return nil
+}
+
 func BindReceipt(ctx context.Context, span trace.Span, seq uint64, entryHash [32]byte) {
 	if !span.IsRecording() {
 		return
 	}
 	attrs := []attribute.KeyValue{KeyAuditSeq.Int64(int64(seq)), KeyEntryHash.String(hex.EncodeToString(entryHash[:]))}
 	span.SetAttributes(attrs...)
-	trace.SpanFromContext(ctx).SetAttributes(attrs...)
-	if root, ok := ctx.Value(evaluationKey{}).(*evaluation); ok {
+	parent := trace.SpanFromContext(ctx)
+	if parent != span {
+		parent.SetAttributes(attrs...)
+	}
+	if root, ok := ctx.Value(evaluationKey{}).(*evaluation); ok && root.span != span && root.span != parent {
 		root.span.SetAttributes(attrs...)
 	}
 }

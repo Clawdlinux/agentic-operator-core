@@ -397,3 +397,38 @@ func TestDecisionTraceModelModes(t *testing.T) {
 		})
 	}
 }
+
+func TestDecisionTraceBlockedHuman(t *testing.T) {
+	const description = "private blocked description AKIAIOSFODNN7EXAMPLE"
+	env := newApprovalEnv(t, "trace-human-blocked", "permissive", description, nil)
+	env.decide(t, map[string]string{approval.AnnotationDecision: approval.Approve}, true, env.pendingI)
+	writer := &traceReceiptWriter{fakeReceiptWriter: env.writer}
+	env.r.Receipts.Writer = writer
+	recorder := recordDecisionSpans(t, env.events)
+	env.reconcile(t)
+	if len(writer.returned) != 2 || env.get(t).Status.Phase != "PolicyDenied" {
+		t.Fatal("human decision bypassed invariant or lost follow-up receipt")
+	}
+	byTrace := map[string][]sdktrace.ReadOnlySpan{}
+	for _, span := range recorder.Ended() {
+		id := span.SpanContext().TraceID().String()
+		byTrace[id] = append(byTrace[id], span)
+	}
+	if len(byTrace) != 2 {
+		t.Fatal("human receipt and follow-up deny need separate evaluation roots")
+	}
+	for _, spans := range byTrace {
+		root := spans[len(spans)-1]
+		layer, outcome := "human", "approved"
+		receipt := &writer.returned[0]
+		if spanAttribute(root, decisiontrace.KeyLayer).AsString() == "invariant" {
+			layer, outcome = "invariant", "deny"
+			receipt = &writer.returned[1]
+		}
+		assertDecisionTree(t, spans, layer, outcome, receipt)
+		if !slices.Contains(spanAttribute(root, decisiontrace.KeyRuleIDs).AsStringSlice(), "INV-01") {
+			t.Fatal("follow-up trace lost checked invariant IDs")
+		}
+		assertDecisionPrivacy(t, spans, description, "AKIAIOSFODNN7EXAMPLE")
+	}
+}

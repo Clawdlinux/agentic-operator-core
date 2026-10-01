@@ -332,6 +332,8 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 	case blocked:
 		// A human cannot override invariants or pack denies. Record the deny.
 		denyCtx, denySpan := decisiontrace.StartEvaluation(parentCtx, wl.Namespace, wl.Name, wl.Spec.DecisionModelMode())
+		decisiontrace.SetRules(denySpan, nil, wl.Spec.PolicyPacks)
+		decisiontrace.AddRuleIDs(denyCtx, denySpan, decisiontrace.RuleIDs(ctx))
 		denied, _ := r.recordDecision(denyCtx, wl, tgt.name, in, layers, decision.Decide(layers), mode, nil)
 		decisiontrace.SetResult(denySpan, denied.Layer, string(denied.Outcome))
 		denySpan.End()
