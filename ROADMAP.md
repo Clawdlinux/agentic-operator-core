@@ -67,7 +67,7 @@ Priority order. Validation before features.
 - [ ] Runtime governance-label parity and enforcing-CNI packet tests
 - [ ] ACP RemoteMCPServer wrapper example
 - [ ] Homebrew tap for agentctl
-- [ ] Observed decision inputs. The platform measures destination, data classes and caller. Agent self-report only tightens.
+- [x] Observed decision inputs on the direct action path: destination host, deterministic data-class detection, action history. Caller identity is not observed yet. Agent self-report only tightens. See [policy input](docs/policy-input.md)
 - [ ] Invariants and policy packs on orchestrated runtimes (`spec.orchestration`)
 - [ ] Decision model: escalate-only scoring, shadow mode first. See [decision architecture](docs/architecture/decision-architecture.md)
 
