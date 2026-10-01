@@ -134,6 +134,36 @@ func TestDetectValueSizeLimited(t *testing.T) {
 	}
 }
 
+func TestScanReportsIncomplete(t *testing.T) {
+	deep := any("AKIAABCDEFGHIJKLMNOP")
+	for i := 0; i <= MaxDepth+1; i++ {
+		deep = []any{deep}
+	}
+	manyNodes := make([]any, MaxNodes+1)
+	for i := range manyNodes {
+		manyNodes[i] = "x"
+	}
+	tests := []struct {
+		name string
+		v    any
+		want bool
+	}{
+		{"small", map[string]any{"a": "b", "n": 1.0, "t": true, "z": nil}, true},
+		{"string past per-string cap", strings.Repeat("y", MaxStringBytes) + " AKIAABCDEFGHIJKLMNOP", false},
+		{"total budget exhausted", []any{strings.Repeat("x", MaxTotalBytes), "a@b.io"}, false},
+		{"too deep", deep, false},
+		{"too many nodes", manyNodes, false},
+		{"unknown leaf type", []any{struct{ S string }{"a@b.io"}}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, got := Scan(tc.v); got != tc.want {
+				t.Fatalf("complete = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestDetectCredential(t *testing.T) {
 	// Test fixtures only. None of these are live secrets.
 	tests := []struct {

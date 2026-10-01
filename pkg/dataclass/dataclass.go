@@ -83,31 +83,45 @@ func Detect(s string) []Class {
 
 // DetectValue walks JSON-like values (map[string]any, []any, strings, numbers)
 // and returns the sorted, deduplicated classes found in string and numeric
-// leaves. Map keys are not scanned.
+// leaves. Map keys are not scanned. Use Scan when completeness matters.
 func DetectValue(v any) []Class {
+	cs, _ := Scan(v)
+	return cs
+}
+
+// Scan is DetectValue plus completeness. complete is false when a depth,
+// node, byte, or per-string limit cut the scan short, or a leaf had an
+// unsupported type. Callers that gate actions must fail closed on false.
+func Scan(v any) (classes []Class, complete bool) {
 	set := map[Class]struct{}{}
 	b := &budget{bytes: MaxTotalBytes, nodes: MaxNodes}
 	walk(v, 0, b, set)
-	return sorted(set)
+	return sorted(set), !b.truncated
 }
 
 type budget struct {
-	bytes int
-	nodes int
+	bytes     int
+	nodes     int
+	truncated bool
 }
 
 func walk(v any, depth int, b *budget, set map[Class]struct{}) {
 	if depth > MaxDepth || b.nodes <= 0 || b.bytes <= 0 {
+		b.truncated = true
 		return
 	}
 	b.nodes--
 	switch t := v.(type) {
+	case nil, bool:
 	case string:
 		if len(t) > b.bytes {
 			t = t[:b.bytes]
+			b.truncated = true
 		}
 		b.bytes -= len(t)
-		detectInto(t, set)
+		if !detectInto(t, set) {
+			b.truncated = true
+		}
 	case json.Number:
 		walk(t.String(), depth, b, set)
 	case int, int32, int64, uint, uint32, uint64:
@@ -136,12 +150,18 @@ func walk(v any, depth int, b *budget, set map[Class]struct{}) {
 		for _, k := range keys {
 			walk(t[k], depth+1, b, set)
 		}
+	default:
+		// Unknown leaf types are not scanned, so the scan is not complete.
+		b.truncated = true
 	}
 }
 
-func detectInto(s string, set map[Class]struct{}) {
+// detectInto scans s and reports false when s was cut to MaxStringBytes.
+func detectInto(s string, set map[Class]struct{}) bool {
+	complete := true
 	if len(s) > MaxStringBytes {
 		s = s[:MaxStringBytes]
+		complete = false
 	}
 	if emailRe.MatchString(s) {
 		set[Email] = struct{}{}
@@ -167,6 +187,7 @@ func detectInto(s string, set map[Class]struct{}) {
 			break
 		}
 	}
+	return complete
 }
 
 // anyIsolated reports whether some match of re stands alone (no adjacent digit

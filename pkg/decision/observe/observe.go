@@ -41,13 +41,15 @@ type Facts struct {
 
 // Observe converts facts into an input.Observed.
 func Observe(f Facts) input.Observed {
+	classes, complete := dataclass.Scan(f.Payload)
 	return input.Observed{
 		Destination:      input.Host(f.Endpoint),
-		DataClasses:      dataclass.Strings(dataclass.DetectValue(f.Payload)),
+		DataClasses:      dataclass.Strings(classes),
 		Tool:             f.Tool,
 		CallerIdentity:   f.CallerIdentity,
 		PriorActionCount: f.PriorActionCount,
 		PriorDeniedCount: f.PriorDeniedCount,
+		ScanIncomplete:   !complete,
 	}
 }
 

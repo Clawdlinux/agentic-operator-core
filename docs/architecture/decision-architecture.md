@@ -29,7 +29,7 @@ model id and version, input hash, option set and order, per-option probabilities
 - go.mod now has OPA (v1.19.1). pkg/rules/engine embeds it and evaluates the
   shipped packs (dpdp-in, gdpr-eu) when spec.policyPacks is set. The
   config/policies and pkg/rules/threshold .rego samples are still unevaluated.
-- Invariants (pkg/invariants, INV-01 to INV-05) run on every direct-path
+- Invariants (pkg/invariants, INV-01 to INV-06) run on every direct-path
   action. See [invariants](invariants.md). INV-05 fails closed when
   `RECEIPTS_REQUIRED=true` and no receipt can be written.
 - Receipts (pkg/receipts, cmd/receipt-writer) are opt-in. With receipts on,

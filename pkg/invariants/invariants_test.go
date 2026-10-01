@@ -71,6 +71,9 @@ func TestCheck(t *testing.T) {
 		{"INV-05 pass writer available", input.Input{}, Context{ReceiptsRequired: true, ReceiptWriterAvailable: true}, nil},
 		{"INV-05 fail writer missing", input.Input{}, Context{ReceiptsRequired: true}, []string{"INV-05"}},
 
+		{"INV-06 pass scan complete", input.Input{}, Context{}, nil},
+		{"INV-06 fail scan incomplete", input.Input{Observed: input.Observed{ScanIncomplete: true}}, Context{}, []string{"INV-06"}},
+
 		{"all fire in order",
 			input.Input{Declared: declared, Observed: input.Observed{Destination: "evil.example", DataClasses: []string{"credential", "pan"}}},
 			Context{ReceiptsRequired: true}, []string{"INV-01", "INV-02", "INV-03", "INV-04", "INV-05"}},
@@ -100,7 +103,7 @@ func TestReasonsHaveNoContent(t *testing.T) {
 }
 
 func TestIDsStableAndBounded(t *testing.T) {
-	want := []string{"INV-01", "INV-02", "INV-03", "INV-04", "INV-05"}
+	want := []string{"INV-01", "INV-02", "INV-03", "INV-04", "INV-05", "INV-06"}
 	if got := IDs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("IDs = %v, want %v", got, want)
 	}

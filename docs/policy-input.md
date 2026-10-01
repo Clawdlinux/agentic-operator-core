@@ -45,6 +45,7 @@ Built by `observe.Observe` from values the controller already holds.
 | `callerIdentity` | Empty. `AgentWorkload` has no caller or actor field today. |
 | `priorActionCount` | `len(status.executedActions) + len(status.proposedActions)`. |
 | `priorDeniedCount` | Proposed actions with `approved: false`. |
+| `scanIncomplete` | True when the data class scan hit a limit. Invariant input only. Not passed to policy packs. |
 
 Detectors are deterministic. Aadhaar requires a valid Verhoeff checksum. Card
 requires Luhn. IBAN requires mod-97. Phone is pattern based (E.164 with `+`,
@@ -53,7 +54,9 @@ Credential is pattern based: AWS access key IDs, PEM private key headers,
 JWT-shaped tokens, `Bearer` tokens of 20+ characters, and GitHub `ghp_` and
 `github_pat_` tokens.
 Scanning is bounded: depth 8, 64 KiB per string, 1 MiB and 10000 nodes per
-value. Map keys are not scanned.
+value. Map keys are not scanned. A payload past any limit, or with a leaf of
+an unknown type, sets `scanIncomplete` and INV-06 denies the action. The
+scanner fails closed. It never allows content it did not read.
 
 ### Not observed yet
 

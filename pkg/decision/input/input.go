@@ -43,6 +43,9 @@ type Observed struct {
 	CallerIdentity   string
 	PriorActionCount int
 	PriorDeniedCount int
+	// ScanIncomplete is true when the data class scan hit a limit. INV-06
+	// denies it, because unscanned content could hold any class.
+	ScanIncomplete bool
 }
 
 // AgentClaimed is self-reported by the agent. It may only tighten a decision.

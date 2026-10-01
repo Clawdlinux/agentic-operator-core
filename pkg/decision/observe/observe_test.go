@@ -2,9 +2,11 @@ package observe
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/dataclass"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/decision/input"
 )
 
@@ -39,6 +41,11 @@ func TestObserve(t *testing.T) {
 			"credential",
 			Facts{Payload: map[string]any{"params": map[string]any{"key": "AKIAIOSFODNN7EXAMPLE"}}},
 			input.Observed{DataClasses: []string{"credential"}},
+		},
+		{
+			"credential past scan limit",
+			Facts{Payload: map[string]any{"params": strings.Repeat("x", dataclass.MaxStringBytes) + " AKIAIOSFODNN7EXAMPLE"}},
+			input.Observed{DataClasses: []string{}, ScanIncomplete: true},
 		},
 	}
 	for _, tc := range tests {

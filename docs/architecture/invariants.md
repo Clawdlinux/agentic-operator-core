@@ -18,6 +18,7 @@ The set stays under 15 entries. IDs are never reused or renumbered.
 | INV-03 | Personal data (`email`, `phone`, `aadhaar`, `pan`, `iban`, `card`) sent to a destination not in `allowedDestinations`. | `declaredIntent` has any field set. | Declared vs observed |
 | INV-04 | Observed data classes outside `allowedDataClasses`. | `declaredIntent` has any field set. | Declared vs observed |
 | INV-05 | Deciding without a receipt when receipts are required. Fails closed if no receipt writer is available or the receipt append fails. | `RECEIPTS_REQUIRED=true`. Off by default. See [receipts](../receipts.md). | Platform |
+| INV-06 | Acting on a payload the data class scan could not fully read. Depth 8, 64 KiB per string, 1 MiB and 10000 nodes per value, or a leaf of an unknown type. Unscanned content could hold a credential or personal data, so the action is denied. | Always. | Observed (`dataclass.Scan` completeness) |
 
 Reasons never contain matched content. They name the class or host only.
 
@@ -29,6 +30,8 @@ Reasons never contain matched content. They name the class or host only.
 ## Known limits
 
 - Detection is pattern based. A credential in an unknown format is missed.
+- Scan limits are kept. A payload past them is denied by INV-06, never
+  partly scanned and allowed.
 - Destination is the configured MCP endpoint, not every host the MCP server
   calls. See [policy input](../policy-input.md).
 - INV-01 only sees the `propose_action` reply. The objective was already sent

@@ -36,6 +36,7 @@ const (
 	PersonalDataDeclaredDest    = "INV-03"
 	DataClassesSubsetOfDeclared = "INV-04"
 	ReceiptsOrFailClosed        = "INV-05"
+	ScanCompleteOrDeny          = "INV-06"
 )
 
 // Result is one invariant violation. Reason never contains matched content.
@@ -67,6 +68,7 @@ var all = []invariant{
 	{PersonalDataDeclaredDest, personalDest},
 	{DataClassesSubsetOfDeclared, dataClassSubset},
 	{ReceiptsOrFailClosed, receipts},
+	{ScanCompleteOrDeny, scanComplete},
 }
 
 // IDs returns every invariant ID in check order.
@@ -139,6 +141,15 @@ func dataClassSubset(in input.Input, _ Context) string {
 func receipts(_ input.Input, ctx Context) string {
 	if ctx.ReceiptsRequired && !ctx.ReceiptWriterAvailable {
 		return "receipts required but no receipt writer available"
+	}
+	return ""
+}
+
+// scanComplete is INV-06. A payload the data class scan could not fully read
+// is denied. Content past a scan limit could carry any class. Always applies.
+func scanComplete(in input.Input, _ Context) string {
+	if in.Observed.ScanIncomplete {
+		return "payload exceeds data class scan limits; not fully scanned"
 	}
 	return ""
 }
