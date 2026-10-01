@@ -77,6 +77,12 @@ spec:
               value: {{ .timeout | default "5s" | quote }}
             {{- end }}
             {{- end }}
+            {{- with (.Values.global).decisionModel }}
+            {{- if .existingConfigMap }}
+            - name: DECISION_MODEL_PATH
+              value: /etc/decision-model/{{ .key | default "model.json" }}
+            {{- end }}
+            {{- end }}
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}
@@ -127,6 +133,11 @@ spec:
               mountPath: /etc/receipts/token
               readOnly: true
             {{- end }}
+            {{- if ((.Values.global).decisionModel).existingConfigMap }}
+            - name: decision-model
+              mountPath: /etc/decision-model
+              readOnly: true
+            {{- end }}
       volumes:
         - name: webhook-certs
           secret:
@@ -138,6 +149,16 @@ spec:
           secret:
             secretName: {{ (.token).existingSecret | default (printf "%s-receipt-writer-token" $.Release.Name | trunc 63 | trimSuffix "-") }}
             defaultMode: 0444
+        {{- end }}
+        {{- end }}
+        {{- with (.Values.global).decisionModel }}
+        {{- if .existingConfigMap }}
+        - name: decision-model
+          configMap:
+            name: {{ .existingConfigMap }}
+            items:
+              - key: {{ .key | default "model.json" }}
+                path: {{ .key | default "model.json" }}
         {{- end }}
         {{- end }}
       securityContext:

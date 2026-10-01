@@ -28,7 +28,16 @@
         "storageClass": { "type": "string" },
         "namespace": { "type": "string" },
         "runtimeSandbox": { "$ref": "#/$defs/runtimeSandbox" },
-        "receipts": { "$ref": "#/$defs/receipts" }
+        "receipts": { "$ref": "#/$defs/receipts" },
+        "decisionModel": {
+          "type": "object",
+          "description": "Escalate-only decision model artifact. See docs/architecture/decision-model.md.",
+          "properties": {
+            "existingConfigMap": { "type": "string" },
+            "key": { "type": "string", "pattern": "^[-._a-zA-Z0-9]+$" }
+          },
+          "additionalProperties": false
+        }
       }
     },
     "license": {

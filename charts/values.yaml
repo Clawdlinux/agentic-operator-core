@@ -87,6 +87,16 @@ global:
         cpu: "500m"
         memory: "256Mi"
 
+  # Escalate-only decision model. See docs/architecture/decision-model.md.
+  # Empty existingConfigMap: no model is loaded and decisions are unchanged.
+  # The shipped artifact is trained on synthetic DRAFT data:
+  #   kubectl create configmap decision-model \
+  #     --from-file=model.json=tools/decision-train/out/model.json
+  # Workloads default to spec.decisionModel.mode: shadow (score, no effect).
+  decisionModel:
+    existingConfigMap: ""
+    key: model.json
+
 # ---------------------------------------------------------------------------
 # License (REQUIRED)
 # ---------------------------------------------------------------------------
