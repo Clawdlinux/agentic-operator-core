@@ -370,6 +370,15 @@ operator_log_clean() {
   ! grep -Fq "${value}" "${log}"
 }
 
+# settle_operator waits after an operator restart. On kind a new pod's first
+# connections to the writer and the mock can stall for about 40s. The operator
+# then fails closed with INV-05, which is correct but not what a scenario tests.
+settle_operator() {
+  local secs="${OPERATOR_SETTLE_SECS:-45}"
+  note "waiting ${secs}s for the new operator pod's egress to settle"
+  sleep "${secs}"
+}
+
 export_receipts() {
   rm -rf "$1"
   run agentctl receipts export --writer "${WRITER}" --token-file "${TOKEN_FILE}" --out "$1" >/dev/null
@@ -635,6 +644,7 @@ s7() {
     sleep 2
   done
   kc -n "${NS}" logs -l "${OPERATOR_SEL}" --tail=-1 | grep "Decision model loaded" | tail -1 | cut -c1-400
+  settle_operator
   apply_workload s7-shadow s7-shadow strict "  declaredIntent:
     purpose: \"scale the web tier\"
     decisionType: assisted
@@ -686,6 +696,7 @@ s10() {
   deploy="$(kc -n "${NS}" get deployment -l "${OPERATOR_SEL}" -o name)"
   run kubectl --context "kind-${CLUSTER_NAME}" -n "${NS}" rollout restart "${deploy}"
   kc -n "${NS}" rollout status "${deploy}" --timeout="${HELM_TIMEOUT}" >/dev/null
+  settle_operator
   apply_workload s10-wrong-pin s10-wrong-pin strict "  declaredIntent:
     purpose: \"scale the web tier\"
     decisionType: assisted
