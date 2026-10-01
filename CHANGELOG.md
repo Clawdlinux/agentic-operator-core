@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Decision architecture series. The direct action path now decides in layers:
+invariants, policy packs, a threshold evaluator, an escalate-only decision
+model in shadow, and human approval. Each decision can get a signed receipt
+before the action runs. `scripts/demo-claims.sh` proves this on kind. The
+runtime-adapter path, Argo approval gates, and execution outcomes are not
+covered yet. See [decision architecture](docs/architecture/decision-architecture.md).
+
+### Fixed
+- Status-only updates no longer re-trigger Reconcile. Before, each status write re-ran the direct-path action in a hot loop.
+- The controller no longer logs MCP status, proposal, or execution values. They can carry personal data or credentials.
+
 ### Added
+- Added `scripts/demo-claims.sh`, a no-API-key claims demo on a fresh kind cluster with a mock MCP server. It builds a demo-only image from host binaries until the receiptspec dependency is tagged.
 - Added P7 decision spans on direct proposals and stamped human approve, reject, and edit decisions.
 	Successful receipt appends bind spans to writer-returned sequence and entry hash.
 	Added privacy canary tests, no-op checks, write-ahead assertions, and `make trace-coverage` with an 11-path matrix.

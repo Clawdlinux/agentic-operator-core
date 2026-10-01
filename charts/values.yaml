@@ -430,7 +430,8 @@ networkPolicy:
   # MinIO, and Browserless run. Empty uses the release namespace.
   platformNamespace: ""
   # Extra allow-list entries appended to the default policy. Each entry is an
-  # IP CIDR plus optional ports.
+  # IP CIDR plus optional ports. The default list has no rule for the
+  # workload MCP endpoint. Add one here when your CNI enforces NetworkPolicy.
   # Example:
   #   additionalAllowedHosts:
   #     - cidr: 10.20.0.0/16

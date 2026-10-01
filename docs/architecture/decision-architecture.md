@@ -60,6 +60,16 @@ model id and version, input hash, option set and order, per-option probabilities
   The shipped artifact is trained on 30 DRAFT synthetic scenarios and is not
   production-validated. Offline evaluation: `agentctl decision eval`. See
   [decision model](decision-model.md). Phase B (bounded autonomy) is not built.
+- The controller ignores status-only updates, so a status write does not
+  re-run a direct-path action. MCP replies are not logged by value.
+- `scripts/demo-claims.sh` proves the direct-path claims above on a fresh kind
+  cluster with a mock MCP server and no API keys.
+- Not built: caller identity observation (`callerIdentity` is always empty),
+  packet-level egress proof (INV-02 checks the configured MCP endpoint only),
+  and a chart egress rule for the MCP endpoint (use
+  `networkPolicy.additionalAllowedHosts`).
+- Unchanged: a Completed direct-path workload is reconciled again every 30s
+  and proposes a new action each time.
 
 ## Build order
 1. Measure, stop trusting agent self-report (observed inputs). See
