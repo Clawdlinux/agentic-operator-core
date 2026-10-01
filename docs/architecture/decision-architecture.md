@@ -23,7 +23,7 @@ Rule count explodes, edge cases never end. Policy documents are prose. So model 
 ## Receipt must record for every model decision
 model id and version, input hash, option set and order, per-option probabilities, threshold used, outcome, layer that decided. Replay with same inputs must reproduce the score (pin version, temperature 0, fixed seed). Air-gap: model runs in cluster (self-hosted small model). No hosted scoring API in the default path.
 
-## Today vs target (verified in code 2026-10-01)
+## Today vs target (verified in code 2026-10-02)
 - Threshold evaluator moved from pkg/opa to pkg/rules/threshold. Still
   hardcoded Go thresholds. pkg/opa is a deprecated alias package.
 - go.mod now has OPA (v1.19.1). pkg/rules/engine embeds it and evaluates the
@@ -38,6 +38,10 @@ model id and version, input hash, option set and order, per-option probabilities
   `model` block. Execution outcome and the runtime-adapter path are not
   receipted.
 - Layers combine in pkg/decision.Decide. Strictest wins.
+- P7 decision tracing covers direct proposals and stamped human decisions.
+  Evaluation spans join successful receipt appends through sequence and entry hash.
+  Runtime adapters, execution outcomes, writer internals, and writer trace propagation remain untraced.
+  See [decision tracing](../TRACING.md#decision-tracing).
 - Human approval (layer 3) works on the direct path. Decisions are
   annotations; the webhook stamps the approver. Each decision gets a signed
   layer "human" receipt and one example in approvals.jsonl. Approve and edit
@@ -72,7 +76,9 @@ model id and version, input hash, option set and order, per-option probabilities
    eval with a baseline, deterministic stdlib trainer. Not done: training on
    real labels, the gate in [decision model](decision-model.md), the LLM
    judge as a second signal. See [decision model](decision-model.md).
-6. Phase B only after shadow results and calibration are documented.
+6. P7 trace coverage for direct decisions. Shipped: layer spans, receipt joins, privacy tests, and `make trace-coverage`.
+  Runtime and cross-process gaps remain. See [decision tracing](../TRACING.md#not-covered).
+7. Phase B only after shadow results and calibration are documented.
 
 ## Candidate model types (decide by spike, not now)
 Small fine-tuned classifier on structured features (cheap, fast, auditable features). Small local LLM judge with typed options (Jev-style, AgentJev-0.6B is Apache-2.0). Start with the classifier. LLM judge as second signal. Both escalate-only at first.

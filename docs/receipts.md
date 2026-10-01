@@ -2,6 +2,8 @@
 
 Opt-in. Off by default. Direct action path only.
 
+[Decision tracing](TRACING.md#decision-tracing) joins evaluation spans to signed receipts by sequence and full entry hash.
+
 When receipts are on, the operator writes a signed receipt for every decision
 on the legacy direct action path, before it executes the action. The receipt
 uses the AgentGate receipt format (`github.com/Clawdlinux/agentgate/pkg/receiptspec`),

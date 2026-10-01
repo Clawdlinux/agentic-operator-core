@@ -7,6 +7,8 @@ scenarios. Read [Honest status](#honest-status) before quoting any number.
 See the [decision architecture ADR](decision-architecture.md) for why the
 model sits between invariants and humans.
 
+[Decision tracing](../TRACING.md#decision-tracing) records model identifier, version, and integer risk only when a loaded model runs.
+
 ## What it is
 
 A logistic regression over a small, fixed feature vector. It returns the

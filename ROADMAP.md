@@ -57,9 +57,15 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 - [x] Human approval protocol and signed approval dataset. Webhook-stamped approver, append-once decisions, edit re-validated against invariants, `spec.approvalCapture`, `approvals.jsonl` on the receipt-writer, `agentctl dataset export|verify`. Direct action path only; Argo approval gates not covered. See [approvals](docs/approvals.md)
 - [x] Decision model phase A: logistic regression with integer-only inference, escalate-only, `spec.decisionModel.mode` shadow by default, `DECISION_MODEL_PATH`, receipt `model` block, `agentctl decision eval` with a hand-weighted baseline, stdlib trainer with byte-identical reruns. Shipped artifact trained on synthetic DRAFT scenarios, not production-validated. Phase B not built. See [decision model](docs/architecture/decision-model.md)
 
+- [x] P7 decision traces on direct proposals and stamped human approve, reject, and edit decisions.
+	Receipt joins use writer-returned sequence and entry hash. Privacy and write-ahead tests enforce an 11-path coverage matrix.
+	See [decision tracing](docs/TRACING.md#decision-tracing).
+
 ## Now
 
 Priority order. Validation before features.
+
+- [ ] Decision trace gaps: runtime adapters, execution outcomes, receipt-writer internals, and cross-process propagation to the writer.
 
 - [ ] Qualified platform and security conversations, including active production-review blockers and 1 scoped design-partner engagement
 - [ ] Fintech booth demo use case

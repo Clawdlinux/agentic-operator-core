@@ -2,6 +2,8 @@
 
 Direct action path only. Approvals need receipts on for the signed dataset.
 
+[Decision tracing](TRACING.md#decision-tracing) covers human approve, reject, and edit without exposing approver names or reasons.
+
 When the operator holds an action in `PendingApproval`, a human decides it.
 Each decision is signed as a receipt and stored as one labelled example. This
 is layer 3 of the [decision architecture](architecture/decision-architecture.md).
