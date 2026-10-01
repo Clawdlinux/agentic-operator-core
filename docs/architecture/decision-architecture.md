@@ -1,0 +1,47 @@
+# ADR: how Clawdlinux decides allow / deny / approve
+
+Status: proposed 2026-10-01. Source of truth for docs, deck, site, goal prompt. If another doc disagrees, this wins until changed here.
+
+## Decision
+Three layers. Model scores. Rules bound. Humans resolve uncertainty. Everything signed.
+
+1. Invariants (code, tiny, deterministic). Things that must never happen whatever any model says. Credentials never reach agent. Egress only to declared destinations. Personal data never leaves cluster to undeclared destination. Receipts required or workload fails closed. Target: under 15 invariants. Model cannot override.
+2. Decision model (learned, scores each action). Takes observed facts plus declared purpose plus history. Returns risk score, per-option weights, reason codes, calibration. Phase A escalate-only: can push to approval, never turn deny into allow. Phase B bounded autonomy: may auto-allow inside invariants when calibrated on approval history above threshold, per action class, with rollback.
+3. Human approval. Resolves low-confidence and high-impact. Each decision is a labelled example (approve, reject, edit) in the signed approval dataset.
+
+## Inputs, by trust
+- Declared (manifest, human-reviewed in PR): purpose, decision type, allowed data classes, allowed destinations.
+- Observed (platform measures): destination, detected data classes (deterministic detectors), tokens, tool, caller identity, history.
+- Agent-claimed: self-reported confidence and intent. Logged in receipt. Used only to tighten. Never loosens.
+
+## Why not model-only
+Auditor needs reproducible "why". Model gate is itself a model that must be validated. Prompt injection moves model verdicts. So model never owns the floor.
+
+## Why not rules-only
+Rule count explodes, edge cases never end. Policy documents are prose. So model compiles policy prose into rule drafts (human reviews diff once) and scores the gray area.
+
+## Receipt must record for every model decision
+model id and version, input hash, option set and order, per-option probabilities, threshold used, outcome, layer that decided. Replay with same inputs must reproduce the score (pin version, temperature 0, fixed seed). Air-gap: model runs in cluster (self-hosted small model). No hosted scoring API in the default path.
+
+## Today vs target (verified in code 2026-10-01)
+- pkg/opa/evaluator.go: hardcoded Go thresholds, not OPA. go.mod has no OPA. .rego ships as ConfigMap, unevaluated.
+- Input confidence comes from the propose_action tool reply. cluster_health comes from the MCP status reply, default 75 when absent (controller ~L436-538). Platform measures neither.
+- "Destructive" = string match on action name.
+- pkg/evaluation/scorer.go: keyword heuristic, post hoc, blocks nothing.
+- AgentGate: deterministic, fine as invariant layer example.
+- No learned gate exists. Layer 2 is new work.
+
+## Build order
+1. Measure, stop trusting agent self-report (observed inputs).
+2. Real rule engine (OPA Go lib) for invariants and packs.
+3. Receipts for every decision (shared receiptspec).
+4. Approval dataset (already in goal prompt phase 4).
+5. Decision model phase A (escalate-only), evaluated offline on approval dataset first, shadow mode before it can affect anything.
+6. Phase B only after shadow results and calibration are documented.
+
+## Candidate model types (decide by spike, not now)
+Small fine-tuned classifier on structured features (cheap, fast, auditable features). Small local LLM judge with typed options (Jev-style, AgentJev-0.6B is Apache-2.0). Start with the classifier. LLM judge as second signal. Both escalate-only at first.
+
+## Open
+- Feature set and labels: seeded from approval dataset, but dataset is empty until first PoC. Need synthetic seed from founder-written scenarios (50 to 100) to bootstrap shadow mode.
+- Who owns threshold changes (customer security team) and how they are versioned.

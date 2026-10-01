@@ -1,6 +1,6 @@
 # Roadmap
 
-Public roadmap for Clawdlinux. Updated quarterly. For the architecture and use case, read [docs/DESIGN.md](docs/DESIGN.md) first.
+Public roadmap for Clawdlinux. Updated quarterly. No dates are committed. For the architecture and use case, read [docs/DESIGN.md](docs/DESIGN.md) first.
 
 ## The problem we are solving
 
@@ -19,7 +19,7 @@ and cost components. Same-run capture and enforcement parity are not complete.
 - **Mar to Apr 2026.** Core platform hardened: Cilium FQDN egress generation, LiteLLM routing, MinIO artifacts, Python LangGraph runtime with A2A, full-cycle integration tests, Helm umbrella chart.
 - **May 2026.** ACP (Agent Contract Protocol) spun out as its own repo and spec. Benchmarks landed: 64.7% to 97.4% token reduction vs raw MCP, one round trip. Briefly explored a consumer AgentOS direction; reversed within the month. Enterprise K8s is the business.
 - **Jun 2026.** Positioning locked: we sell the governance and evidence plane, not a runtime. Runtime adapters, gVisor mutation, and offline JSONL verification primitives shipped. Governance parity and same-run capture remained incomplete.
-- **Jul 2026.** Demo gate (`scripts/demo-booth.sh`) reproducible on kind. Focus: validation conversations and the Jul 22 Agentic Summit booth. Fintech is the anchor vertical.
+- **Jul 2026.** Demo gate (`scripts/demo-booth.sh`) reproducible on kind. Focus: validation conversations. Fintech is the anchor vertical.
 
 ## Scope note
 
@@ -46,16 +46,16 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 - [x] HMAC hash-chain and offline JSONL `audit-verify`
 - [x] gVisor RuntimeClass + pod admission injector for labeled agent pods
 - [x] Runtime adapter interface (AgentWorkload, BYO pods, external runtimes)
-- [x] Rego policy samples and an in-process Go action evaluator
+- [x] Rego policy samples (not evaluated) and an in-process Go threshold evaluator
 - [x] Grafana observability and per-workload cost dashboards
 - [x] Reproducible booth demo gate on kind
 
-## Now (Q3 2026)
+## Now
 
 Priority order. Validation before features.
 
-- [ ] 10 qualified platform/security conversations by Sep 15, including 3 active production-review blockers and 1 scoped design-partner engagement. This is the one-time reset of the missed Jul 15 criterion.
-- [ ] Jul 22 Agentic Summit booth demo, fintech use case
+- [ ] Qualified platform and security conversations, including active production-review blockers and 1 scoped design-partner engagement
+- [ ] Fintech booth demo use case
 - [ ] Air-gapped install smoke test in CI
 - [ ] Webhook admission controller for CRD validation
 - [ ] Per-runtime sandbox label guide
@@ -63,8 +63,11 @@ Priority order. Validation before features.
 - [ ] Runtime governance-label parity and enforcing-CNI packet tests
 - [ ] ACP RemoteMCPServer wrapper example
 - [ ] Homebrew tap for agentctl
+- [ ] Observed decision inputs. The platform measures destination, data classes and caller. Agent self-report only tightens.
+- [ ] Rule engine (OPA Go library) with invariants and policy packs
+- [ ] Decision model: escalate-only scoring, shadow mode first. See [decision architecture](docs/architecture/decision-architecture.md)
 
-## Later (Q4 2026+, all validation-gated)
+## Later (all validation-gated)
 
 - [ ] Cross-cluster agent identity federation (SPIFFE/SPIRE). RFC: [docs/rfcs/0001-cross-cluster-agent-identity.md](docs/rfcs/0001-cross-cluster-agent-identity.md). Gate: 6+ distinct external use cases or 1 paying customer request.
 - [ ] Multi-cluster federation

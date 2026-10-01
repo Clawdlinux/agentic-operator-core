@@ -33,6 +33,6 @@ Comment on the [discussion](https://github.com/Clawdlinux/agentic-operator-core/
 
 ## See also
 
-- [RFC-0001](../rfcs/0001-cross-cluster-agent-identity.md) — full design proposal
-- [Threat model](threat-model.md) — security boundaries this design must preserve
-- [A2A architecture](../a2a-architecture.md) — current agent-to-agent protocol
+- [RFC-0001](../rfcs/0001-cross-cluster-agent-identity.md): full design proposal
+- [Threat model](threat-model.md): security boundaries this design must preserve
+- [A2A architecture](../a2a-architecture.md): current agent-to-agent protocol

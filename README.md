@@ -58,6 +58,14 @@ The repository currently ships the `AgentWorkload` lifecycle, runtime adapters, 
 
 The target contract connects caller identity, declared access, action policy, approval, cost, outcome, and independently verifiable evidence in one transaction. That target is the product direction, not a claim about the current end-to-end path.
 
+How an action is decided, as a target design (see [decision architecture](docs/architecture/decision-architecture.md)):
+
+1. Invariants in code. Credentials never reach the agent. Egress only to declared destinations.
+2. A decision model scores each action. It can only escalate to a human at first.
+3. Humans approve or reject. Every decision is a signed, labelled example.
+
+Today the repo ships a threshold evaluator, not this model. The ADR lists what is built and what is not.
+
 | Capability | Current repository state |
 |---|---|
 | Runtime isolation | gVisor `RuntimeClass` mutation for labeled pods; nodes must provide `runsc` |
@@ -131,7 +139,7 @@ It labels current-run, configuration-only, and prior-run evidence separately.
 
 ## Agent-callable API (MCP)
 
-Clawdlinux's `AgentWorkload` CRD is already an agent-readable interface — agents
+Clawdlinux's `AgentWorkload` CRD is already an agent-readable interface. Agents
 can read the schema and reason about the spec. `agentctl mcp serve` is the
 **wire-protocol** surface so an external orchestrator agent (Claude Desktop,
 Cursor, ChatGPT, custom Python) can provision its own Clawdlinux execution
@@ -152,12 +160,12 @@ Full reference in [`docs/agentctl/mcp.md`](docs/agentctl/mcp.md). Examples in
 
 ## Quick Start
 
-**Option A — One command (requires kind + helm):**
+**Option A: One command (requires kind + helm):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/Clawdlinux/agentic-operator-core/main/scripts/install.sh | bash
 ```
 
-**Option B — Step by step:**
+**Option B: Step by step:**
 ```bash
 git clone https://github.com/Clawdlinux/agentic-operator-core
 cd agentic-operator-core
@@ -180,7 +188,7 @@ kubectl apply -f config/agentworkload_example.yaml
 kubectl -n agentic-system get agentworkloads -w
 ```
 
-**Option C — GitHub Codespaces (zero local setup):**
+**Option C: GitHub Codespaces (zero local setup):**
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Clawdlinux/agentic-operator-core?devcontainer_path=.devcontainer/devcontainer.json)
 
@@ -283,7 +291,7 @@ assets/                 Branding assets (logo, etc.)
 | [Architecture](docs/04-architecture.md) | System design deep dive |
 | [Multi-tenancy](docs/05-multi-tenancy.md) | Tenant isolation and quota enforcement |
 | [Cost Management](docs/06-cost-management.md) | Per-workload billing and chargeback |
-| [Security](docs/07-security.md) | Cilium, OPA, RBAC, and egress hardening |
+| [Security](docs/07-security.md) | Cilium, action rules, RBAC, and egress hardening |
 | [Troubleshooting](docs/10-troubleshooting.md) | Common issues and fixes |
 
 ---
@@ -327,18 +335,18 @@ See [ROADMAP.md](ROADMAP.md) for the public roadmap and quarterly milestones.
 
 Design proposals in flight live in [`docs/rfcs/`](docs/rfcs/). Currently in design:
 
-- **[RFC-0001: Cross-Cluster Agent Identity Federation (SPIFFE/SPIRE)](docs/rfcs/0001-cross-cluster-agent-identity.md)** — multi-cluster identity for agents in air-gapped and regulated environments. Validation gate: 6+ use cases or 1 paying customer. _GitHub Discussion opens shortly; track status in epic [#146](https://github.com/Clawdlinux/agentic-operator-core/issues/146)._
+- **[RFC-0001: Cross-Cluster Agent Identity Federation (SPIFFE/SPIRE)](docs/rfcs/0001-cross-cluster-agent-identity.md)**: multi-cluster identity for agents in air-gapped and regulated environments. Validation gate: 6+ use cases or 1 paying customer. _GitHub Discussion opens shortly; track status in epic [#146](https://github.com/Clawdlinux/agentic-operator-core/issues/146)._
 
 ---
 
 ## Community
 
-- **Discord** — [Join our Discord](https://discord.gg/r4QhZJQgV) for questions, discussions, and design partner conversations
-- **Issues** — [Report bugs or request features](https://github.com/Clawdlinux/agentic-operator-core/issues)
-- **Releases** — [Subscribe to releases](https://github.com/Clawdlinux/agentic-operator-core/releases) for changelog updates
+- **Discord**: [Join our Discord](https://discord.gg/r4QhZJQgV) for questions, discussions, and design partner conversations
+- **Issues**: [Report bugs or request features](https://github.com/Clawdlinux/agentic-operator-core/issues)
+- **Releases**: [Subscribe to releases](https://github.com/Clawdlinux/agentic-operator-core/releases) for changelog updates
 
 ---
 
 ## License
 
-Apache License 2.0 — See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

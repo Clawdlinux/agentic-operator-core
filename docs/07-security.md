@@ -48,7 +48,12 @@ opaPolicy: strict
 ```
 
 It evaluates action type, caller-supplied confidence, cluster health, and strict
-or permissive mode. Read-only actions use a separate allow path.
+or permissive mode. Read-only actions use a separate allow path. Confidence comes
+from the `propose_action` tool reply. Cluster health comes from the MCP status
+reply and defaults to 75 when absent. The platform measures neither, so both are
+agent-claimed inputs.
+They can tighten a decision. They must never loosen one. See
+[decision architecture](architecture/decision-architecture.md).
 
 The repository also ships Rego samples in a ConfigMap. The direct action path
 does not execute those Rego files or call a real OPA engine today. Treat them as
@@ -67,7 +72,7 @@ The umbrella Helm chart ships a default-deny egress NetworkPolicy
 for pods labeled `app.kubernetes.io/part-of: agentic-operator`. Toggle via
 `networkPolicy.enabled` (default `true`). Allow-listed: kube-dns, the
 in-cluster LiteLLM proxy, Postgres, MinIO, Browserless (when enabled), and
-external OPA (when configured). Operator-supplied additions go under
+an external OPA service (when `networkPolicy.opa` is set; the egress rule only, no policy evaluation). Operator-supplied additions go under
 `networkPolicy.additionalAllowedHosts`. Verified by helm-unittest in
 [`charts/tests/networkpolicy_test.yaml`](../charts/tests/networkpolicy_test.yaml).
 Managed workload namespaces require separate policy application and matching labels.
@@ -98,7 +103,7 @@ project, specifically the platform-default seccomp filter shipped in
 [`pkg/seccomp/seccomp_amd64.go`](https://github.com/google/gvisor/tree/master/pkg/seccomp)
 plus the per-runtime additions documented in
 [`runsc/boot/filter`](https://github.com/google/gvisor/tree/master/runsc/boot/filter).
-We do not maintain a fork — we deliberately track upstream so security fixes land
+We do not maintain a fork; we deliberately track upstream so security fixes land
 without lag.
 
 Kata Containers may be evaluated separately when the customer requires a

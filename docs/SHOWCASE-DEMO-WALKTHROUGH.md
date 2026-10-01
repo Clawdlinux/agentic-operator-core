@@ -236,7 +236,7 @@ Protect the closing slide. Under time pressure, cut the opener slide first.
 - Do not say replay is live.
 - Do not claim same-run signed attestation is complete.
 - Do not claim customers, revenue, deployments, or production adoption.
-- Do not mention OPA unless someone asks about it.
+- If asked about OPA: the Rego files are samples that nothing evaluates. The action path is a Go threshold check on agent-claimed inputs.
 - Do not call configuration evidence runtime proof.
 
 ## One-line close

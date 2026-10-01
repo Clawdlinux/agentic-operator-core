@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `agentctl doctor sandbox` to verify RuntimeClass and ready-node sandbox evidence before workload deployment.
 
 ### Changed
+- Docs: removed claims not backed by code. Added the decision architecture ADR (`docs/architecture/decision-architecture.md`). Rego files are labelled samples; the action path is a Go threshold evaluator.
 - Changed the internal Go `CostReporter.RecordUsage` and `Provider.CallModel` interfaces to carry operation IDs for idempotency. This breaks out-of-tree implementations.
 - Added the optional `litellm.anthropicKey` chart value. Use `litellm.existingSecret` for booth and production deployments.
 

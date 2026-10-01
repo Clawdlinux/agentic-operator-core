@@ -14,6 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package opa holds a hardcoded Go threshold evaluator. It is not an OPA
+// engine: it does not load or run Rego, and go.mod has no OPA dependency.
+// Its confidence and cluster health inputs are claimed by the agent, so they
+// may tighten a decision but must never loosen one. See
+// docs/architecture/decision-architecture.md.
 package opa
 
 import (
@@ -22,8 +27,9 @@ import (
 	"strings"
 )
 
-// PolicyEvaluator simulates OPA policy evaluation logic
-// In production, this would call the actual OPA engine via REST API or embedded Wasm module
+// PolicyEvaluator applies fixed Go thresholds to an action. It does not
+// evaluate Rego. Planned replacement: a threshold package under pkg/rules plus
+// a real rule engine, per the decision architecture ADR.
 type PolicyEvaluator struct {
 	// policies would be loaded from compiled OPA modules in production
 }
@@ -45,7 +51,11 @@ type EvaluationResult struct {
 	Reasons        []string `json:"reasons"`         // Why it was allowed or denied
 }
 
-// NewPolicyEvaluator creates a new OPA policy evaluator
+// NewPolicyEvaluator creates the threshold evaluator.
+//
+// Planned for replacement by pkg/rules/threshold. The formal deprecation
+// marker is withheld until the controller call site migrates, because
+// staticcheck would fail the build on that caller.
 func NewPolicyEvaluator() *PolicyEvaluator {
 	return &PolicyEvaluator{}
 }
