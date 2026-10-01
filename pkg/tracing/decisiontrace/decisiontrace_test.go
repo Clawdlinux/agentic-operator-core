@@ -3,6 +3,7 @@ package decisiontrace
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -55,6 +56,24 @@ func TestDecisionSpans(t *testing.T) {
 			}
 			if spans[0].Parent().SpanID() != spans[1].SpanContext().SpanID() || spans[1].Parent().SpanID() != spans[2].SpanContext().SpanID() || spans[2].Parent().IsValid() {
 				t.Fatal("incorrect parent structure")
+			}
+			childAttributes := attribute.NewSet(spans[1].Attributes()...)
+			ruleIDs, _ := childAttributes.Value(KeyRuleIDs)
+			packIDs, _ := childAttributes.Value(KeyPackIDs)
+			outcome, _ := childAttributes.Value(KeyOutcome)
+			if !slices.Equal(ruleIDs.AsStringSlice(), test.rules) || !slices.Equal(packIDs.AsStringSlice(), []string{"gdpr-eu@v0.1.0"}) || outcome.AsString() != test.outcome {
+				t.Fatalf("child attributes = %v", spans[1].Attributes())
+			}
+			if test.child == SpanModel {
+				for key, want := range map[attribute.Key]attribute.Value{
+					KeyModelID: attribute.StringValue("risk-model"), KeyModelVersion: attribute.StringValue("1"),
+					KeyModelRisk: attribute.Int64Value(900000), KeyMode: attribute.StringValue("escalate"),
+				} {
+					got, ok := childAttributes.Value(key)
+					if !ok || got != want {
+						t.Errorf("%s = %v, want %v", key, got, want)
+					}
+				}
 			}
 			attributes := attribute.NewSet(spans[2].Attributes()...)
 			wantLayer := test.layer

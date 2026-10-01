@@ -24,6 +24,8 @@ import (
 	"github.com/Clawdlinux/agentgate/pkg/receiptspec"
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/approval"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/decision"
+	decisioninput "github.com/Clawdlinux/agentic-operator-core/pkg/decision/input"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/tracing/decisiontrace"
 )
@@ -241,12 +243,36 @@ func TestDecisionTraceCoverage(t *testing.T) {
 			}
 			root := assertDecisionTree(t, spans, row.layer, row.outcome, receipt)
 			assertDecisionPrivacy(t, spans, description, "private edited description", credential, email)
+			if row.rule != "" && !slices.Contains(spanAttribute(root, decisiontrace.KeyRuleIDs).AsStringSlice(), row.rule) {
+				t.Fatalf("root missing rule %s: %v", row.rule, root.Attributes())
+			}
+			if !slices.Equal(spanAttribute(root, decisiontrace.KeyPackIDs).AsStringSlice(), row.packs) {
+				t.Fatalf("root pack IDs = %v, want %v", root.Attributes(), row.packs)
+			}
 			if spanAttribute(root, decisiontrace.KeyNamespace).AsString() != "default" || spanAttribute(root, decisiontrace.KeyName).AsString() == "" {
 				t.Fatal("missing workload identity")
 			}
 			var names []string
+			var humanSpan sdktrace.ReadOnlySpan
+			for _, span := range spans {
+				if span.Name() == decisiontrace.SpanHuman {
+					humanSpan = span
+				}
+			}
 			for _, span := range spans {
 				names = append(names, span.Name())
+				if span != root {
+					parent := root
+					if humanSpan != nil && span != humanSpan {
+						parent = humanSpan
+					}
+					if span.Parent().SpanID() != parent.SpanContext().SpanID() {
+						t.Fatalf("wrong parent for %s", span.Name())
+					}
+				}
+				if span.Name() == decisiontrace.SpanModel && (spanAttribute(span, decisiontrace.KeyModelID).AsString() != "fake" || spanAttribute(span, decisiontrace.KeyModelVersion).AsString() != "1" || spanAttribute(span, decisiontrace.KeyModelRisk).AsInt64() != row.model.risk || spanAttribute(span, decisiontrace.KeyMode).AsString() != row.mode) {
+					t.Fatalf("model attributes = %v", span.Attributes())
+				}
 				if row.rule != "" && (span.Name() == decisiontrace.SpanInvariants || span.Name() == decisiontrace.SpanPacks) {
 					for _, ruleID := range spanAttribute(span, decisiontrace.KeyRuleIDs).AsStringSlice() {
 						if strings.ContainsAny(ruleID, ":/ ") {
@@ -306,5 +332,68 @@ func TestDecisionTracingDisabled(t *testing.T) {
 	env.reconcile(t)
 	if len(env.writer.records) != 2 || env.get(t).Status.Phase != "Completed" {
 		t.Fatal("disabled tracing changed decision or receipts")
+	}
+}
+
+func TestDecisionTraceHumanReceiptFailure(t *testing.T) {
+	for _, required := range []bool{true, false} {
+		t.Run(fmt.Sprintf("required=%t", required), func(t *testing.T) {
+			const canary = "private approval reason AKIAIOSFODNN7EXAMPLE auditor@example.test"
+			env := newApprovalEnv(t, fmt.Sprintf("trace-human-failure-%t", required), "", "private description", nil)
+			env.decide(t, map[string]string{approval.AnnotationDecision: approval.Approve, approval.AnnotationReason: canary}, true, env.pendingI)
+			env.writer.appendErr = errors.New(canary)
+			env.r.Receipts.Required = required
+			recorder := recordDecisionSpans(t, env.events)
+			before := len(env.events.list())
+			env.reconcile(t)
+			spans := recorder.Ended()
+			root := assertDecisionTree(t, spans, "human", "approved", nil)
+			if root.Status().Code != codes.Error {
+				t.Fatal("human receipt failure missing error status")
+			}
+			assertDecisionPrivacy(t, spans, "private description", "private approval reason", "AKIAIOSFODNN7EXAMPLE", "auditor@example.test")
+			order := env.events.list()[before:]
+			if slices.Contains(order, "execute_action") == required {
+				t.Fatalf("receipt failure changed execution rule: %v", order)
+			}
+			if !required && slices.Index(order, decisiontrace.SpanReceiptAppend+".end") > slices.Index(order, "execute_action") {
+				t.Fatalf("optional failed append span extends into execution: %v", order)
+			}
+		})
+	}
+}
+
+func TestDecisionTraceModelModes(t *testing.T) {
+	for _, mode := range []string{"off", "shadow", "escalate"} {
+		t.Run(mode, func(t *testing.T) {
+			events := &eventLog{}
+			recorder := recordDecisionSpans(t, events)
+			ctx, root := decisiontrace.StartEvaluation(context.Background(), "default", "model-mode", mode)
+			workload := &agenticv1alpha1.AgentWorkload{Spec: agenticv1alpha1.AgentWorkloadSpec{DecisionModel: &agenticv1alpha1.DecisionModel{Mode: mode}}}
+			const canary = "private score error AKIAIOSFODNN7EXAMPLE auditor@example.test"
+			scorer := &fakeScorer{err: errors.New(canary)}
+			reconciler := &AgentWorkloadReconciler{DecisionModel: DecisionModelConfig{Scorer: scorer}}
+			result, block := reconciler.applyDecisionModel(ctx, workload, "private action description", decisioninput.Input{}, decision.Result{Layer: decision.LayerThreshold, Outcome: decision.Allow})
+			decisiontrace.SetResult(root, result.Layer, string(result.Outcome))
+			root.End()
+			spans := recorder.Ended()
+			assertDecisionPrivacy(t, spans, "private action description", "private score error", "AKIAIOSFODNN7EXAMPLE", "auditor@example.test")
+			if mode == "off" {
+				if len(spans) != 1 || scorer.calls != 0 || block != nil || result.Outcome != decision.Allow {
+					t.Fatal("off mode scored or changed decision")
+				}
+				return
+			}
+			if len(spans) != 2 || spans[0].Name() != decisiontrace.SpanModel || spans[0].Status().Code != codes.Error || spans[1].Status().Code != codes.Error || block == nil {
+				t.Fatal("model error missing trace or receipt block")
+			}
+			want := decision.Allow
+			if mode == "escalate" {
+				want = decision.RequireApproval
+			}
+			if result.Outcome != want {
+				t.Fatalf("model error outcome = %s, want %s", result.Outcome, want)
+			}
+		})
 	}
 }

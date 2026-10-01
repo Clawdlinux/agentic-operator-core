@@ -180,6 +180,10 @@ build:
 decision-train: ## Seed DRAFT synthetic data and train the decision model twice; fails unless both artifacts match
 	@bash tools/decision-train/run.sh
 
+.PHONY: trace-coverage
+trace-coverage:
+	@$(GO) test ./internal/controller -run '^TestDecisionTraceCoverage$$' -count=1 -v
+
 build-agentctl:
 	@echo "Building agentctl binary..."
 	@mkdir -p bin
