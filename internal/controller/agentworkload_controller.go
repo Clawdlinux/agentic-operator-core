@@ -35,9 +35,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/decision"
@@ -493,7 +496,8 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	log.Info("Got status from MCP", "status", status)
+	// MCP replies can carry personal data or credentials. Never log values.
+	log.Info("Got status from MCP", "fields", len(status))
 
 	// Extract cluster health from status
 	// Default to 75 if not provided by MCP, but log a warning
@@ -531,7 +535,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	log.Info("Proposed action from MCP", "proposal", proposal)
+	log.Info("Proposed action from MCP", "fields", len(proposal))
 
 	// Step 4: Evaluate action safety using OPA
 	now := metav1.Now()
@@ -654,7 +658,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			prunedProposed := pruneActions(workload.Status.ProposedActions, maxActionsInStatus)
 			workload.Status.ProposedActions = prunedProposed
 		} else {
-			log.Info("Action executed successfully", "action", action.Name, "result", execution)
+			log.Info("Action executed successfully", "action", action.Name, "resultFields", len(execution))
 			action.Approved = boolPtr(true)
 			workload.Status.ExecutedActions = append(workload.Status.ExecutedActions, action)
 			prunedExecuted := pruneActions(workload.Status.ExecutedActions, maxActionsInStatus)
@@ -1133,9 +1137,23 @@ func (r *AgentWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&agenticv1alpha1.AgentWorkload{}).
+		For(&agenticv1alpha1.AgentWorkload{}, builder.WithPredicates(workloadEventFilter())).
 		Named("agentworkload").
 		Complete(r)
+}
+
+// workloadEventFilter drops status-only updates. Without it every status write
+// re-triggers Reconcile, which re-proposes and re-executes the direct-path
+// action in a hot loop instead of on the RequeueAfter interval.
+func workloadEventFilter() predicate.Predicate {
+	return predicate.Or(
+		predicate.GenerationChangedPredicate{},
+		predicate.AnnotationChangedPredicate{},
+		predicate.LabelChangedPredicate{},
+		predicate.Funcs{UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectNew != nil && !e.ObjectNew.GetDeletionTimestamp().IsZero()
+		}},
+	)
 }
 
 func (r *AgentWorkloadReconciler) updateWorkloadCostAnnotation(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {
