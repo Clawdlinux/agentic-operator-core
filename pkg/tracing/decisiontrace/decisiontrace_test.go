@@ -116,7 +116,7 @@ func TestFailurePrivacy(t *testing.T) {
 		}
 		for _, event := range recorded.Events() {
 			for _, attr := range event.Attributes {
-				if strings.Contains(attr.Value.Emit(), canary) || strings.Contains(attr.Value.Emit(), "AKIA") || strings.Contains(attr.Value.Emit(), "@") {
+				if strings.Contains(attr.Value.String(), canary) || strings.Contains(attr.Value.String(), "AKIA") || strings.Contains(attr.Value.String(), "@") {
 					t.Fatalf("leaked error: %v", attr)
 				}
 			}

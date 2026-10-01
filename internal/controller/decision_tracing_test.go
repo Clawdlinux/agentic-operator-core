@@ -79,12 +79,12 @@ func assertDecisionPrivacy(t *testing.T, spans []sdktrace.ReadOnlySpan, canaries
 	for _, span := range spans {
 		values := []string{span.Name(), span.Status().Description}
 		for _, attr := range span.Attributes() {
-			values = append(values, string(attr.Key), attr.Value.Emit())
+			values = append(values, string(attr.Key), attr.Value.String())
 		}
 		for _, event := range span.Events() {
 			values = append(values, event.Name)
 			for _, attr := range event.Attributes {
-				values = append(values, string(attr.Key), attr.Value.Emit())
+				values = append(values, string(attr.Key), attr.Value.String())
 			}
 		}
 		for _, value := range values {
