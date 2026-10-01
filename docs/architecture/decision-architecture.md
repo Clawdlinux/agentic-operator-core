@@ -70,6 +70,7 @@ model id and version, input hash, option set and order, per-option probabilities
   `networkPolicy.additionalAllowedHosts`).
 - Unchanged: a Completed direct-path workload is reconciled again every 30s
   and proposes a new action each time.
+- The approval dataset is not yet cryptographically complete. Examples are bound to receipts by identity and label only. Row deletion and feature edits in an export are not detected. See BLOCKERS.md (F7, F12).
 
 ## Build order
 1. Measure, stop trusting agent self-report (observed inputs). See

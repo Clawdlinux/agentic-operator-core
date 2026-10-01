@@ -49,6 +49,18 @@ with `scripts/demo/Dockerfile.demo`, because the repo Dockerfile cannot build
 while the receiptspec `replace` is in `go.mod`. Once v0.1.4 is pinned, switch
 the demo to the repo Dockerfile targets and delete `Dockerfile.demo`.
 
+## Known review findings
+
+An independent review of this branch found these gaps. They are documented, not fixed.
+
+- **F7. Dataset content is not bound.** `pkg/dataset/dataset.go` (`Validate`) checks identity and label fields and the original seq. It does not bind features, content hashes, captured params, timestamps or edit content. Someone who can edit an export can poison training features and `agentctl dataset verify` still passes. Fix: bind each example to its verified original decision record and rebuild features from it.
+- **F11. Writer recovery trusts local files.** `pkg/receipts/local.go` checks hashes and the head KID on restart. It does not verify signatures or keep a committed-head checkpoint. Removing the tail of the chain rewinds the sequence and the writer can fork an already issued chain. Fix: verify signatures on recovery and persist an external checkpoint of the committed head.
+- **F12. Deleted approval rows go unnoticed.** `pkg/dataset/verify.go` checks the examples it is given. Without a signed dataset manifest (count, order, digest) it cannot tell that rows were removed. Fix: sign a dataset manifest and verify completeness against it.
+
+## Demo needs a live re-run
+
+The review fixes changed what the demo must do: a pinned writer key, a signed receipt manifest, and an approval stamp key. Re-run `scripts/demo-claims.sh` twice on a fresh kind cluster before quoting its results.
+
 ## Known gaps (not blockers for this branch)
 
 - Runtime-adapter parity: `reconcileViaRuntime` runs no invariants, packs,

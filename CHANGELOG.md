@@ -18,6 +18,19 @@ covered yet. See [decision architecture](docs/architecture/decision-architecture
 - Status-only updates no longer re-trigger Reconcile. Before, each status write re-ran the direct-path action in a hot loop.
 - The controller no longer logs MCP status, proposal, or execution values. They can carry personal data or credentials.
 
+### Fixed (review findings)
+- An incomplete data scan (budget, depth or size limit) now denies through INV-06 instead of failing open.
+- Agent-claimed inputs can only raise model risk. The model scores with and without claims and takes the higher value.
+- The direct path reserves execution with a status update before it runs an allowed action, so a stale reconcile cannot run after the spec tightens.
+- The remote receipt writer client verifies each receipt under a pinned writer key.
+- `agentctl receipts verify` and `agentctl dataset verify` need a signed manifest by default. `--allow-prefix` is the weaker mode.
+- Receipts bind the executed payload by digest (`payload_sha256`).
+- The approval stamp carries an HMAC, and a consumed approval cannot be replayed.
+- `agentctl` approval patches carry the resourceVersion and fail on conflict.
+- A configured model that fails to load is treated as unavailable. Escalate mode then requires approval.
+- Approver identities are stored as digests in receipts.
+- MCP error bodies and invalid values are no longer logged.
+
 ### Added
 - Added `scripts/demo-claims.sh`, a no-API-key claims demo on a fresh kind cluster with a mock MCP server. It builds a demo-only image from host binaries until the receiptspec dependency is tagged.
 - Added P7 decision spans on direct proposals and stamped human approve, reject, and edit decisions.

@@ -259,3 +259,4 @@ That checks receipts only, not decision records.
   NetworkPolicy and bearer token. No TLS yet.
 - Token rotation needs a writer restart.
 - No receipt-writer image is published yet. See `BLOCKERS.md`.
+- Writer recovery does not verify signatures or keep an external committed-head checkpoint. Removing the chain tail can fork an issued chain (BLOCKERS.md, F11).

@@ -230,3 +230,4 @@ or FAIL lines and exits 1 on any failure.
 - `POST /v1/approvals` binding check scans the chain files. Fine for now, slow
   for very long chains.
 - No synthetic seed set yet. The dataset starts empty.
+- Dataset examples are bound to receipts by identity and label only. Feature edits and deleted rows in an export pass `dataset verify` (BLOCKERS.md, F7 and F12).
