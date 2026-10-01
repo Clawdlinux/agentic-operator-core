@@ -119,8 +119,8 @@ func (c *MCPClient) ListTools() ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("MCP server returned status %d: %s", resp.StatusCode, string(body))
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return nil, &CallError{Code: CodeHTTPStatus, Status: resp.StatusCode}
 	}
 
 	var toolResp toolListResponseFlex
@@ -164,8 +164,8 @@ func (c *MCPClient) CallTool(toolName string, params map[string]interface{}) (ma
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("MCP server returned status %d: %s", resp.StatusCode, string(body))
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return nil, &CallError{Code: CodeHTTPStatus, Status: resp.StatusCode}
 	}
 
 	var toolResp ToolResponse
@@ -174,10 +174,31 @@ func (c *MCPClient) CallTool(toolName string, params map[string]interface{}) (ma
 	}
 
 	if !toolResp.Success {
-		return nil, fmt.Errorf("tool execution failed: %s", toolResp.Error)
+		return nil, &CallError{Code: CodeToolFailed}
 	}
 
 	return toolResp.Result, nil
+}
+
+// MCP call error codes.
+const (
+	CodeHTTPStatus = "http_status"
+	CodeToolFailed = "tool_failed"
+)
+
+// CallError is an MCP call failure. It never carries the response body or
+// the server error text: MCP replies can hold credentials or personal data
+// and errors end up in logs.
+type CallError struct {
+	Code   string
+	Status int
+}
+
+func (e *CallError) Error() string {
+	if e.Status != 0 {
+		return fmt.Sprintf("mcp: %s %d (response body withheld)", e.Code, e.Status)
+	}
+	return "mcp: " + e.Code + " (server error text withheld)"
 }
 
 func retryableStatus(status int) bool {

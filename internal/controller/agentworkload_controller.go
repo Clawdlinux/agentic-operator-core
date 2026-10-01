@@ -509,7 +509,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if rawHealth, ok := status["cluster_health"]; ok {
 		health, err := parseFlexibleFloat(rawHealth)
 		if err != nil {
-			log.Info("Warning: MCP status has invalid 'cluster_health' field, using default", "default", clusterHealth, "value", rawHealth)
+			log.Info("Warning: MCP status has invalid 'cluster_health' field, using default", "default", clusterHealth, "code", "invalid_cluster_health", "valueType", fmt.Sprintf("%T", rawHealth))
 		} else {
 			clusterHealth = health
 			claimedHealth = &health
@@ -576,7 +576,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	confidence, err := parseFlexibleFloat(rawConfidence)
 	if err != nil {
-		log.Error(err, "failed to parse confidence", "confidence", rawConfidence)
+		log.Error(err, "failed to parse confidence", "code", "invalid_confidence", "valueType", fmt.Sprintf("%T", rawConfidence))
 		workload.Status.Phase = "Failed"
 		if err := r.Status().Update(ctx, &workload); err != nil {
 			log.Error(err, "failed to update workload status")
@@ -585,7 +585,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if confidence < 0 || confidence > 1 {
-		log.Error(nil, "confidence value out of range", "confidence", confidence)
+		log.Error(nil, "confidence value out of range", "code", "confidence_out_of_range")
 		workload.Status.Phase = "Failed"
 		if err := r.Status().Update(ctx, &workload); err != nil {
 			log.Error(err, "failed to update workload status")
@@ -777,7 +777,7 @@ func parseFlexibleFloat(value interface{}) (float64, error) {
 	case json.Number:
 		parsed, err := v.Float64()
 		if err != nil {
-			return 0, fmt.Errorf("invalid numeric value %q: %w", v.String(), err)
+			return 0, fmt.Errorf("invalid numeric value")
 		}
 		return parsed, nil
 	case float64:
@@ -802,7 +802,7 @@ func parseFlexibleFloat(value interface{}) (float64, error) {
 		}
 		parsed, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid numeric string %q: %w", v, err)
+			return 0, fmt.Errorf("invalid numeric string")
 		}
 		return parsed, nil
 	default:
