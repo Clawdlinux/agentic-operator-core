@@ -89,7 +89,8 @@ gets a `model` block. See [receipts](../receipts.md#model-block). It holds the
 model id and version, artifact sha256, feature spec and feature hash, option
 set and order, per-option micro probabilities, risk, threshold used,
 calibration note, top reason codes, the outcome before and after the model,
-and the scorer error if any.
+the claimed and claim-independent risks, and the scorer error if any. Model
+block schema version is 2.
 
 ## Escalate-only guarantee
 
@@ -111,6 +112,18 @@ A model can never turn a deny or a require_approval into an allow. Enforced at:
    Neither path allows.
 5. A model-escalated action goes to the normal approval flow. Human approve
    and edit re-run invariants and packs, not the model.
+6. Agent claims only tighten. `decision.ScoreClaimSafe` scores the action
+   twice: with the claimed confidence and cluster health, and with both
+   removed (`conf_absent`, `health_absent`). Removing claims is the
+   claim-independent baseline: the score an agent gets by claiming nothing.
+   The risk used is the higher of the two. A mid confidence or healthy
+   cluster claim can no longer pull the risk under the threshold.
+   `TestClaimsOnlyTighten` checks every confidence and health bucket.
+   Both risks go in the model block as `claimed_risk_micro` and
+   `baseline_risk_micro`, with `baseline_feature_hash`. The artifact and
+   `golden.json` are unchanged: the combination happens above the scorer.
+   Offline metrics in `metrics.json` score claimed features only, so they
+   can understate the live escalation rate.
 
 ## Configuration
 

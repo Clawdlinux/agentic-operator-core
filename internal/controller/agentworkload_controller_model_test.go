@@ -50,6 +50,7 @@ func TestReconcile_DecisionModel(t *testing.T) {
 		override    *int64
 		wantPhase   string
 		wantExecute bool
+		// wantCalls is 2 on success: claimed and claim-independent scores.
 		wantCalls   int
 		wantOutcome string
 		wantLayer   string
@@ -61,21 +62,21 @@ func TestReconcile_DecisionModel(t *testing.T) {
 		{name: "mode off never scores", confidence: "0.98", scorer: &fakeScorer{risk: 900000, threshold: 500000}, mode: "off",
 			wantPhase: "Completed", wantExecute: true, wantOutcome: receipts.OutcomeAllow, wantLayer: receipts.LayerThreshold},
 		{name: "default shadow no effect", confidence: "0.98", scorer: &fakeScorer{risk: 900000, threshold: 500000},
-			wantPhase: "Completed", wantExecute: true, wantCalls: 1, wantOutcome: receipts.OutcomeAllow, wantLayer: receipts.LayerThreshold, wantBlock: true},
+			wantPhase: "Completed", wantExecute: true, wantCalls: 2, wantOutcome: receipts.OutcomeAllow, wantLayer: receipts.LayerThreshold, wantBlock: true},
 		{name: "escalate allow to require approval", confidence: "0.98", scorer: &fakeScorer{risk: 900000, threshold: 500000}, mode: "escalate",
-			wantPhase: "PendingApproval", wantCalls: 1, wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true},
+			wantPhase: "PendingApproval", wantCalls: 2, wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true},
 		{name: "escalate low risk keeps allow", confidence: "0.98", scorer: &fakeScorer{risk: 100000, threshold: 500000}, mode: "escalate",
-			wantPhase: "Completed", wantExecute: true, wantCalls: 1, wantOutcome: receipts.OutcomeAllow, wantLayer: receipts.LayerThreshold, wantBlock: true},
+			wantPhase: "Completed", wantExecute: true, wantCalls: 2, wantOutcome: receipts.OutcomeAllow, wantLayer: receipts.LayerThreshold, wantBlock: true},
 		{name: "escalate never loosens deny", confidence: "0.82", scorer: &fakeScorer{risk: 0, threshold: 500000}, mode: "escalate",
-			wantPhase: "PolicyDenied", wantCalls: 1, wantOutcome: receipts.OutcomeDeny, wantLayer: receipts.LayerThreshold, wantBlock: true},
+			wantPhase: "PolicyDenied", wantCalls: 2, wantOutcome: receipts.OutcomeDeny, wantLayer: receipts.LayerThreshold, wantBlock: true},
 		{name: "escalate scorer error fails safe", confidence: "0.98", scorer: &fakeScorer{err: errors.New("artifact read failed")}, mode: "escalate",
 			wantPhase: "PendingApproval", wantCalls: 1, wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true, wantError: true},
 		{name: "shadow scorer error never blocks", confidence: "0.98", scorer: &fakeScorer{err: errors.New("artifact read failed")}, mode: "shadow",
 			wantPhase: "Completed", wantExecute: true, wantCalls: 1, wantOutcome: receipts.OutcomeAllow, wantLayer: receipts.LayerThreshold, wantBlock: true, wantError: true},
 		{name: "stricter override escalates", confidence: "0.98", scorer: &fakeScorer{risk: 400000, threshold: 500000}, mode: "escalate", override: i(300000),
-			wantPhase: "PendingApproval", wantCalls: 1, wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true},
+			wantPhase: "PendingApproval", wantCalls: 2, wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true},
 		{name: "looser override ignored", confidence: "0.98", scorer: &fakeScorer{risk: 600000, threshold: 500000}, mode: "escalate", override: i(900000),
-			wantPhase: "PendingApproval", wantCalls: 1, wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true},
+			wantPhase: "PendingApproval", wantCalls: 2, wantOutcome: receipts.OutcomeRequireApproval, wantLayer: receipts.LayerModel, wantBlock: true},
 	}
 	for idx, tc := range tests {
 		tc, idx := tc, idx

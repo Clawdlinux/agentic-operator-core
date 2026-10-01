@@ -50,12 +50,14 @@ func (r *AgentWorkloadReconciler) applyDecisionModel(
 	if base.Outcome != decision.Allow {
 		esc = base.Layer
 	}
-	f := decision.ExtractFeatures(decision.FeatureInput{Input: in, Action: action, PolicyPacks: wl.Spec.PolicyPacks, EscalatedBy: esc})
+	fi := decision.FeatureInput{Input: in, Action: action, PolicyPacks: wl.Spec.PolicyPacks, EscalatedBy: esc}
+	f := decision.ExtractFeatures(fi)
 	var override *int64
 	if wl.Spec.DecisionModel != nil {
 		override = wl.Spec.DecisionModel.ThresholdMicro
 	}
-	s, err := r.DecisionModel.Scorer.Score(ctx, f)
+	// Claims may only tighten: the risk is never below the no-claim risk.
+	s, err := decision.ScoreClaimSafe(ctx, r.DecisionModel.Scorer, fi)
 	if err != nil {
 		s = decision.Score{FeatureSpec: f.SpecVersion, FeatureHash: f.Hash()}
 	} else {

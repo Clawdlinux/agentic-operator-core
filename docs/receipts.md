@@ -59,18 +59,20 @@ receiptspec `DECISION.md` (RFC 8785 subset).
 Present only when `DECISION_MODEL_PATH` loaded an artifact and the workload
 mode is `shadow` or `escalate`. Absent otherwise, so records without a model
 are byte-identical to before. The record `schema_version` stays 1; the block
-has its own `schema_version` (1). See
+has its own `schema_version` (2). See
 [decision model](architecture/decision-model.md).
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | model block version, 1 |
+| `schema_version` | model block version, 2 |
 | `mode` | `shadow` or `escalate` |
 | `id`, `version`, `artifact_sha256` | the artifact that scored |
 | `feature_spec`, `feature_hash` | feature spec version and SHA-256 of the feature vector |
 | `option_set` | `["allow", "require_approval"]`, fixed order |
 | `option_micro` | per-option probability in micro-units, same order, sums to 1000000 |
-| `risk_micro` | P(human rejects or edits), micro-units |
+| `risk_micro` | P(human rejects or edits), micro-units. The higher of the two below |
+| `claimed_risk_micro` | risk with the agent claims as sent |
+| `baseline_risk_micro`, `baseline_feature_hash` | risk and feature hash with claimed confidence and health removed. Claims can only raise risk |
 | `threshold_micro` | effective threshold, after a stricter workload override |
 | `calibration` | calibration note from the artifact |
 | `reason_codes` | top 3 positive feature contributions |

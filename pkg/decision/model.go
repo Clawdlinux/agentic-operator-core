@@ -8,6 +8,8 @@ package decision
 import (
 	"context"
 	"fmt"
+
+	"github.com/Clawdlinux/agentic-operator-core/pkg/decision/input"
 )
 
 // LayerModel is the layer name when the decision model escalated an action.
@@ -59,11 +61,52 @@ type Score struct {
 	// ThresholdMicro is the escalation threshold the score is compared to.
 	ThresholdMicro int64
 	Calibration    string
+	// ClaimedRiskMicro is the risk with the agent claims as sent.
+	// BaselineRiskMicro is the risk with the claims removed. RiskMicro is the
+	// higher of the two. Set by ScoreClaimSafe only.
+	ClaimedRiskMicro    int64
+	BaselineRiskMicro   int64
+	BaselineFeatureHash string
 }
 
 // Scorer scores one action. It runs in process. No network calls.
 type Scorer interface {
 	Score(ctx context.Context, f Features) (Score, error)
+}
+
+// NeutralClaims returns in without agent-claimed confidence and cluster
+// health. This is the claim-independent baseline: the agent claimed nothing.
+func NeutralClaims(in input.Input) input.Input {
+	in.Claimed.Confidence = nil
+	in.Claimed.ClusterHealth = nil
+	return in
+}
+
+// ScoreClaimSafe scores fi with the agent claims and again with the claims
+// removed, and keeps the higher risk. A claim can raise risk. It can never
+// lower risk below the claim-independent baseline.
+func ScoreClaimSafe(ctx context.Context, s Scorer, fi FeatureInput) (Score, error) {
+	claimed, err := s.Score(ctx, ExtractFeatures(fi))
+	if err != nil {
+		return Score{}, err
+	}
+	nfi := fi
+	nfi.Input = NeutralClaims(fi.Input)
+	baseFeatures := ExtractFeatures(nfi)
+	base, err := s.Score(ctx, baseFeatures)
+	if err != nil {
+		return Score{}, err
+	}
+	out := claimed
+	if base.RiskMicro > claimed.RiskMicro {
+		out.RiskMicro = base.RiskMicro
+		out.OptionMicro = Options(base.RiskMicro)
+		out.ReasonCodes = append([]string{}, base.ReasonCodes...)
+	}
+	out.ClaimedRiskMicro = claimed.RiskMicro
+	out.BaselineRiskMicro = base.RiskMicro
+	out.BaselineFeatureHash = baseFeatures.Hash()
+	return out, nil
 }
 
 // Options returns the option micro-units for risk, in OptionSet order.

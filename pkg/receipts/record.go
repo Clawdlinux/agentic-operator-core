@@ -93,7 +93,7 @@ type ClaimedSummary struct {
 
 // ModelBlockVersion is the schema version of the Model block. The record
 // SchemaVersion stays 1: the block was reserved and never emitted before.
-const ModelBlockVersion = 1
+const ModelBlockVersion = 2
 
 // Model is the decision model block. It is set whenever a model scored the
 // action, in shadow or escalate mode, so the score can be replayed. Every
@@ -109,9 +109,14 @@ type Model struct {
 	OptionSet      []string `json:"option_set"`
 	OptionMicro    []int64  `json:"option_micro"`
 	RiskMicro      int64    `json:"risk_micro"`
-	ThresholdMicro int64    `json:"threshold_micro"`
-	Calibration    string   `json:"calibration"`
-	ReasonCodes    []string `json:"reason_codes"`
+	// ClaimedRiskMicro uses the agent claims. BaselineRiskMicro removes them.
+	// RiskMicro is the higher of the two, so claims can only tighten.
+	ClaimedRiskMicro    int64    `json:"claimed_risk_micro"`
+	BaselineRiskMicro   int64    `json:"baseline_risk_micro"`
+	BaselineFeatureHash string   `json:"baseline_feature_hash"`
+	ThresholdMicro      int64    `json:"threshold_micro"`
+	Calibration         string   `json:"calibration"`
+	ReasonCodes         []string `json:"reason_codes"`
 	// BaseOutcome is the outcome before the model. Outcome is after it.
 	BaseOutcome string `json:"base_outcome"`
 	Outcome     string `json:"outcome"`
@@ -137,6 +142,10 @@ func NewModelBlock(mode decision.ModelMode, s decision.Score, scoreErr error, ba
 		ReasonCodes:    append([]string{}, s.ReasonCodes...),
 		BaseOutcome:    string(base.Outcome),
 		Outcome:        string(final.Outcome),
+
+		ClaimedRiskMicro:    s.ClaimedRiskMicro,
+		BaselineRiskMicro:   s.BaselineRiskMicro,
+		BaselineFeatureHash: s.BaselineFeatureHash,
 	}
 	for i, o := range decision.OptionSet {
 		m.OptionMicro[i] = s.OptionMicro[o]
