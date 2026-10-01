@@ -295,6 +295,7 @@ assets/                 Branding assets (logo, etc.)
 | [Policy input](docs/policy-input.md) | Declared, observed, and agent-claimed decision inputs |
 | [Policy packs](docs/policy-packs.md) | Invariants and opt-in Rego packs (`dpdp-in`, `gdpr-eu`) |
 | [Receipts](docs/receipts.md) | Opt-in signed decision receipts, receipt-writer, offline verify |
+| [Approvals](docs/approvals.md) | Human approve, reject, edit protocol and the signed approval dataset |
 | [Troubleshooting](docs/10-troubleshooting.md) | Common issues and fixes |
 
 ---

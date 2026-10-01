@@ -118,7 +118,90 @@ type DecisionRecord struct {
 	PolicyPacks   []string        `json:"policy_packs"`
 	ThresholdMode string          `json:"threshold_mode"`
 	Model         *Model          `json:"model,omitempty"`
+	Approval      *Approval       `json:"approval,omitempty"`
 	ReplayHint    string          `json:"replay_hint"`
+}
+
+// Approval is set on layer "human" records. Approver is the username the
+// admission webhook stamped. The full stamp and the reason are hashed only.
+type Approval struct {
+	Label             string   `json:"label"`
+	Approver          string   `json:"approver"`
+	ApproverSHA256    string   `json:"approver_sha256"`
+	ReasonSHA256      string   `json:"reason_sha256"`
+	PendingID         string   `json:"pending_id"`
+	OriginalSeq       uint64   `json:"original_seq"`
+	OriginalInputHash string   `json:"original_input_hash"`
+	EditedFields      []string `json:"edited_fields"`
+}
+
+// Human decision labels, as in the approval-decision annotation.
+const (
+	LabelApprove = "approve"
+	LabelReject  = "reject"
+	LabelEdit    = "edit"
+)
+
+// OutcomeForLabel maps a human label to its record outcome.
+func OutcomeForLabel(label string) (string, error) {
+	switch label {
+	case LabelApprove:
+		return OutcomeApproved, nil
+	case LabelReject:
+		return OutcomeRejected, nil
+	case LabelEdit:
+		return OutcomeEdited, nil
+	}
+	return "", fmt.Errorf("receipts: unknown approval label %q", label)
+}
+
+// HumanParams are the inputs to NewHumanRecord. Input is the decision input
+// of the action the human decided on: the original for approve and reject,
+// the edited action for edit.
+type HumanParams struct {
+	Workload      Workload
+	Action        string
+	Input         input.Input
+	PolicyPacks   []string
+	ThresholdMode string
+	Approval      Approval
+}
+
+// NewHumanRecord builds the layer "human" record for one approval decision.
+func NewHumanRecord(p HumanParams) (DecisionRecord, error) {
+	outcome, err := OutcomeForLabel(p.Approval.Label)
+	if err != nil {
+		return DecisionRecord{}, err
+	}
+	if p.Approval.Approver == "" || len(p.Approval.ApproverSHA256) != 64 || p.Approval.PendingID == "" {
+		return DecisionRecord{}, fmt.Errorf("receipts: human record needs approver, approver hash, and pending id")
+	}
+	rec, err := NewDecisionRecord(Params{
+		Workload:      p.Workload,
+		Action:        p.Action,
+		Input:         p.Input,
+		Result:        decision.Result{Outcome: decision.Allow, Layer: decision.LayerThreshold},
+		PolicyPacks:   p.PolicyPacks,
+		ThresholdMode: p.ThresholdMode,
+	})
+	if err != nil {
+		return DecisionRecord{}, err
+	}
+	a := p.Approval
+	a.EditedFields = sortedCopy(a.EditedFields)
+	reason := "none"
+	if a.ReasonSHA256 != "" {
+		reason = "sha256:" + a.ReasonSHA256
+	}
+	rec.Layer = LayerHuman
+	rec.Outcome = outcome
+	rec.Reasons = []Reason{
+		{RuleID: "approver", Reason: a.Approver},
+		{RuleID: "approval-reason", Reason: reason},
+		{RuleID: "approval-of", Reason: a.PendingID},
+	}
+	rec.Approval = &a
+	return rec, nil
 }
 
 // Params are the inputs to NewDecisionRecord.
@@ -279,8 +362,15 @@ func Fields(rec DecisionRecord) (receiptspec.Fields, error) {
 	if agent == "" {
 		agent = rec.Workload.Namespace + "/" + rec.Workload.Name
 	}
+	principal := "system:clawdlinux-operator"
+	if rec.Layer == LayerHuman {
+		if rec.Approval == nil || rec.Approval.Approver == "" {
+			return receiptspec.Fields{}, fmt.Errorf("receipts: human record without approver")
+		}
+		principal = clip(rec.Approval.Approver, 256, principal)
+	}
 	return receiptspec.Fields{
-		HumanPrincipal: "system:clawdlinux-operator",
+		HumanPrincipal: principal,
 		AgentKeyID:     clip(agent, 128, "unknown-workload"),
 		Service:        Service,
 		Action:         clip("decision:"+rec.Action, 128, "decision:unknown"),

@@ -38,6 +38,11 @@ model id and version, input hash, option set and order, per-option probabilities
   model decides. Execution outcome and the runtime-adapter path are not
   receipted.
 - Layers combine in pkg/decision.Decide. Strictest wins.
+- Human approval (layer 3) works on the direct path. Decisions are
+  annotations; the webhook stamps the approver. Each decision gets a signed
+  layer "human" receipt and one example in approvals.jsonl. Approve and edit
+  re-run invariants and packs first. A human never overrides an invariant.
+  See [approvals](../approvals.md). Gap: Argo approval gates are not covered.
 - Gap: the runtime-adapter path (reconcileViaRuntime) runs neither invariants
   nor packs. Packs on that path fail closed.
 - Input confidence comes from the propose_action tool reply. cluster_health comes from the MCP status reply, default 75 when absent. Platform measures neither.
@@ -52,7 +57,9 @@ model id and version, input hash, option set and order, per-option probabilities
 2. Real rule engine (OPA Go lib) for invariants and packs.
 3. Receipts for every decision (shared receiptspec). Shipped on the direct
    path, opt-in. See [receipts](../receipts.md).
-4. Approval dataset (already in goal prompt phase 4).
+4. Approval dataset (already in goal prompt phase 4). Shipped on the direct
+   path: signed approve, reject, edit receipts plus approvals.jsonl. See
+   [approvals](../approvals.md).
 5. Decision model phase A (escalate-only), evaluated offline on approval dataset first, shadow mode before it can affect anything.
 6. Phase B only after shadow results and calibration are documented.
 

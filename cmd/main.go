@@ -57,6 +57,7 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/internal/controller"
 	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy"
 	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy/netprobe"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/dataset"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
@@ -378,6 +379,11 @@ func buildReceiptsConfig(cfg receipts.Config, logger logr.Logger) controller.Rec
 		return out
 	}
 	out.Writer = w
+	if ds, err := dataset.NewRemote(cfg.WriterURL, receipts.TokenFile(cfg.TokenFile), cfg.Timeout); err == nil {
+		out.Approvals = ds
+	} else {
+		logger.Error(err, "Approval dataset client misconfigured; examples will not be stored")
+	}
 	logger.Info("Decision receipts enabled", "writer", cfg.WriterURL, "required", cfg.Required)
 	return out
 }

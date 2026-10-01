@@ -65,6 +65,24 @@ spec:
                 items:
                   type: string
                 type: array
+              approvalCapture:
+                description: |-
+                  approvalCapture controls what the approval dataset stores about the
+                  action content of each human decision. See docs/approvals.md.
+                properties:
+                  content:
+                    default: redacted
+                    description: |-
+                      content is none (hashes and class names only), redacted (action name and
+                      params with detected data classes and credentials replaced by [class]),
+                      or full (raw content, may hold personal data, choose it explicitly).
+                      Receipts never hold raw params in any mode.
+                    enum:
+                    - none
+                    - redacted
+                    - full
+                    type: string
+                type: object
               autoApproveThreshold:
                 default: "0.95"
                 description: autoApproveThreshold is the confidence level (0-1) above
@@ -542,6 +560,33 @@ spec:
                   - name
                   type: object
                 type: array
+              lastApproval:
+                description: lastApproval records the last human decision the controller
+                  handled.
+                properties:
+                  approverSHA256:
+                    type: string
+                  decidedAt:
+                    format: date-time
+                    type: string
+                  decision:
+                    type: string
+                  decisionReceiptSeq:
+                    format: int64
+                    type: integer
+                  id:
+                    type: string
+                  outcome:
+                    description: outcome is executed, failed, rejected, denied, or
+                      unknown.
+                    type: string
+                required:
+                - approverSHA256
+                - decidedAt
+                - decision
+                - id
+                - outcome
+                type: object
               lastReconcileTime:
                 description: lastReconcileTime is the last time the resource was reconciled
                 format: date-time
@@ -551,6 +596,74 @@ spec:
                   modelRoutingOperationID is the stable idempotency key for the current
                   workload generation's model call.
                 type: string
+              pendingApproval:
+                description: pendingApproval is the direct-path action waiting for
+                  a human decision.
+                properties:
+                  action:
+                    type: string
+                  claimedClusterHealth:
+                    description: claimedClusterHealth is set when the MCP server reported
+                      health.
+                    type: string
+                  clusterHealth:
+                    description: clusterHealth is the value the threshold used, as
+                      a decimal string.
+                    type: string
+                  confidence:
+                    type: string
+                  decision:
+                    description: decision is the label being handled while state is
+                      set.
+                    type: string
+                  description:
+                    type: string
+                  id:
+                    description: |-
+                      id binds a decision to this action. The webhook stamps it into
+                      clawdlinux.org/approval-for.
+                    type: string
+                  proposal:
+                    description: |-
+                      proposal is the raw MCP proposal JSON. approve executes it as is.
+                      It may hold personal data. Receipts and the dataset never copy it raw
+                      unless approvalCapture.content is full.
+                    type: string
+                  proposedAt:
+                    format: date-time
+                    type: string
+                  receiptEntryHash:
+                    type: string
+                  receiptSeq:
+                    description: |-
+                      receiptSeq and receiptEntryHash identify the original decision receipt.
+                      Zero when receipts are off.
+                    format: int64
+                    type: integer
+                  record:
+                    description: |-
+                      record is the canonical JSON of the original decision record. It holds
+                      hashes and class names only.
+                    type: string
+                  state:
+                    description: |-
+                      state tracks a decision in progress so a replayed reconcile never
+                      executes twice.
+                    enum:
+                    - ""
+                    - Recording
+                    - Executing
+                    type: string
+                required:
+                - action
+                - clusterHealth
+                - confidence
+                - description
+                - id
+                - proposal
+                - proposedAt
+                - record
+                type: object
               phase:
                 description: 'phase is the current lifecycle phase: Pending, Running,
                   Completed, Failed'

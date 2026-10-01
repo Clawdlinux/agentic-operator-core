@@ -22,6 +22,7 @@ import (
 
 	"github.com/Clawdlinux/agentgate/pkg/receiptspec"
 
+	"github.com/Clawdlinux/agentic-operator-core/pkg/dataset"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/decision"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
 )
@@ -45,14 +46,26 @@ func testRecord(t *testing.T) receipts.DecisionRecord {
 
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	w, err := receipts.OpenLocal(t.TempDir(), ed25519.NewKeyFromSeed(bytes.Repeat([]byte{7}, 32)))
+	srv, _ := newTestServerWriter(t)
+	return srv
+}
+
+func newTestServerWriter(t *testing.T) (*httptest.Server, *receipts.LocalWriter) {
+	t.Helper()
+	dir := t.TempDir()
+	w, err := receipts.OpenLocal(dir, ed25519.NewKeyFromSeed(bytes.Repeat([]byte{7}, 32)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = w.Close() })
-	srv := httptest.NewServer(newHandler(w, testToken, log.New(io.Discard, "", 0)))
+	ds, err := dataset.Open(dir, w.Lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ds.Close() })
+	srv := httptest.NewServer(newHandler(w, ds, testToken, log.New(io.Discard, "", 0)))
 	t.Cleanup(srv.Close)
-	return srv
+	return srv, w
 }
 
 func do(t *testing.T, method, url, token string, body []byte) (int, []byte) {

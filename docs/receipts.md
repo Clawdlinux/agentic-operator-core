@@ -33,15 +33,16 @@ Each receipt is a v1 AgentGate receipt:
 | `policy_decision` | `allow` for allow. `deny` for deny and require_approval |
 | `status_code` | 200 allow, 202 require_approval, 403 deny |
 | `params_sha256` | SHA-256 of the canonical decision record |
-| `human_principal` | `system:clawdlinux-operator` |
+| `human_principal` | `system:clawdlinux-operator`, or the approver username for layer `human` |
 | `agent_key_id` | workload UID |
 
 The decision record sits beside the receipt in `records.jsonl`. Fields:
 `schema_version`, `workload` (namespace, name, uid), `action`, `layer`
-(`invariant`, `rules`, `threshold`; `human` and `model` reserved), `outcome`,
+(`invariant`, `rules`, `threshold`, `human`; `model` reserved), `outcome`,
 `reasons` (rule ID plus reason), `input_hash`, `declared`, `observed`,
 `claimed`, `policy_packs`, `threshold_mode`, `replay_hint`. A `model` block is
-reserved and absent until a model decides.
+reserved and absent until a model decides. Human decisions add an `approval`
+block and set `human_principal` to the approver. See [approvals](approvals.md).
 
 `input_hash` is the SHA-256 of the canonical JSON of the full decision input:
 declared, observed, and agent-claimed (labelled `agent_claimed`). It covers
@@ -105,15 +106,16 @@ receipt-writer env:
 
 | Variable | Meaning |
 |---|---|
-| `RECEIPT_DATA_DIR` | Chain directory. `receipts.jsonl`, `records.jsonl`, `writer.lock` |
+| `RECEIPT_DATA_DIR` | Chain directory. `receipts.jsonl`, `records.jsonl`, `approvals.jsonl`, `writer.lock` |
 | `RECEIPT_KEY_FILE` | Hex Ed25519 seed (32 bytes) or private key (64 bytes) |
 | `RECEIPT_KEY_GENERATE` | `true` creates the key file if missing. Otherwise the writer refuses to start |
 | `RECEIPT_TOKEN_FILE` | Bearer token, at least 32 characters. Read at start |
 | `RECEIPT_ADDR` | Listen address, default `:8080` |
 
-Routes: `POST /v1/records`, `GET /v1/head`, `GET /v1/export` (all bearer
-auth), `GET /healthz` (no auth). Bodies over 64 KiB, unknown fields, and
-trailing data are rejected.
+Routes: `POST /v1/records`, `GET /v1/head`, `GET /v1/export`,
+`POST /v1/approvals`, `GET /v1/approvals` (all bearer auth), `GET /healthz`
+(no auth). Record bodies over 64 KiB, approval bodies over 256 KiB, unknown
+fields, and trailing data are rejected.
 
 Helm:
 
@@ -167,8 +169,8 @@ That checks receipts only, not decision records.
 
 - Runtime-adapter path (`spec.orchestration`) writes no receipts.
 - Execution outcome is not receipted. Only the pre-execution decision.
-- Human approve, reject, and edit receipts are not written yet. The outcomes
-  exist in the record schema.
+- Human approve, reject, and edit receipts are written on the direct path. See
+  [approvals](approvals.md). Argo approval gates are not receipted.
 - Key rotation: not supported. The writer refuses a key change.
 - Retention and compaction: none. Files grow. Export reads the whole chain.
 - Writer transport is plain HTTP inside the cluster, guarded by the

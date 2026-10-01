@@ -54,6 +54,7 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 
 - [x] Rule engine (OPA Go library) with invariants and policy packs. 5 invariants, `dpdp-in@v0.1.0` and `gdpr-eu@v0.1.0` packs. Direct action path only; orchestrated runtimes reject packs. See [policy packs](docs/policy-packs.md)
 - [x] Signed decision receipts, opt-in. AgentGate receipt format, `receipt-writer` service, write-ahead, fail closed with `RECEIPTS_REQUIRED`, `agentctl receipts export|verify`. Direct action path only. See [receipts](docs/receipts.md)
+- [x] Human approval protocol and signed approval dataset. Webhook-stamped approver, append-once decisions, edit re-validated against invariants, `spec.approvalCapture`, `approvals.jsonl` on the receipt-writer, `agentctl dataset export|verify`. Direct action path only; Argo approval gates not covered. See [approvals](docs/approvals.md)
 
 ## Now
 

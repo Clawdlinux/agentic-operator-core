@@ -204,6 +204,46 @@ func (w *LocalWriter) Head() (uint64, [32]byte) {
 	return w.chain.Head()
 }
 
+// ErrNoSuchReceipt means Lookup found no receipt with that seq.
+var ErrNoSuchReceipt = errors.New("receipts: no receipt with that seq")
+
+// Lookup returns the stored receipt and canonical record for seq. It scans the
+// files, so it costs O(chain length).
+func (w *LocalWriter) Lookup(seq uint64) (receiptspec.Receipt, json.RawMessage, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return receiptspec.Receipt{}, nil, ErrClosed
+	}
+	if head, _ := w.chain.Head(); seq == 0 || seq > head {
+		return receiptspec.Receipt{}, nil, ErrNoSuchReceipt
+	}
+	data, err := readOptional(filepath.Join(w.dir, ReceiptsFile))
+	if err != nil {
+		return receiptspec.Receipt{}, nil, err
+	}
+	lines, _ := completeLines(data)
+	if int(seq) > len(lines) {
+		return receiptspec.Receipt{}, nil, ErrNoSuchReceipt
+	}
+	r, err := receiptspec.ParseJSONLReceipt(lines[seq-1])
+	if err != nil || r.Seq != seq {
+		return receiptspec.Receipt{}, nil, fmt.Errorf("receipts: receipt seq %d unreadable", seq)
+	}
+	recData, err := readOptional(filepath.Join(w.dir, RecordsFile))
+	if err != nil {
+		return receiptspec.Receipt{}, nil, err
+	}
+	recLines, _ := completeLines(recData)
+	for _, line := range recLines {
+		var rl RecordLine
+		if json.Unmarshal(line, &rl) == nil && rl.Seq == seq {
+			return r, rl.Record, nil
+		}
+	}
+	return receiptspec.Receipt{}, nil, fmt.Errorf("receipts: record for seq %d missing", seq)
+}
+
 // KID returns the signer key ID.
 func (w *LocalWriter) KID() string { return w.kid }
 

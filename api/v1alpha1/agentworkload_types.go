@@ -155,6 +155,38 @@ type AgentWorkloadSpec struct {
 	// +listType=set
 	// +optional
 	PolicyPacks []string `json:"policyPacks,omitempty"`
+
+	// approvalCapture controls what the approval dataset stores about the
+	// action content of each human decision. See docs/approvals.md.
+	// +optional
+	ApprovalCapture *ApprovalCapture `json:"approvalCapture,omitempty"`
+}
+
+// ApprovalCapture sets the content capture mode for approval examples.
+type ApprovalCapture struct {
+	// content is none (hashes and class names only), redacted (action name and
+	// params with detected data classes and credentials replaced by [class]),
+	// or full (raw content, may hold personal data, choose it explicitly).
+	// Receipts never hold raw params in any mode.
+	// +kubebuilder:validation:Enum=none;redacted;full
+	// +kubebuilder:default=redacted
+	// +optional
+	Content string `json:"content,omitempty"`
+}
+
+// Approval capture modes.
+const (
+	CaptureNone     = "none"
+	CaptureRedacted = "redacted"
+	CaptureFull     = "full"
+)
+
+// CaptureMode returns the effective capture mode. Unset means redacted.
+func (s AgentWorkloadSpec) CaptureMode() string {
+	if s.ApprovalCapture == nil || s.ApprovalCapture.Content == "" {
+		return CaptureRedacted
+	}
+	return s.ApprovalCapture.Content
 }
 
 // DeclaredIntent is the human-reviewed purpose and allow lists for a workload.
@@ -428,6 +460,84 @@ type AgentWorkloadStatus struct {
 	// agentStatuses reports per-agent status when collaborationMode is "team" or "delegation"
 	// +optional
 	AgentStatuses []AgentInstanceStatus `json:"agentStatuses,omitempty"`
+
+	// pendingApproval is the direct-path action waiting for a human decision.
+	// +optional
+	PendingApproval *PendingApproval `json:"pendingApproval,omitempty"`
+
+	// lastApproval records the last human decision the controller handled.
+	// +optional
+	LastApproval *ApprovalOutcome `json:"lastApproval,omitempty"`
+}
+
+// Workload phases set by the direct action path.
+const (
+	PhasePendingApproval = "PendingApproval"
+	PhaseRejected        = "Rejected"
+)
+
+// Pending approval states. A decision moves "" to Recording to Executing.
+const (
+	ApprovalStateRecording = "Recording"
+	ApprovalStateExecuting = "Executing"
+)
+
+// PendingApproval is an action held for a human decision.
+type PendingApproval struct {
+	// id binds a decision to this action. The webhook stamps it into
+	// clawdlinux.org/approval-for.
+	ID string `json:"id"`
+
+	Action      string `json:"action"`
+	Description string `json:"description"`
+	Confidence  string `json:"confidence"`
+
+	// clusterHealth is the value the threshold used, as a decimal string.
+	ClusterHealth string `json:"clusterHealth"`
+
+	// claimedClusterHealth is set when the MCP server reported health.
+	// +optional
+	ClaimedClusterHealth string `json:"claimedClusterHealth,omitempty"`
+
+	// proposal is the raw MCP proposal JSON. approve executes it as is.
+	// It may hold personal data. Receipts and the dataset never copy it raw
+	// unless approvalCapture.content is full.
+	Proposal string `json:"proposal"`
+
+	// record is the canonical JSON of the original decision record. It holds
+	// hashes and class names only.
+	Record string `json:"record"`
+
+	// receiptSeq and receiptEntryHash identify the original decision receipt.
+	// Zero when receipts are off.
+	// +optional
+	ReceiptSeq int64 `json:"receiptSeq,omitempty"`
+	// +optional
+	ReceiptEntryHash string `json:"receiptEntryHash,omitempty"`
+
+	ProposedAt metav1.Time `json:"proposedAt"`
+
+	// state tracks a decision in progress so a replayed reconcile never
+	// executes twice.
+	// +kubebuilder:validation:Enum="";Recording;Executing
+	// +optional
+	State string `json:"state,omitempty"`
+
+	// decision is the label being handled while state is set.
+	// +optional
+	Decision string `json:"decision,omitempty"`
+}
+
+// ApprovalOutcome is the result of one handled human decision.
+type ApprovalOutcome struct {
+	ID       string `json:"id"`
+	Decision string `json:"decision"`
+	// outcome is executed, failed, rejected, denied, or unknown.
+	Outcome        string `json:"outcome"`
+	ApproverSHA256 string `json:"approverSHA256"`
+	// +optional
+	DecisionReceiptSeq int64       `json:"decisionReceiptSeq,omitempty"`
+	DecidedAt          metav1.Time `json:"decidedAt"`
 }
 
 const (

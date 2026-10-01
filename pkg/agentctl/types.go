@@ -79,6 +79,9 @@ type ApproveResult struct {
 	Namespace     string `json:"namespace"`
 	ArgoResumed   bool   `json:"argoResumed"`
 	PreviousPhase string `json:"previousPhase"`
+	// DecisionRecorded is true when an approval-decision annotation was set
+	// for a pending direct-path action.
+	DecisionRecorded bool `json:"decisionRecorded"`
 }
 
 // RejectResult is the outcome of a reject operation.
@@ -88,4 +91,7 @@ type RejectResult struct {
 	Rule          string `json:"rule,omitempty"`
 	Reason        string `json:"reason,omitempty"`
 	PreviousPhase string `json:"previousPhase"`
+	// DecisionRecorded is true when an approval-decision annotation was set
+	// for a pending direct-path action.
+	DecisionRecorded bool `json:"decisionRecorded"`
 }

@@ -169,25 +169,29 @@ func runInit(ctx context.Context, opts *cliOptions, cmd *cobra.Command) error {
 // ── approve ─────────────────────────────────────────────────────────────────
 
 func newApproveCommand(opts *cliOptions) *cobra.Command {
+	var reason string
 	cmd := &cobra.Command{
 		Use:   "approve <workload-name>",
 		Short: "Resume a PendingApproval workload",
 		Long: `Approve a workload that is paused at an approval gate.
 
-Sets the workload's phase annotation to trigger the controller to resume execution.
-If the workload uses Argo Workflows, also attempts to resume the suspended workflow.`,
+For a direct-path action held for review, sets clawdlinux.org/approval-decision=approve.
+The admission webhook stamps your identity. The operator re-checks invariants before
+it executes. If the workload uses Argo Workflows, also attempts to resume the
+suspended workflow.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApprove(cmd.Context(), opts, args[0], cmd)
+			return runApprove(cmd.Context(), opts, args[0], reason, cmd)
 		},
 	}
+	cmd.Flags().StringVar(&reason, "reason", "", "Free-text reason, at most 1024 bytes. Stored as a hash in receipts and the dataset")
 	return cmd
 }
 
-func runApprove(ctx context.Context, opts *cliOptions, name string, cmd *cobra.Command) error {
+func runApprove(ctx context.Context, opts *cliOptions, name, reason string, cmd *cobra.Command) error {
 	w := cmd.OutOrStdout()
 
-	result, err := opts.client.ApproveWorkload(ctx, opts.Namespace, name, "agentctl")
+	result, err := opts.client.ApproveWorkloadWithReason(ctx, opts.Namespace, name, "agentctl", reason)
 	if err != nil {
 		// If the error is about wrong phase, the library still returns a result
 		if result != nil && result.PreviousPhase != "" {
@@ -203,6 +207,37 @@ func runApprove(ctx context.Context, opts *cliOptions, name string, cmd *cobra.C
 	}
 
 	return nil
+}
+
+// ── edit-approve ────────────────────────────────────────────────────────────
+
+func newEditApproveCommand(opts *cliOptions) *cobra.Command {
+	var editFile, reason string
+	cmd := &cobra.Command{
+		Use:   "edit-approve <workload-name>",
+		Short: "Approve a pending action with a replacement action",
+		Long: `Approve the pending direct-path action, replaced by the action in --edit-file.
+
+The file holds {"name": ..., "description": ..., "params": {...}}. The operator re-runs
+invariants, policy packs, and the threshold on the edited action before execution.
+An edit that breaks an invariant is denied.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			data, err := os.ReadFile(editFile)
+			if err != nil {
+				return err
+			}
+			if _, err := opts.client.EditApproveWorkload(cmd.Context(), opts.Namespace, args[0], string(data), reason); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Edit decision recorded for %q. The operator re-validates it before execution.\n", args[0])
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&editFile, "edit-file", "", "JSON file with the replacement action")
+	cmd.Flags().StringVar(&reason, "reason", "", "Free-text reason, at most 1024 bytes")
+	_ = cmd.MarkFlagRequired("edit-file")
+	return cmd
 }
 
 // ── reject ──────────────────────────────────────────────────────────────────

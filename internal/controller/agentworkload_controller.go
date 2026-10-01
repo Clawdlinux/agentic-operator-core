@@ -45,16 +45,13 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/pkg/decision/observe"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
-	"github.com/Clawdlinux/agentic-operator-core/pkg/invariants"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/llm"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/mcp"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/metrics"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/resilience"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/routing"
-	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/engine"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/packs"
-	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/threshold"
 	runtimeadapter "github.com/Clawdlinux/agentic-operator-core/pkg/runtime"
 )
 
@@ -468,6 +465,15 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return r.reconcileViaRuntime(ctx, &workload)
 	}
 
+	// Rejected is terminal on the direct path. Recreate the workload to retry.
+	if workload.Status.Phase == agenticv1alpha1.PhaseRejected {
+		return ctrl.Result{}, nil
+	}
+	// A held action is resolved by a human decision, not re-proposed.
+	if workload.Status.Phase == agenticv1alpha1.PhasePendingApproval && workload.Status.PendingApproval != nil {
+		return r.reconcileApproval(ctx, &workload)
+	}
+
 	// Step 2: Connect to MCP server and fetch status
 	mcpEndpoint := ""
 	if workload.Spec.MCPServerEndpoint != nil {
@@ -580,31 +586,12 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	confidenceStr := fmt.Sprintf("%.2f", confidence)
 
-	// Create OPA evaluator and evaluate action
-	// Use the appropriate evaluation mode based on policy setting
-	evaluator := threshold.NewPolicyEvaluator()
-
 	// Determine OPA policy mode with nil guard (default to strict if nil)
 	opaPolicyMode := "strict"
 	if workload.Spec.OPAPolicy != nil {
 		opaPolicyMode = *workload.Spec.OPAPolicy
 	}
-
-	opaInput := &threshold.EvaluationInput{
-		ActionType:         actionName,
-		Confidence:         confidence,
-		ClusterHealthScore: clusterHealth,
-		OPAPolicyMode:      opaPolicyMode,
-	}
-
-	// Apply mode-specific evaluation logic
-	var opaResult *threshold.EvaluationResult
-	if opaPolicyMode == "permissive" {
-		opaResult = evaluator.EvaluatePermissive(opaInput)
-	} else {
-		// Default to strict mode
-		opaResult = evaluator.EvaluateStrict(opaInput)
-	}
+	opaResult := evaluateThreshold(opaPolicyMode, actionName, confidence, clusterHealth)
 
 	log.Info("OPA evaluation result", "allowed", opaResult.Allowed, "confidence", opaResult.Confidence, "reasons", opaResult.Reasons)
 
@@ -626,27 +613,10 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Layers run in order: invariants, policy packs, threshold. Decide keeps
 	// the strictest outcome, so no layer or claim can loosen another.
-	layers := decision.Layers{ThresholdAllowed: opaResult.Allowed, ThresholdReasons: opaResult.Reasons}
-	for _, res := range invariants.Check(decisionInput, r.receiptContext(ctx)) {
-		layers.Invariants = append(layers.Invariants, res.String())
-	}
-	if len(workload.Spec.PolicyPacks) > 0 {
-		var verdict engine.Verdict
-		eng, err := engine.LoadPacks(ctx, workload.Spec.PolicyPacks...)
-		if err == nil {
-			verdict, err = eng.Eval(ctx, engine.Doc(decisionInput))
-		}
-		layers.PackErr = err
-		for _, f := range verdict.Deny {
-			layers.PackDeny = append(layers.PackDeny, f.String())
-		}
-		for _, f := range verdict.RequireApproval {
-			layers.PackApproval = append(layers.PackApproval, f.String())
-		}
-	}
+	layers := r.evaluateLayers(ctx, &workload, decisionInput, opaResult)
 	result := decision.Decide(layers)
 	// Write-ahead: the receipt is stored before the action can run.
-	result = r.recordDecision(ctx, &workload, actionName, decisionInput, layers, result, opaPolicyMode)
+	result, recorded := r.recordDecision(ctx, &workload, actionName, decisionInput, layers, result, opaPolicyMode)
 	log.Info("decision", "outcome", result.Outcome, "layer", result.Layer, "destination", decisionInput.Observed.Destination, "dataClasses", decisionInput.Observed.DataClasses, "reasons", result.Reasons)
 
 	// Step 5: Handle action execution or approval pending
@@ -714,6 +684,17 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			})
 		default:
 			workload.Status.Phase = "PendingApproval"
+		}
+	}
+
+	// A held action waits for a human decision instead of being re-proposed.
+	workload.Status.PendingApproval = nil
+	if workload.Status.Phase == agenticv1alpha1.PhasePendingApproval {
+		pending, err := newPendingApproval(&workload, action, proposal, clusterHealth, claimedHealth, recorded, now)
+		if err != nil {
+			log.Error(err, "failed to record pending approval; action will be re-proposed")
+		} else {
+			workload.Status.PendingApproval = pending
 		}
 	}
 

@@ -41,6 +41,7 @@ import (
 
 	"github.com/Clawdlinux/agentgate/pkg/receiptspec"
 
+	"github.com/Clawdlinux/agentic-operator-core/pkg/dataset"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
 )
 
@@ -106,13 +107,18 @@ func run(ctx context.Context, getenv func(string) string, logger *log.Logger) er
 		return err
 	}
 	defer func() { _ = w.Close() }()
+	ds, err := dataset.Open(cfg.dataDir, w.Lookup)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = ds.Close() }()
 
 	ln, err := net.Listen("tcp", cfg.addr)
 	if err != nil {
 		return err
 	}
 	srv := &http.Server{
-		Handler:           newHandler(w, token, logger),
+		Handler:           newHandler(w, ds, token, logger),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      60 * time.Second,
@@ -203,17 +209,20 @@ func loadToken(path string) (string, error) {
 
 type server struct {
 	w      *receipts.LocalWriter
+	ds     *dataset.Store
 	token  [32]byte
 	logger *log.Logger
 }
 
-func newHandler(w *receipts.LocalWriter, token string, logger *log.Logger) http.Handler {
-	s := &server{w: w, token: sha256.Sum256([]byte(token)), logger: logger}
+func newHandler(w *receipts.LocalWriter, ds *dataset.Store, token string, logger *log.Logger) http.Handler {
+	s := &server{w: w, ds: ds, token: sha256.Sum256([]byte(token)), logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("POST /v1/records", s.auth(s.postRecord))
 	mux.HandleFunc("GET /v1/head", s.auth(s.head))
 	mux.HandleFunc("GET /v1/export", s.auth(s.export))
+	mux.HandleFunc("POST /v1/approvals", s.auth(s.postApproval))
+	mux.HandleFunc("GET /v1/approvals", s.auth(s.exportApprovals))
 	return mux
 }
 
@@ -292,6 +301,47 @@ func (s *server) export(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, e)
+}
+
+func (s *server) postApproval(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, dataset.MaxExampleBody)
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	var ex dataset.Example
+	if err := dec.Decode(&ex); err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			writeError(w, http.StatusRequestEntityTooLarge, "example too large")
+			return
+		}
+		writeError(w, http.StatusBadRequest, "invalid example JSON")
+		return
+	}
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "trailing data after example")
+		return
+	}
+	switch err := s.ds.Append(ex); {
+	case err == nil:
+		writeJSON(w, map[string]uint64{"receipt_seq": ex.ReceiptSeq})
+	case errors.Is(err, dataset.ErrDuplicate):
+		writeError(w, http.StatusConflict, "example already recorded")
+	case errors.Is(err, dataset.ErrUnbound):
+		writeError(w, http.StatusUnprocessableEntity, "example does not bind to its receipt")
+	default:
+		s.logger.Printf("approval append failed: %v", err)
+		writeError(w, http.StatusBadRequest, "invalid example")
+	}
+}
+
+func (s *server) exportApprovals(w http.ResponseWriter, _ *http.Request) {
+	data, err := s.ds.Export()
+	if err != nil {
+		s.logger.Printf("approvals export failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "export failed")
+		return
+	}
+	writeJSON(w, dataset.ExportResponse{Format: dataset.ExportFormat, ApprovalsJSONL: data})
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
