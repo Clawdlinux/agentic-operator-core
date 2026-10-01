@@ -766,6 +766,8 @@ NOT proven by this demo:
   egress to the mock on the pod CIDR, and INV-02 checks the configured MCP
   endpoint only)
 - caller identity observation (observed.callerIdentity is empty)
+- escalate mode on a model that fails to load, and agentctl resourceVersion
+  conflicts (unit tests only)
 EOF
 
 if grep -q '^FAIL' "${RESULTS}"; then

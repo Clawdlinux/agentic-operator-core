@@ -32,7 +32,7 @@ covered yet. See [decision architecture](docs/architecture/decision-architecture
 - MCP error bodies and invalid values are no longer logged.
 
 ### Added
-- Added `scripts/demo-claims.sh`, a no-API-key claims demo on a fresh kind cluster with a mock MCP server. It builds a demo-only image from host binaries until the receiptspec dependency is tagged.
+- Added `scripts/demo-claims.sh`, a no-API-key claims demo on a fresh kind cluster with a mock MCP server. It runs with a pinned writer key and an approval stamp key, and proves the review fixes: wrong pin, removed manifest, approval replay, identity digests, and INV-06. Two fresh runs passed in 252s and 297s. It builds a demo-only image from host binaries until the receiptspec dependency is tagged.
 - Added P7 decision spans on direct proposals and stamped human approve, reject, and edit decisions.
 	Successful receipt appends bind spans to writer-returned sequence and entry hash.
 	Added privacy canary tests, no-op checks, write-ahead assertions, and `make trace-coverage` with an 11-path matrix.

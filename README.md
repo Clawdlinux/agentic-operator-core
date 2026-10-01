@@ -212,14 +212,24 @@ curl.
 scripts/demo-claims.sh            # --keep, --skip-build, --cluster-name, --dry-run, --help
 ```
 
-Runtime: about 3 minutes end to end, build included. Two runs from a fresh
-cluster took 151s and 165s on an Apple Silicon laptop (kind v0.31, images
-already pulled).
+Runtime: about 5 minutes end to end, build included. Two runs from a fresh
+cluster took 252s and 297s on an Apple Silicon laptop (kind v0.31, images
+already pulled). About 90s of that is a settle wait after each of the two
+operator restarts. A new pod's first connections stall on kind, and the
+operator then fails closed with INV-05.
 
-It proves invariants, write-ahead receipts, pack escalation, webhook-stamped
-approvals, offline verification, and the shadow decision model. It does not
+The demo runs the secure configuration. It creates the receipt signing key,
+pins the writer public key from it, and mounts an approval stamp HMAC key. It
+never sets `RECEIPTS_INSECURE_NO_PIN`.
+
+It proves invariants (INV-01, INV-03, INV-06), write-ahead receipts, pack
+escalation, HMAC-stamped approvals, identity digests in receipts, replay
+refusal for a consumed approval, offline verification with a signed manifest,
+rejection of a removed manifest and a wrong pin, an operator pinned to the
+wrong writer key denying by INV-05, and the shadow decision model. It does not
 prove the runtime-adapter path, Argo approval gates, execution outcome
-receipts, production model quality, packet-level egress, or caller identity.
+receipts, production model quality, packet-level egress, caller identity,
+escalate mode on a failed model load, or `agentctl` resourceVersion conflicts.
 The script ends with the full list. It builds a demo-only image from host
 binaries until the receiptspec dependency is tagged. See
 [BLOCKERS.md](BLOCKERS.md).

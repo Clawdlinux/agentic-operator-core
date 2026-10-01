@@ -57,10 +57,6 @@ An independent review of this branch found these gaps. They are documented, not 
 - **F11. Writer recovery trusts local files.** `pkg/receipts/local.go` checks hashes and the head KID on restart. It does not verify signatures or keep a committed-head checkpoint. Removing the tail of the chain rewinds the sequence and the writer can fork an already issued chain. Fix: verify signatures on recovery and persist an external checkpoint of the committed head.
 - **F12. Deleted approval rows go unnoticed.** `pkg/dataset/verify.go` checks the examples it is given. Without a signed dataset manifest (count, order, digest) it cannot tell that rows were removed. Fix: sign a dataset manifest and verify completeness against it.
 
-## Demo needs a live re-run
-
-The review fixes changed what the demo must do: a pinned writer key, a signed receipt manifest, and an approval stamp key. Re-run `scripts/demo-claims.sh` twice on a fresh kind cluster before quoting its results.
-
 ## Known gaps (not blockers for this branch)
 
 - Runtime-adapter parity: `reconcileViaRuntime` runs no invariants, packs,
