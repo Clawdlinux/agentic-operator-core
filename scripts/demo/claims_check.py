@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Read-only checks for scripts/demo-claims.sh. Stdlib only. Demo only."""
+import hashlib
 import json
 import os
 import sys
@@ -114,6 +115,31 @@ def cmd_flip(path, needle):
     return 0
 
 
+def cmd_digest(username):
+    """IdentityDigest from pkg/receipts/record.go."""
+    data = ("clawdlinux.org/human-identity/v1\x00" + username).encode()
+    print("sha256:" + hashlib.sha256(data).hexdigest())
+
+
+def cmd_strip_manifest(path):
+    """Drop the signed export manifest line from a receipts.jsonl."""
+    with open(path, encoding="utf-8") as f:
+        lines = f.readlines()
+    kept = []
+    for line in lines:
+        try:
+            if json.loads(line).get("type") == "manifest":
+                continue
+        except ValueError:
+            pass
+        kept.append(line)
+    with open(path, "w", encoding="utf-8") as f:
+        f.writelines(kept)
+    removed = len(lines) - len(kept)
+    print(f"removed {removed} manifest line(s)")
+    return 0 if removed else 1
+
+
 def main(argv):
     cmds = {
         "records": (cmd_records, 2),
@@ -122,6 +148,8 @@ def main(argv):
         "model": (cmd_model, 3),
         "approvals": (cmd_approvals, 2),
         "flip": (cmd_flip, 2),
+        "digest": (cmd_digest, 1),
+        "strip-manifest": (cmd_strip_manifest, 1),
     }
     if len(argv) < 2 or argv[1] not in cmds or len(argv) - 2 != cmds[argv[1]][1]:
         print("usage: claims_check.py " + "|".join(cmds) + " args...", file=sys.stderr)

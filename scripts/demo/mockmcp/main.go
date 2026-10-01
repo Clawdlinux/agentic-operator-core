@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -83,6 +84,11 @@ func proposal(scenario string) map[string]interface{} {
 		p["action"] = "decide_kyc_refund"
 		p["description"] = "refund decision for a verified customer"
 		p["params"] = map[string]interface{}{"scenario": scenario, "customer_id": testAadhaar}
+	case "s9-oversize":
+		// The key sits past the 64 KiB per-string scan window.
+		p["action"] = "upload_report"
+		p["description"] = "upload a large report"
+		p["params"] = map[string]interface{}{"scenario": scenario, "report": strings.Repeat("x", 70<<10) + " " + testAWSKeyID}
 	}
 	return p
 }
