@@ -275,3 +275,25 @@ func TestDecisionsPageReportsAnUnreadableExport(t *testing.T) {
 	}
 	mustContain(t, body, ">Failed</span>", "Could not verify", "No decisions to show")
 }
+
+func TestLayoutLinksToDecisionPagesOnlyWhenEnabled(t *testing.T) {
+	render := func(on bool) string {
+		server, err := NewServer(nil, nil, TemplatesFS())
+		if err != nil {
+			t.Fatal(err)
+		}
+		server.decisionsOn = on
+		var buf bytes.Buffer
+		data := map[string]interface{}{"User": &UserInfo{Username: "u"}, "CSRFToken": "t", "Status": nil, "Workloads": nil}
+		if err := server.tmpl.ExecuteTemplate(&buf, "layout.html", data); err != nil {
+			t.Fatal(err)
+		}
+		return buf.String()
+	}
+	if body := render(false); strings.Contains(body, `href="/decisions"`) {
+		t.Fatal("decision links shown without a source")
+	}
+	if body := render(true); !strings.Contains(body, `href="/decisions"`) || !strings.Contains(body, `href="/receipts"`) {
+		t.Fatal("decision links missing when a source is configured")
+	}
+}

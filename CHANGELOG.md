@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (decision dashboard)
+- Decision, receipt and chain pages in `agentctl-web`: `/decisions`, `/decisions/{seq}` and `/receipts`. They read a receipt export from `--export-dir` (offline, no cluster) or from the receipt-writer, and verify it in process. The badge says Verified only under a pinned `--trust-root`. See `docs/dashboard.md`.
+- `make demo-dashboard` serves a sample export offline. `tools/demo-export` writes it.
+- The chart wires the web UI to the receipt-writer when both are enabled, and admits the web pods through the writer NetworkPolicy.
+
 Decision architecture series. The direct action path now decides in layers:
 invariants, policy packs, a threshold evaluator, an escalate-only decision
 model in shadow, and human approval. Each decision can get a signed receipt

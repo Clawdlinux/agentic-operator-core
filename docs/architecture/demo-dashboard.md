@@ -1,6 +1,6 @@
 # Demo dashboard
 
-Status: plan, iteration 1.
+Status: iteration 1 shipped (steps 1 to 6). Follow-ups: per-namespace filtering, a paged export from the writer, an approvals queue with edit on these pages.
 
 ## Problem
 

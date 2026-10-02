@@ -23,6 +23,8 @@ type Server struct {
 	demoPollTimeout    time.Duration
 	demoPodSource      func(context.Context) ([]agentctl.RuntimePodRow, error)
 	demoWorkloadSource func(context.Context) ([]agentctl.WorkloadRow, error)
+	// decisionsOn adds the Decisions and Receipts links to the navigation.
+	decisionsOn bool
 }
 
 type demoPageData struct {
@@ -42,9 +44,11 @@ type demoPageData struct {
 
 // NewServer creates a Server with parsed templates.
 func NewServer(client *agentctl.Client, authz *Authorizer, tmplFS fs.FS) (*Server, error) {
+	var server *Server
 	funcMap := template.FuncMap{
-		"lower":    strings.ToLower,
-		"safeText": agentctl.SafeText,
+		"decisionsOn": func() bool { return server != nil && server.decisionsOn },
+		"lower":       strings.ToLower,
+		"safeText":    agentctl.SafeText,
 		"fmtCost": func(f float64) string {
 			return fmt.Sprintf("$%.4f", f)
 		},
@@ -58,7 +62,7 @@ func NewServer(client *agentctl.Client, authz *Authorizer, tmplFS fs.FS) (*Serve
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
 
-	server := &Server{
+	server = &Server{
 		client:          client,
 		authz:           authz,
 		tmpl:            tmpl,

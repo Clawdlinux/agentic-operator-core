@@ -175,6 +175,7 @@ func main() {
 
 	if decisionUI != nil {
 		decisionUI.register(mux)
+		srv.decisionsOn = true
 	}
 
 	// Middleware chain

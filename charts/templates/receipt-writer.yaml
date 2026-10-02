@@ -166,7 +166,8 @@ spec:
   policyTypes:
     - Ingress
     - Egress
-  # Only operator pods may call the writer. The writer needs no egress.
+  # Only operator pods, and the web UI when it is on, may call the writer. The
+  # writer needs no egress.
   ingress:
     - from:
         - podSelector:
@@ -174,6 +175,13 @@ spec:
               app.kubernetes.io/name: agentic-operator
               app.kubernetes.io/instance: {{ .Release.Name }}
               app.kubernetes.io/component: operator
+        {{- if .Values.webUI.enabled }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: agentic-operator
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: webui
+        {{- end }}
       ports:
         - port: {{ $port }}
           protocol: TCP

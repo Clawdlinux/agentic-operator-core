@@ -32,6 +32,10 @@
             <a href="/workloads" class="nav-link">Workloads</a>
             <a href="/cost" class="nav-link">Cost</a>
             <a href="/status" class="nav-link">Status</a>
+            {{if decisionsOn}}
+            <a href="/decisions" class="nav-link">Decisions</a>
+            <a href="/receipts" class="nav-link">Receipts</a>
+            {{end}}
         </div>
         <div class="nav-user">
             {{if .User}}
