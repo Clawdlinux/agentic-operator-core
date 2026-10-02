@@ -7,9 +7,13 @@ Licensed under the Apache License, Version 2.0.
 
 package receipts
 
-import "os"
+import (
+	"errors"
+	"os"
+)
 
-// lockFile only opens the lock file. Cross-process locking needs unix flock.
-func lockFile(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+// lockFile fails. Two writers on one chain would fork it, and only unix flock
+// is implemented, so refuse to start rather than run unlocked.
+func lockFile(string) (*os.File, error) {
+	return nil, errors.New("receipts: chain locking is only implemented on unix platforms")
 }

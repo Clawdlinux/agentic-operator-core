@@ -634,7 +634,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	result, recorded := r.recordDecision(ctx, &workload, actionName, decisionInput, executeParams, layers, result, opaPolicyMode, modelBlock)
 	decisiontrace.SetResult(decisionSpan, result.Layer, string(result.Outcome))
 	decisionSpan.End()
-	log.Info("decision", "outcome", result.Outcome, "layer", result.Layer, "destination", decisionInput.Observed.Destination, "dataClasses", decisionInput.Observed.DataClasses, "reasons", result.Reasons)
+	log.Info("decision", "outcome", result.Outcome, "layer", result.Layer, "destination", decisionInput.Observed.Destination, "dataClasses", decisionInput.Observed.DataClasses, "reasons", safeLogTexts(result.Reasons))
 
 	// Step 5: Handle action execution or approval pending
 	action := agenticv1alpha1.Action{
@@ -651,26 +651,26 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		// effect, and the action is decided again on the fresh object.
 		if err := r.reserveExecution(ctx, &workload, action.Name, recorded, now); err != nil {
 			if apierrors.IsConflict(err) {
-				log.Info("workload changed after the decision; not executing, deciding again", "action", action.Name)
+				log.Info("workload changed after the decision; not executing, deciding again", "action", safeLogText(action.Name))
 				return ctrl.Result{RequeueAfter: time.Second}, nil
 			}
-			log.Error(err, "execution reservation failed; not executing", "action", action.Name)
+			log.Error(err, "execution reservation failed; not executing", "action", safeLogText(action.Name))
 			return ctrl.Result{}, err
 		}
 
 		// Step 5a: Execute approved action via MCP
-		log.Info("OPA approved action, executing", "action", action.Name)
+		log.Info("OPA approved action, executing", "action", safeLogText(action.Name))
 
 		execution, err := mcpClient.CallTool("execute_action", executeParams)
 		if err != nil {
-			log.Error(err, "failed to execute action", "action", action.Name)
+			log.Error(err, "failed to execute action", "action", safeLogText(action.Name))
 			workload.Status.Phase = "Failed"
 			action.Approved = boolPtr(false)
 			workload.Status.ProposedActions = append(workload.Status.ProposedActions, action)
 			prunedProposed := pruneActions(workload.Status.ProposedActions, maxActionsInStatus)
 			workload.Status.ProposedActions = prunedProposed
 		} else {
-			log.Info("Action executed successfully", "action", action.Name, "resultFields", len(execution))
+			log.Info("Action executed successfully", "action", safeLogText(action.Name), "resultFields", len(execution))
 			action.Approved = boolPtr(true)
 			workload.Status.ExecutedActions = append(workload.Status.ExecutedActions, action)
 			prunedExecuted := pruneActions(workload.Status.ExecutedActions, maxActionsInStatus)
@@ -679,7 +679,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	} else {
 		// Step 5b: Mark for human approval
-		log.Info("action not allowed, requiring human approval", "action", action.Name, "outcome", result.Outcome, "reasons", result.Reasons)
+		log.Info("action not allowed, requiring human approval", "action", safeLogText(action.Name), "outcome", result.Outcome, "reasons", safeLogTexts(result.Reasons))
 		action.Approved = boolPtr(false)
 		workload.Status.ProposedActions = append(workload.Status.ProposedActions, action)
 		prunedProposed := pruneActions(workload.Status.ProposedActions, maxActionsInStatus)
@@ -697,7 +697,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				Status:             metav1.ConditionTrue,
 				ObservedGeneration: workload.Generation,
 				Reason:             reason,
-				Message:            fmt.Sprintf("action %q needs human approval: %s", action.Name, strings.Join(result.Reasons, "; ")),
+				Message:            fmt.Sprintf("action %q needs human approval: %s", safeLogText(action.Name), safeLogText(strings.Join(result.Reasons, "; "))),
 				LastTransitionTime: now,
 			})
 		case workload.Spec.OPAPolicy != nil && *workload.Spec.OPAPolicy == "strict":
@@ -707,7 +707,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				Status:             metav1.ConditionTrue,
 				ObservedGeneration: workload.Generation,
 				Reason:             "OPADenied",
-				Message:            fmt.Sprintf("OPA denied action %q (%s layer): %s", action.Name, result.Layer, strings.Join(result.Reasons, "; ")),
+				Message:            fmt.Sprintf("OPA denied action %q (%s layer): %s", safeLogText(action.Name), result.Layer, safeLogText(strings.Join(result.Reasons, "; "))),
 				LastTransitionTime: now,
 			})
 		default:

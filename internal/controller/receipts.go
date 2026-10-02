@@ -84,10 +84,10 @@ func (r *AgentWorkloadReconciler) recordDecision(
 		}
 	}
 	if !r.Receipts.Required {
-		log.Error(err, "decision receipt not written; receipts not required, continuing", "action", action, "outcome", result.Outcome)
+		log.Error(err, "decision receipt not written; receipts not required, continuing", "action", safeLogText(action), "outcome", result.Outcome)
 		return result, out
 	}
-	log.Error(err, "decision receipt not written; receipts required, failing closed", "action", action)
+	log.Error(err, "decision receipt not written; receipts required, failing closed", "action", safeLogText(action))
 	for _, res := range invariants.Check(in, invariants.Context{ReceiptsRequired: true}) {
 		if res.ID == invariants.ReceiptsOrFailClosed && !slices.Contains(layers.Invariants, res.String()) {
 			layers.Invariants = append(layers.Invariants, res.String())

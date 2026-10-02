@@ -23,14 +23,9 @@ func TrustRootFromKeyHex(keyHex string) (json.RawMessage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("receipts: signing key is not hex")
 	}
-	var priv ed25519.PrivateKey
-	switch len(raw) {
-	case ed25519.SeedSize:
-		priv = ed25519.NewKeyFromSeed(raw)
-	case ed25519.PrivateKeySize:
-		priv = ed25519.PrivateKey(raw)
-	default:
-		return nil, fmt.Errorf("receipts: signing key must be %d or %d bytes", ed25519.SeedSize, ed25519.PrivateKeySize)
+	priv, err := ParsePrivateKey(raw)
+	if err != nil {
+		return nil, err
 	}
 	pub := priv.Public().(ed25519.PublicKey)
 	return TrustRootJSON(receiptspec.TrustedKey{KID: receiptspec.ComputeKID(pub), PublicKey: pub})

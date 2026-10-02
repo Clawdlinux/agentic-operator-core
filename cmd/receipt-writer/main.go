@@ -160,13 +160,11 @@ func loadKey(path string, generate bool) (ed25519.PrivateKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("key file %s: not hex", path)
 	}
-	switch len(raw) {
-	case ed25519.SeedSize:
-		return ed25519.NewKeyFromSeed(raw), nil
-	case ed25519.PrivateKeySize:
-		return ed25519.PrivateKey(raw), nil
+	priv, err := receipts.ParsePrivateKey(raw)
+	if err != nil {
+		return nil, fmt.Errorf("key file %s: %w", path, err)
 	}
-	return nil, fmt.Errorf("key file %s: want %d or %d bytes, got %d", path, ed25519.SeedSize, ed25519.PrivateKeySize, len(raw))
+	return priv, nil
 }
 
 func generateKey(path string) (ed25519.PrivateKey, error) {

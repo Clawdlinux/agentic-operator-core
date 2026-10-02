@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log"
@@ -195,9 +196,14 @@ func TestLoadKey(t *testing.T) {
 		t.Fatalf("reload changed the key: %v", err)
 	}
 	full := filepath.Join(dir, "full")
-	_ = os.WriteFile(full, []byte(strings.Repeat("ab", 64)), 0o600)
+	_ = os.WriteFile(full, []byte(hex.EncodeToString(k1)), 0o600)
 	if _, err := loadKey(full, false); err != nil {
 		t.Fatalf("64-byte hex key rejected: %v", err)
+	}
+	mismatch := filepath.Join(dir, "mismatch")
+	_ = os.WriteFile(mismatch, []byte(strings.Repeat("ab", 64)), 0o600)
+	if _, err := loadKey(mismatch, false); err == nil {
+		t.Fatal("64-byte key with a mismatched public half accepted")
 	}
 	for name, content := range map[string]string{"not hex": "zz", "short": "abcd"} {
 		p := filepath.Join(dir, strings.ReplaceAll(name, " ", "-"))

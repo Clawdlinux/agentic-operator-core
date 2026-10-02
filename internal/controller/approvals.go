@@ -390,7 +390,7 @@ func (r *AgentWorkloadReconciler) reconcileApproval(ctx context.Context, wl *age
 	_, execErr := mcp.NewMCPClient(endpoint).CallTool("execute_action", execPayload)
 	executed := agenticv1alpha1.Action{Name: tgt.name, Description: tgt.description, Confidence: p.Confidence, Timestamp: &now}
 	if execErr != nil {
-		log.Error(execErr, "failed to execute approved action", "action", tgt.name)
+		log.Error(execErr, "failed to execute approved action", "action", safeLogText(tgt.name))
 		executed.Approved = boolPtr(false)
 		wl.Status.ProposedActions = pruneActions(append(wl.Status.ProposedActions, executed), maxActionsInStatus)
 		return r.finishApproval(ctx, wl, d.Label, approvalFailed, d.ApproverSHA256(), receiptSeq(humanReceipt),

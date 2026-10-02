@@ -90,8 +90,8 @@ This document describes the security boundaries, threat vectors, and mitigations
 
 | Threat | Mitigation | Status |
 |--------|-----------|--------|
-| Agent self-reported inputs (`confidence`, `cluster_health`) drive the action decision | Treated as agent-claimed. They may tighten a decision, never loosen it. Platform-observed inputs are planned. See [decision architecture](../architecture/decision-architecture.md) | Open |
-| Prompt injection moves a model gate verdict | A model never owns the floor. Invariants in code bound every decision. No model gate exists today | Design |
+| Agent self-reported inputs (`confidence`, `cluster_health`) drive the action decision | Treated as agent-claimed. They may tighten a decision, never loosen it. The operator also records platform-observed inputs: destination host, data classes found by `pkg/dataclass`, tool, and per-workload history. Invariants INV-01 to INV-06 and policy packs act on observed facts. Direct action path only. See [decision architecture](../architecture/decision-architecture.md) and [policy input](../policy-input.md) | Mitigated on the direct path. Runtime-adapter path open |
+| Prompt injection moves a model gate verdict | A model never owns the floor. Invariants in code bound every decision. The decision model is escalate-only: it can move allow to require_approval and never loosens. Shadow by default. The shipped artifact is trained on synthetic data and is not production-validated. See [decision model](../architecture/decision-model.md) | Mitigated by design. Model not production-validated |
 
 ## Network Security
 
