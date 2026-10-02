@@ -20,7 +20,11 @@ only_fixture_values() {
   path="${line%%:*}"
   text="${line#*:}"
   text="${text#*:}"
-  text="$(printf '%s' "$text" | sed -E "s/($FIXTURE_VALUES)//g")"
+  # Remove only whole tokens. A fixture value followed or preceded by a token
+  # character (AKIA...EXAMPLEEXTRA) is not a fixture. Run twice so adjacent
+  # values, which share a delimiter, are both removed.
+  local re="(^|[^A-Za-z0-9_-])($FIXTURE_VALUES)([^A-Za-z0-9_-]|$)"
+  text="$(printf '%s' "$text" | sed -E "s/$re/\\1\\3/g" | sed -E "s/$re/\\1\\3/g")"
   if [[ "$path" == "$FIXTURE_PEM_FILE" ]]; then
     text="$(printf '%s' "$text" | sed -E "s/($FIXTURE_PEM_VALUES)//g")"
   fi

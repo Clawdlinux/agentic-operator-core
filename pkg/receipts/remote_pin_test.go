@@ -191,3 +191,54 @@ func TestTrustRootFromKeyHexMatchesWriter(t *testing.T) {
 		t.Fatal("bad hex accepted")
 	}
 }
+
+// A POST can commit on the writer while the client sees an error. The next
+// append must resync the head instead of committing another receipt that
+// then fails continuity.
+func TestRemoteWriterResyncsAfterAmbiguousFailure(t *testing.T) {
+	lw := openTest(t, t.TempDir(), 1)
+	t.Cleanup(func() { _ = lw.Close() })
+	posts := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/head" {
+			seq, h := lw.Head()
+			_ = json.NewEncoder(w).Encode(HeadResponse{Seq: seq, EntryHash: hex.EncodeToString(h[:]), SignerKID: lw.KID()})
+			return
+		}
+		var rec DecisionRecord
+		if err := json.NewDecoder(r.Body).Decode(&rec); err != nil {
+			http.Error(w, "bad", http.StatusBadRequest)
+			return
+		}
+		posts++
+		rc, err := lw.Append(r.Context(), rec)
+		if err != nil {
+			http.Error(w, "append", http.StatusInternalServerError)
+			return
+		}
+		if posts == 2 {
+			http.Error(w, "reply lost after commit", http.StatusBadGateway)
+			return
+		}
+		line, _ := receiptspec.MarshalJSONLReceipt(rc)
+		_ = json.NewEncoder(w).Encode(AppendResponse{Receipt: line})
+	}))
+	t.Cleanup(srv.Close)
+	rw, _ := NewRemoteWriter(srv.URL, staticToken("tok"), time.Second)
+	if err := rw.Pin([]receiptspec.TrustedKey{lw.TrustedKey()}); err != nil {
+		t.Fatal(err)
+	}
+	rec := mustRecord(t, testParams())
+	if _, err := rw.Append(context.Background(), rec); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rw.Append(context.Background(), rec); err == nil {
+		t.Fatal("lost reply not reported")
+	}
+	if _, err := rw.Append(context.Background(), rec); err != nil {
+		t.Fatalf("append after a lost reply did not resync: %v", err)
+	}
+	if posts != 3 {
+		t.Fatalf("posts = %d, want 3", posts)
+	}
+}

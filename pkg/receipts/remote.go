@@ -128,6 +128,11 @@ func (w *RemoteWriter) Append(ctx context.Context, rec DecisionRecord) (receipts
 	if err != nil {
 		return receiptspec.Receipt{}, err
 	}
+	// The POST can commit before the reply reaches us. Until a verified reply
+	// extends the head, the head is unknown, so a failure of any kind forces
+	// a resync before the next append instead of stacking receipts on a head
+	// the writer has already moved past.
+	w.headKnown = false
 	resp, err := w.do(ctx, http.MethodPost, "/v1/records", body)
 	if err != nil {
 		return receiptspec.Receipt{}, err
@@ -157,6 +162,7 @@ func (w *RemoteWriter) Append(ctx context.Context, rec DecisionRecord) (receipts
 		return receiptspec.Receipt{}, fmt.Errorf("receipts: writer receipt seq %d does not extend head %d", r.Seq, w.headSeq)
 	}
 	w.headSeq, w.headHash = r.Seq, r.EntryHash
+	w.headKnown = true
 	return r, nil
 }
 
