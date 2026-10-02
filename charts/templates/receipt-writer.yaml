@@ -5,6 +5,9 @@ Runs in the release namespace, next to the operator Deployment.
 The signing key must come from an existing Secret. The chart never makes one.
 */ -}}
 {{- $r := .Values.global.receipts | default dict -}}
+{{- if and $r.required (not $r.enabled) -}}
+{{- fail "global.receipts.required=true needs global.receipts.enabled=true. Without the writer the operator would run with receipts off instead of failing closed." -}}
+{{- end -}}
 {{- if $r.enabled -}}
 {{- if not ($r.signingKey).existingSecret -}}
 {{- fail "global.receipts.signingKey.existingSecret is required when global.receipts.enabled=true. The chart never generates the signing key. See docs/receipts.md." -}}

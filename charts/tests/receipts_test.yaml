@@ -282,3 +282,37 @@ tests:
             name: RECEIPTS_INSECURE_NO_PIN
             value: "true"
         template: charts/agentic-operator/templates/deployment.yaml
+
+  - it: fails when receipts are required but the writer is not enabled
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: false
+          required: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "required=true needs global.receipts.enabled=true"
+        template: receipt-writer.yaml
+
+  - it: keeps the writer out of the operator egress allow selector
+    release:
+      name: rel
+      namespace: agentic-system
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/part-of"]
+          value: agentic-operator-receipt-writer
+        documentIndex: 2
+        template: receipt-writer.yaml

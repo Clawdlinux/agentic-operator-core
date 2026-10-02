@@ -107,6 +107,7 @@ helm.sh/chart: {{ include "agentic-operator.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: agentic-operator
+{{- /* Not part-of agentic-operator: that label is the broad egress allow selector, and NetworkPolicy rules add up. */}}
+app.kubernetes.io/part-of: agentic-operator-receipt-writer
 app.kubernetes.io/component: receipt-writer
 {{- end }}
