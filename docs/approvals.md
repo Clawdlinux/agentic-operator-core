@@ -208,7 +208,10 @@ agentctl dataset export --writer http://localhost:8080 \
 agentctl dataset verify ./dataset --trust-root ./pinned-trust.json
 ```
 
-`verify` runs the same chain and record checks as `agentctl receipts verify`,
+`verify` requires `--trust-root`, a trust file pinned out of band. The export's own
+`trust.json` is not trusted, because anyone who can replace the export can replace
+it too. `--allow-embedded-trust` runs a consistency-only check and prints a
+WARNING. `verify` runs the same chain and record checks as `agentctl receipts verify`,
 including the signed manifest completeness check. `--allow-prefix` works the
 same way and prints the same WARNING.
 Then for each example it checks that `receipt_seq` and `receipt_entry_hash`
@@ -231,3 +234,12 @@ or FAIL lines and exits 1 on any failure.
   for very long chains.
 - No synthetic seed set yet. The dataset starts empty.
 - Dataset examples are bound to receipts by identity and label only. Feature edits and deleted rows in an export pass `dataset verify` (BLOCKERS.md, F7 and F12).
+
+## Spec is frozen while an approval is pending
+
+The stamp binds a decision to the stored proposal, not to the spec. So the
+webhook rejects changes to `spec.declaredIntent`, `spec.policyPacks`,
+`spec.opaPolicy`, `spec.decisionModel` and `spec.approvalCapture` while an
+action is pending or a decision is being recorded. `spec.mcpServerEndpoint` is
+always immutable. Approve, reject or edit the pending action first, then change
+the spec.

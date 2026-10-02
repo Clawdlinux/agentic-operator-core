@@ -158,7 +158,9 @@ agentctl decision eval --dataset tools/decision-train/out/approvals.jsonl \
 ```
 
 `eval` verifies an export dir like `agentctl dataset verify` and refuses
-unverified data unless `--allow-unverified`. It prints a WARNING header when
+unverified data unless `--allow-unverified`. Data counts as verified only with
+`--trust-root` pinned out of band. An export that carries its own trust file
+is treated as unverified. It prints a WARNING header when
 any row is synthetic or there are fewer than 200 human labels. Positive means
 a human rejected or edited. Recall is the share of those the model escalates.
 Extra review is the share of human approvals the model escalates.

@@ -79,16 +79,20 @@ func newDatasetExportCommand() *cobra.Command {
 
 func newDatasetVerifyCommand() *cobra.Command {
 	var trustRoot string
-	var allowPrefix bool
+	var allowPrefix, allowEmbeddedTrust bool
 	cmd := &cobra.Command{
 		Use:   "verify <export-dir>",
 		Short: "Verify an approval dataset export offline",
 		Long: "Verifies the receipt chain and decision records like 'agentctl receipts verify', then checks " +
 			"that every example's receipt_seq and entry hash exist in the chain and that its label matches " +
 			"the human decision receipt. A pass requires a signed export manifest that proves completeness " +
-			"unless --allow-prefix is set.",
+			"unless --allow-prefix is set. Pass --trust-root with a trust file pinned out of band. Without it the export's own " +
+			"trust.json would decide who is trusted, so verification refuses unless --allow-embedded-trust is set.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if trustRoot == "" && !allowEmbeddedTrust {
+				return fmt.Errorf("--trust-root is required: an export that carries its own trust root can be replaced with an attacker-signed copy and still pass. Pin a trust file out of band, or pass --allow-embedded-trust for a consistency-only check")
+			}
 			var trusted []receiptspec.TrustedKey
 			if trustRoot != "" {
 				data, err := os.ReadFile(trustRoot)
@@ -104,6 +108,9 @@ func newDatasetVerifyCommand() *cobra.Command {
 				return err
 			}
 			stdout, stderr := cmd.OutOrStdout(), cmd.ErrOrStderr()
+			if trustRoot == "" {
+				fmt.Fprintln(stderr, "WARNING: trust root taken from the export itself (--allow-embedded-trust). This proves internal consistency only, not who signed it.")
+			}
 			rep, err := dataset.Verify(e, approvals, trusted)
 			if receipts.IsManifestError(err) {
 				fmt.Fprintf(stderr, "FAIL: manifest: %v\n", err)
@@ -132,5 +139,6 @@ func newDatasetVerifyCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&trustRoot, "trust-root", "", "trust file pinned out of band (receiptspec trust file format)")
 	cmd.Flags().BoolVar(&allowPrefix, "allow-prefix", false, allowPrefixHelp)
+	cmd.Flags().BoolVar(&allowEmbeddedTrust, "allow-embedded-trust", false, "use the export's own trust.json when --trust-root is not given; proves consistency only, not authenticity")
 	return cmd
 }

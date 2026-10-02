@@ -141,7 +141,9 @@ func loadEvalDataset(path, trustRoot string) ([]dataset.Example, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	return exs, verr == nil && rep.OK(), nil
+	// Verified means authenticated: only an out-of-band trust root counts.
+	// An export that carries its own trust.json can be replaced wholesale.
+	return exs, trustRoot != "" && verr == nil && rep.OK(), nil
 }
 
 func micro(v int64) string {

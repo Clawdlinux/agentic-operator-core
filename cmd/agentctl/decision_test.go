@@ -81,7 +81,15 @@ func TestDecisionEvalVerifiedExport(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, dataset.ApprovalsFile), []byte(approvals), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	out, _, err := runAgentctl(t, "decision", "eval", "--dataset", dir, "--model", shippedModel)
+	// An export that carries its own trust root is not authenticated.
+	if _, _, err := runAgentctl(t, "decision", "eval", "--dataset", dir, "--model", shippedModel); err == nil || !strings.Contains(err.Error(), "not verified") {
+		t.Fatalf("export with only its own trust root err = %v", err)
+	}
+	pinned := filepath.Join(t.TempDir(), "pinned-trust.json")
+	if err := os.WriteFile(pinned, e.TrustRoot, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := runAgentctl(t, "decision", "eval", "--dataset", dir, "--model", shippedModel, "--trust-root", pinned)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +98,7 @@ func TestDecisionEvalVerifiedExport(t *testing.T) {
 	}
 	// A tampered label no longer verifies and is refused.
 	_ = os.WriteFile(filepath.Join(dir, dataset.ApprovalsFile), []byte(strings.Replace(approvals, `"label":"approve"`, `"label":"reject"`, 1)), 0o600)
-	if _, _, err := runAgentctl(t, "decision", "eval", "--dataset", dir, "--model", shippedModel); err == nil || !strings.Contains(err.Error(), "not verified") {
+	if _, _, err := runAgentctl(t, "decision", "eval", "--dataset", dir, "--model", shippedModel, "--trust-root", pinned); err == nil || !strings.Contains(err.Error(), "not verified") {
 		t.Fatalf("tampered export err = %v", err)
 	}
 }

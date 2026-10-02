@@ -113,7 +113,7 @@ func TestDatasetVerify(t *testing.T) {
 				t.Fatal(err)
 			}
 			_ = os.WriteFile(filepath.Join(dir, dataset.ApprovalsFile), []byte(approvals), 0o600)
-			out, errOut, err := runAgentctl(t, "dataset", "verify", dir)
+			out, errOut, err := runAgentctl(t, "dataset", "verify", "--allow-embedded-trust", dir)
 			if tc.wantErr != "" {
 				if !errors.Is(err, errVerifyFailed) || !strings.Contains(errOut, tc.wantErr) {
 					t.Fatalf("err = %v, stderr = %q, want %q", err, errOut, tc.wantErr)
@@ -132,16 +132,16 @@ func TestDatasetVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = os.WriteFile(filepath.Join(stripped, dataset.ApprovalsFile), []byte(approvals), 0o600)
-	if _, errOut, err := runAgentctl(t, "dataset", "verify", stripped); !errors.Is(err, errVerifyFailed) || !strings.Contains(errOut, "FAIL: completeness not proven") {
+	if _, errOut, err := runAgentctl(t, "dataset", "verify", "--allow-embedded-trust", stripped); !errors.Is(err, errVerifyFailed) || !strings.Contains(errOut, "FAIL: completeness not proven") {
 		t.Fatalf("manifest-free dataset err = %v, stderr = %q", err, errOut)
 	}
-	if _, errOut, err := runAgentctl(t, "dataset", "verify", "--allow-prefix", stripped); err != nil || !strings.Contains(errOut, "WARNING: completeness NOT proven") {
+	if _, errOut, err := runAgentctl(t, "dataset", "verify", "--allow-embedded-trust", "--allow-prefix", stripped); err != nil || !strings.Contains(errOut, "WARNING: completeness NOT proven") {
 		t.Fatalf("allow-prefix err = %v, stderr = %q", err, errOut)
 	}
 
 	dir := filepath.Join(t.TempDir(), "noapprovals")
 	_ = e.WriteDir(dir)
-	if _, _, err := runAgentctl(t, "dataset", "verify", dir); err == nil || !strings.Contains(err.Error(), dataset.ApprovalsFile) {
+	if _, _, err := runAgentctl(t, "dataset", "verify", "--allow-embedded-trust", dir); err == nil || !strings.Contains(err.Error(), dataset.ApprovalsFile) {
 		t.Fatalf("missing approvals file err = %v", err)
 	}
 }
@@ -172,7 +172,7 @@ func TestDatasetExport(t *testing.T) {
 	if err != nil || !strings.Contains(stdout, "exported 1 approval examples") {
 		t.Fatalf("export: %v %q", err, stdout)
 	}
-	if stdout, _, err := runAgentctl(t, "dataset", "verify", out); err != nil || !strings.Contains(stdout, "PASS: 1 approval examples") {
+	if stdout, _, err := runAgentctl(t, "dataset", "verify", "--allow-embedded-trust", out); err != nil || !strings.Contains(stdout, "PASS: 1 approval examples") {
 		t.Fatalf("verify exported dir: %v %q", err, stdout)
 	}
 	_ = os.WriteFile(tokenFile, []byte("wrong\n"), 0o600)
@@ -194,5 +194,26 @@ func TestApprovalCommandsHelp(t *testing.T) {
 		if err != nil || !strings.Contains(out, tc.want) {
 			t.Fatalf("%v: err %v, out %q", tc.args, err, out)
 		}
+	}
+}
+
+func TestDatasetVerifyRequiresPinnedTrustRoot(t *testing.T) {
+	e, approvals := datasetExport(t)
+	dir := filepath.Join(t.TempDir(), "export")
+	if err := e.WriteDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, dataset.ApprovalsFile), []byte(approvals), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runAgentctl(t, "dataset", "verify", dir); err == nil || !strings.Contains(err.Error(), "--trust-root is required") {
+		t.Fatalf("verify without a trust root err = %v", err)
+	}
+	pinned := filepath.Join(t.TempDir(), "pinned-trust.json")
+	if err := os.WriteFile(pinned, e.TrustRoot, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if stdout, _, err := runAgentctl(t, "dataset", "verify", dir, "--trust-root", pinned); err != nil || !strings.Contains(stdout, "PASS") {
+		t.Fatalf("verify with a pinned trust root: %v\n%s", err, stdout)
 	}
 }

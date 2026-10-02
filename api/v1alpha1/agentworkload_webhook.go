@@ -28,6 +28,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -127,7 +128,44 @@ func (r *AgentWorkload) ValidateUpdate(old runtime.Object) error {
 		)
 	}
 
+	if err := r.validateApprovalFreeze(oldWorkload); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// validateApprovalFreeze rejects changes to the fields that shape a decision
+// while an action is held for a human or a decision is being recorded. The
+// stamp binds an approval to the proposal, not to the spec. Without this an
+// approved proposal could run under a different declared intent, policy pack
+// set, policy mode, or model setting than the reviewer saw.
+func (r *AgentWorkload) validateApprovalFreeze(old *AgentWorkload) error {
+	p := old.Status.PendingApproval
+	if p == nil || (old.Status.Phase != PhasePendingApproval && p.State == "") {
+		return nil
+	}
+	var changed []string
+	if !apiequality.Semantic.DeepEqual(old.Spec.DeclaredIntent, r.Spec.DeclaredIntent) {
+		changed = append(changed, "declaredIntent")
+	}
+	if !apiequality.Semantic.DeepEqual(old.Spec.PolicyPacks, r.Spec.PolicyPacks) {
+		changed = append(changed, "policyPacks")
+	}
+	if !stringPtrEqual(old.Spec.OPAPolicy, r.Spec.OPAPolicy) {
+		changed = append(changed, "opaPolicy")
+	}
+	if !apiequality.Semantic.DeepEqual(old.Spec.DecisionModel, r.Spec.DecisionModel) {
+		changed = append(changed, "decisionModel")
+	}
+	if !apiequality.Semantic.DeepEqual(old.Spec.ApprovalCapture, r.Spec.ApprovalCapture) {
+		changed = append(changed, "approvalCapture")
+	}
+	if len(changed) == 0 {
+		return nil
+	}
+	return apierrors.NewForbidden(GroupVersion.WithResource("agentworkloads").GroupResource(), r.Name,
+		fmt.Errorf("spec.%s cannot change while an approval is pending. Approve, reject or edit the pending action first", strings.Join(changed, ", spec.")))
 }
 
 // ValidateDelete validates the resource on deletion

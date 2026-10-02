@@ -23,6 +23,7 @@ covered yet. See [decision architecture](docs/architecture/decision-architecture
 - Agent-claimed inputs can only raise model risk. The model scores with and without claims and takes the higher value.
 - The direct path reserves execution with a status update before it runs an allowed action, so a stale reconcile cannot run after the spec tightens.
 - The remote receipt writer client verifies each receipt under a pinned writer key.
+- `agentctl dataset verify` requires `--trust-root` (or `--allow-embedded-trust` for a consistency-only check). `agentctl decision eval` marks data verified only with a pinned `--trust-root`. The webhook rejects changes to `declaredIntent`, `policyPacks`, `opaPolicy`, `decisionModel` and `approvalCapture` while an approval is pending.
 - `agentctl receipts verify` and `agentctl dataset verify` need a signed manifest by default. `--allow-prefix` is the weaker mode.
 - Receipts bind the executed payload by digest (`payload_sha256`).
 - The approval stamp carries an HMAC, and a consumed approval cannot be replayed.
