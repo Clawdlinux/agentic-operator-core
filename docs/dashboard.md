@@ -29,7 +29,7 @@ Offline mode binds to localhost unless you pass `--addr`. It has no login. Do no
 | `/decisions/{seq}` | One decision: the deciding layer, each finding, what the platform observed, what was declared, what the agent claimed, the model block, a human decision, and the receipt hashes. |
 | `/receipts` | Chain head, receipts verified, signed manifest, completeness, and whether the trust root is pinned. |
 
-Every page has a fixed "Not covered" list. It names what receipts do not cover: the runtime-adapter path, execution outcomes, Argo approval gates, and decisions still held for a human.
+The chain status block shows on every page. The "Not covered" list shows on `/decisions` and `/receipts`. It names what receipts do not cover: the runtime-adapter path, execution outcomes, Argo approval gates, and the live approval queue.
 
 ## What the badge means
 
@@ -63,7 +63,7 @@ Without `global.receipts.trustRoot.existingConfigMap` the pages work, but the ba
 ## What it does not do
 
 - It reads receipts. It does not write them. Approve and reject still use the workload pages.
-- A workload's pending approval lives in its status, not in the chain. It shows on the timeline only after a human decides it.
+- The live approval queue is the workload status, not the chain. A held decision already has a `require_approval` receipt, so it shows on the timeline as awaiting approval. The human decision joins the chain later.
 - Decision records hold hashes, class names and a host. The pages show nothing more, so they cannot show raw payloads.
 - Any signed-in user who can reach the pages sees every decision. There is no per-namespace filter yet.
 

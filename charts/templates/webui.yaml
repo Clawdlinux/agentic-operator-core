@@ -1,4 +1,9 @@
 {{- if .Values.webUI.enabled }}
+{{- /* The writer token Secret and trust ConfigMap live in the release namespace.
+       Pods can only mount them from the same namespace. */}}
+{{- if and (.Values.global.receipts).enabled (ne (include "agentic-operator.namespace" .) .Release.Namespace) }}
+{{- fail "webUI with global.receipts.enabled needs global.namespace to match the release namespace, so the web pods can mount the writer token and trust root" }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ServiceAccount

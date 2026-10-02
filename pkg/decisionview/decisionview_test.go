@@ -187,8 +187,16 @@ func TestLoaderCachesAndKeepsLastGoodOnFailure(t *testing.T) {
 	if v.Err == "" || len(v.Rows) != 4 || !v.LoadedAt.Equal(now) {
 		t.Fatalf("stale view = err %q rows %d loadedAt %v", v.Err, len(v.Rows), v.LoadedAt)
 	}
-	// A recovered writer clears the error.
+	// A failure is cached for the TTL, so an outage does not hit the source per request.
+	loadsBefore := src.loads
+	l.Current(context.Background())
+	l.Current(context.Background())
+	if src.loads != loadsBefore {
+		t.Fatalf("loads = %d, want %d: failure must be cached inside the TTL", src.loads, loadsBefore)
+	}
+	// A recovered writer clears the error once the TTL passes.
 	src.err = nil
+	clock = clock.Add(3 * time.Second)
 	if v := l.Current(context.Background()); v.Err != "" || !v.LoadedAt.Equal(clock) {
 		t.Fatalf("recovered view = %+v", v)
 	}

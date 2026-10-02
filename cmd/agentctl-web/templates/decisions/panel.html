@@ -24,7 +24,7 @@
         <li>The runtime-adapter path. It runs no invariants, packs, receipts or approvals.</li>
         <li>Execution outcomes. Only the decision before the action runs is receipted.</li>
         <li>Argo approval gates.</li>
-        <li>A decision still held for a human is not in the chain until someone decides it.</li>
+        <li>The live approval queue. A held decision has its own receipt. The workload status holds the queue, and the human decision joins the chain later.</li>
     </ul>
 </section>
 {{end}}
@@ -44,9 +44,9 @@
 
     <nav class="dv-filters" aria-label="Filter by outcome">
         <a class="dv-filter{{if not .Filter}} dv-filter-active{{end}}" href="/decisions"{{if not .Filter}} aria-current="page"{{end}}>All</a>
-        <a class="dv-filter{{if eq .Filter "allow"}} dv-filter-active{{end}}" href="/decisions?outcome=allow"{{if eq .Filter "allow"}} aria-current="page"{{end}}>Allow</a>
-        <a class="dv-filter{{if eq .Filter "deny"}} dv-filter-active{{end}}" href="/decisions?outcome=deny"{{if eq .Filter "deny"}} aria-current="page"{{end}}>Deny</a>
-        <a class="dv-filter{{if eq .Filter "require_approval"}} dv-filter-active{{end}}" href="/decisions?outcome=require_approval"{{if eq .Filter "require_approval"}} aria-current="page"{{end}}>Require approval</a>
+        {{$cur := .Filter}}{{range .Filters}}
+        <a class="dv-filter{{if eq $cur .Value}} dv-filter-active{{end}}" href="/decisions?outcome={{.Value}}"{{if eq $cur .Value}} aria-current="page"{{end}}>{{.Label}}</a>
+        {{end}}
     </nav>
 
     {{if .Rows}}

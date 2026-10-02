@@ -184,6 +184,20 @@ func TestDecisionsFilter(t *testing.T) {
 	mustContain(t, body, "delete_all")
 }
 
+func TestDecisionsFilterOffersEveryReceiptOutcome(t *testing.T) {
+	srv := offlineServer(t, decisionExport(t), true)
+	_, body, _ := get(t, srv, "/decisions")
+	for _, o := range []string{"allow", "deny", "require_approval", "approved", "rejected", "edited"} {
+		mustContain(t, body, "/decisions?outcome="+o)
+	}
+	// A human outcome filters, it does not fall back to the full list.
+	_, body, _ = get(t, srv, "/decisions?outcome=approved")
+	mustContain(t, body, `aria-current="page"`)
+	if strings.Contains(body, "delete_all") {
+		t.Fatal("approved filter shows a denied action")
+	}
+}
+
 func TestDecisionDetail(t *testing.T) {
 	srv := offlineServer(t, decisionExport(t), true)
 	code, body, _ := get(t, srv, "/decisions/3")

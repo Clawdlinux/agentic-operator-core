@@ -142,3 +142,23 @@ tests:
           count: 1
         documentIndex: 3
         template: receipt-writer.yaml
+
+  - it: fails when the web namespace differs from the writer namespace
+    release:
+      name: rel
+      namespace: other-ns
+    set:
+      license:
+        key: "test"
+      webUI:
+        enabled: true
+      global:
+        namespace: agentic-system
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+    template: webui.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: "needs global.namespace to match the release namespace"

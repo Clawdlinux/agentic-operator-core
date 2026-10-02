@@ -1,6 +1,6 @@
 # Demo dashboard
 
-Status: iteration 1 shipped (steps 1 to 6). Follow-ups: per-namespace filtering, a paged export from the writer, an approvals queue with edit on these pages.
+Status: iteration 1 shipped. The summary tiles landed on `/decisions`, not on `/`. The existing `/` workload dashboard is unchanged. Follow-ups: per-namespace filtering, a paged export from the writer, an approvals queue with edit on these pages.
 
 ## Problem
 
@@ -31,10 +31,10 @@ One screen flow that shows, from real receipts, what the operator decided and wh
 
 | Path | Shows | Source |
 |------|-------|--------|
-| `/decisions` | Timeline. Seq, time, workload, action, deciding layer, outcome, reason codes. Filter by outcome. | records in the export |
+| `/decisions` | Summary tiles, chain status, a fixed "not covered" panel, and the timeline. Seq, time, workload, action, deciding layer, outcome, reason codes. Filter by outcome. | records in the export |
 | `/decisions/{seq}` | One decision. Layers and reasons, observed data classes and host, packs, threshold mode, model block (mode, risk, threshold, base and final outcome), approval block, chain link and signer. | one record and its receipt |
 | `/receipts` | Chain head, count, signer, verification result with the reason on failure, completeness against the signed manifest, link to download the export. | `VerifyExport` |
-| `/` summary | Decisions by outcome, held count, chain status, model mode, and a fixed "not covered" panel. | the same export |
+
 
 Verification runs in the web process against a pinned trust root. The page never trusts the export's own `trust.json`. Without a pinned root the page says "consistency only" and shows no PASS badge. This matches `agentctl dataset verify`.
 
@@ -53,7 +53,7 @@ Each step is small, verified and committed on its own. Stop when every done chec
 
 1. Data layer `pkg/decisionview`. Done when tests cover timeline, detail, chain failure and unpinned mode.
 2. Handlers and templates for `/decisions`, `/decisions/{seq}`, `/receipts`. Done when handler tests assert content, escaping and no external host in any page.
-3. Summary tiles and the "not covered" panel on `/`.
+3. Summary tiles and the "not covered" panel on `/decisions`.
 4. Chart wiring and `helm unittest` cases.
 5. Offline demo: `make demo-dashboard` serves a fixture export. Screenshot check with Playwright at 375 and 1280 px.
 6. Docs: `docs/dashboard.md`, CHANGELOG, BLOCKERS.

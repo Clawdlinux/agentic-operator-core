@@ -37,7 +37,27 @@ type decisionPages struct {
 
 var decisionPageFiles = []string{"home.html", "panel.html", "detail.html", "receipts.html"}
 
-var decisionOutcomes = map[string]bool{"allow": true, "deny": true, "require_approval": true}
+// decisionFilters lists every receipt outcome, in the order the filter bar
+// shows them. The query value is checked against this list only.
+var decisionFilters = []decisionFilter{
+	{"allow", "Allow"},
+	{"deny", "Deny"},
+	{"require_approval", "Require approval"},
+	{"approved", "Approved"},
+	{"rejected", "Rejected"},
+	{"edited", "Edited"},
+}
+
+type decisionFilter struct{ Value, Label string }
+
+func validDecisionFilter(v string) bool {
+	for _, f := range decisionFilters {
+		if f.Value == v {
+			return true
+		}
+	}
+	return false
+}
 
 func newDecisionPages(loader *decisionview.Loader, tmplFS fs.FS) (*decisionPages, error) {
 	funcs := template.FuncMap{
@@ -157,11 +177,12 @@ type decisionPageData struct {
 	Detail   *decisionview.Detail
 	Status   string
 	NotFound bool
+	Filters  []decisionFilter
 }
 
 func (d *decisionPages) data(r *http.Request, title string) decisionPageData {
 	v := d.loader.Current(r.Context())
-	return decisionPageData{Title: title, View: v, Status: string(v.Verification.Status())}
+	return decisionPageData{Title: title, View: v, Status: string(v.Verification.Status()), Filters: decisionFilters}
 }
 
 func statusLabel(s string) string {
@@ -206,7 +227,7 @@ func filterRows(rows []decisionview.Row, outcome string) []decisionview.Row {
 
 func (d *decisionPages) timelineData(r *http.Request, title string) decisionPageData {
 	data := d.data(r, title)
-	if f := r.URL.Query().Get("outcome"); decisionOutcomes[f] {
+	if f := r.URL.Query().Get("outcome"); validDecisionFilter(f) {
 		data.Filter = f
 	}
 	data.Rows = filterRows(data.View.Rows, data.Filter)

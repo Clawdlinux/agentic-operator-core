@@ -695,3 +695,7 @@ textarea:focus-visible {
     .dv-dl { grid-template-columns: 1fr; }
     .dv-table { display: block; overflow-x: auto; }
 }
+
+.dv-outcome-allow, .dv-outcome-approved, .dv-outcome-edited { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.dv-outcome-deny, .dv-outcome-rejected { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+.dv-outcome-require_approval { background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); }

@@ -268,12 +268,15 @@ type Loader struct {
 	TTL     time.Duration
 	Now     func() time.Time
 
-	mu   sync.Mutex
-	last View
-	have bool
+	mu      sync.Mutex
+	last    View
+	have    bool      // last holds a view built from a real export
+	lastTry time.Time // when the source was last asked, success or not
 }
 
-// Current returns the cached view or reloads it when older than TTL.
+// Current returns the cached view or reloads it when older than TTL. A failed
+// refresh is cached for the TTL too, so an outage costs one source call per
+// TTL instead of one per request.
 func (l *Loader) Current(ctx context.Context) View {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -281,20 +284,20 @@ func (l *Loader) Current(ctx context.Context) View {
 	if l.Now != nil {
 		now = l.Now
 	}
-	if l.have && l.last.Err == "" && now().Sub(l.last.LoadedAt) < l.TTL {
+	if !l.lastTry.IsZero() && now().Sub(l.lastTry) < l.TTL {
 		return l.last
 	}
+	l.lastTry = now()
 	e, err := l.Source.Load(ctx)
 	if err != nil {
 		if l.have {
-			stale := l.last
-			stale.Err = fmt.Sprintf("refresh failed: %v", err)
-			l.last = stale
-			return stale
+			l.last.Err = fmt.Sprintf("refresh failed: %v", err)
+			return l.last
 		}
-		return View{LoadedAt: now(), Verification: Verification{Error: err.Error()}, Err: err.Error()}
+		l.last = View{LoadedAt: l.lastTry, Verification: Verification{Error: err.Error()}, Err: err.Error()}
+		return l.last
 	}
-	l.last = Build(e, l.Trusted, now())
+	l.last = Build(e, l.Trusted, l.lastTry)
 	l.have = true
 	return l.last
 }
