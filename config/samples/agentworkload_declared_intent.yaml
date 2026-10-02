@@ -14,7 +14,7 @@ spec:
   autoApproveThreshold: "0.95"
   mcpServerEndpoint: "https://mcp.refunds.internal:8443"
   declaredIntent:
-    purpose: "Triage refund tickets. No payment data leaves the cluster."
+    purpose: "Triage refund tickets. No customer data leaves the cluster."
     decisionType: "refund-triage"
     allowedDataClasses:
       - email
