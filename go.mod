@@ -28,7 +28,7 @@ require (
 
 require (
 	cel.dev/expr v0.25.1 // indirect
-	github.com/Clawdlinux/agentgate v0.1.3
+	github.com/Clawdlinux/agentgate v0.1.4
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
@@ -132,5 +132,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 )
-
-replace github.com/Clawdlinux/agentgate => ../agentgate-receiptspec
