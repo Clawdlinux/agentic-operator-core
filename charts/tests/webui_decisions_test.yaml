@@ -1,0 +1,164 @@
+# helm-unittest spec for the web UI decision pages (docs/architecture/demo-dashboard.md).
+# Run with: helm unittest charts
+suite: web ui decision pages
+templates:
+  - webui.yaml
+  - receipt-writer.yaml
+tests:
+  - it: gives the web UI no writer flags when receipts are off
+    set:
+      license:
+        key: "test"
+      webUI:
+        enabled: true
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--writer-token-file=/etc/receipts/token/token"
+        documentIndex: 3
+        template: webui.yaml
+      - notExists:
+          path: spec.template.spec.volumes
+        documentIndex: 3
+        template: webui.yaml
+
+  - it: points the web UI at the writer with a pinned trust root
+    release:
+      name: rel
+      namespace: agentic-system
+    set:
+      license:
+        key: "test"
+      webUI:
+        enabled: true
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--writer-url=http://rel-receipt-writer.agentic-system.svc:8080"
+        documentIndex: 3
+        template: webui.yaml
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--writer-token-file=/etc/receipts/token/token"
+        documentIndex: 3
+        template: webui.yaml
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--trust-root=/etc/receipts/trust/trust.json"
+        documentIndex: 3
+        template: webui.yaml
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: receipts-token
+            secret:
+              secretName: rel-receipt-writer-token
+              defaultMode: 0444
+        documentIndex: 3
+        template: webui.yaml
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: receipts-trust
+            mountPath: /etc/receipts/trust
+            readOnly: true
+        documentIndex: 3
+        template: webui.yaml
+
+  - it: omits the trust flag when no trust root is pinned
+    release:
+      name: rel
+      namespace: agentic-system
+    set:
+      license:
+        key: "test"
+      webUI:
+        enabled: true
+      global:
+        receipts:
+          enabled: true
+          insecureNoPin: true
+          signingKey:
+            existingSecret: receipt-signing-key
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: "--trust-root=/etc/receipts/trust/trust.json"
+        documentIndex: 3
+        template: webui.yaml
+
+  - it: lets the web UI reach the writer only when it is enabled
+    release:
+      name: rel
+      namespace: agentic-system
+    set:
+      license:
+        key: "test"
+      webUI:
+        enabled: true
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - lengthEqual:
+          path: spec.ingress[0].from
+          count: 2
+        documentIndex: 3
+        template: receipt-writer.yaml
+      - equal:
+          path: spec.ingress[0].from[1].podSelector.matchLabels["app.kubernetes.io/component"]
+          value: webui
+        documentIndex: 3
+        template: receipt-writer.yaml
+
+  - it: keeps the writer ingress to operator pods when the web UI is off
+    release:
+      name: rel
+      namespace: agentic-system
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - lengthEqual:
+          path: spec.ingress[0].from
+          count: 1
+        documentIndex: 3
+        template: receipt-writer.yaml
+
+  - it: fails when the web namespace differs from the writer namespace
+    release:
+      name: rel
+      namespace: other-ns
+    set:
+      license:
+        key: "test"
+      webUI:
+        enabled: true
+      global:
+        namespace: agentic-system
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+    template: webui.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: "needs global.namespace to match the release namespace"

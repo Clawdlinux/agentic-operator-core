@@ -1,0 +1,27 @@
+{{define "title"}}Receipts{{end}}
+{{define "content"}}
+<h1 class="dv-h1">Receipt chain</h1>
+<p class="dv-lede">Each decision gets an Ed25519-signed receipt that links to the one before it. This page checks the chain in the dashboard process against a trust root you pinned.</p>
+{{template "chainstatus" .}}
+
+<section class="dv-section" aria-labelledby="dv-head-title">
+    <h2 id="dv-head-title">Head</h2>
+    <dl class="dv-dl">
+        <dt>Head seq</dt><dd class="dv-mono">{{.View.Verification.HeadSeq}}</dd>
+        <dt>Head entry hash</dt><dd class="dv-mono">{{if .View.Verification.HeadHash}}{{.View.Verification.HeadHash}}{{else}}none{{end}}</dd>
+        <dt>Receipts verified</dt><dd>{{.View.Verification.VerifiedCount}} of {{.View.Verification.TotalReceipts}}</dd>
+        <dt>Decision records bound</dt><dd>{{.View.Verification.RecordsBound}}</dd>
+        <dt>Signed manifest</dt><dd>{{if .View.Verification.HasManifest}}present{{else}}absent{{end}}</dd>
+        <dt>Completeness</dt><dd>{{if .View.Verification.Complete}}proven by the manifest{{else}}not proven{{end}}</dd>
+        <dt>Trust root</dt><dd>{{if .View.Verification.Authenticated}}pinned out of band{{else}}taken from the export itself{{end}}</dd>
+    </dl>
+</section>
+
+<section class="dv-section" aria-labelledby="dv-offline-title">
+    <h2 id="dv-offline-title">Check it yourself</h2>
+    <p>Export the chain and verify it on another machine with a trust file you hold:</p>
+    <pre class="dv-pre"><code>agentctl receipts export --writer URL --token-file ./token --out ./export
+agentctl receipts verify ./export --trust-root ./pinned-trust.json</code></pre>
+</section>
+{{template "notcovered" .}}
+{{end}}
