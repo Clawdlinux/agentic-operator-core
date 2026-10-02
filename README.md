@@ -58,11 +58,23 @@ The repository currently ships the `AgentWorkload` lifecycle, runtime adapters, 
 
 The target contract connects caller identity, declared access, action policy, approval, cost, outcome, and independently verifiable evidence in one transaction. That target is the product direction, not a claim about the current end-to-end path.
 
+How an action is decided, as a target design (see [decision architecture](docs/architecture/decision-architecture.md)):
+
+1. Invariants in code. Credentials never reach the agent. Egress only to declared destinations.
+2. A decision model scores each action. It can only escalate to a human.
+3. Humans approve, reject, or edit. Every decision is a signed, labelled example.
+
+Today the repo ships invariants, policy packs, a threshold evaluator, and
+human approvals. The decision model exists but is escalate-only, runs in
+shadow mode by default, and only once an artifact is mounted. The shipped
+artifact is trained on synthetic DRAFT scenarios and is not validated on real
+decisions. The ADR lists what is built and what is not.
+
 | Capability | Current repository state |
 |---|---|
 | Runtime isolation | gVisor `RuntimeClass` mutation for labeled pods; nodes must provide `runsc` |
 | Network controls | Default-deny and allow-list policy generation; enforcement depends on the cluster CNI |
-| Audit | HMAC hash-chain and JSONL verifier; automatic same-run capture is not connected |
+| Audit | Opt-in Ed25519 decision receipts on the direct action path ([receipts](docs/receipts.md)), plus HMAC hash-chain primitives; execution outcomes and runtime-adapter runs are not receipted |
 | Cost | Per-workload usage and estimated-cost paths plus chargeback hooks |
 | Context | ANF view snapshots (internal tooling): `agentctl` renders token-minimal Kubernetes and agent state for the model |
 | Delivery | Helm packaging and offline JWT validation; full air-gapped install testing remains a release gate |
@@ -131,7 +143,7 @@ It labels current-run, configuration-only, and prior-run evidence separately.
 
 ## Agent-callable API (MCP)
 
-Clawdlinux's `AgentWorkload` CRD is already an agent-readable interface — agents
+Clawdlinux's `AgentWorkload` CRD is already an agent-readable interface. Agents
 can read the schema and reason about the spec. `agentctl mcp serve` is the
 **wire-protocol** surface so an external orchestrator agent (Claude Desktop,
 Cursor, ChatGPT, custom Python) can provision its own Clawdlinux execution
@@ -152,12 +164,12 @@ Full reference in [`docs/agentctl/mcp.md`](docs/agentctl/mcp.md). Examples in
 
 ## Quick Start
 
-**Option A — One command (requires kind + helm):**
+**Option A: One command (requires kind + helm):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/Clawdlinux/agentic-operator-core/main/scripts/install.sh | bash
 ```
 
-**Option B — Step by step:**
+**Option B: Step by step:**
 ```bash
 git clone https://github.com/Clawdlinux/agentic-operator-core
 cd agentic-operator-core
@@ -180,9 +192,47 @@ kubectl apply -f config/agentworkload_example.yaml
 kubectl -n agentic-system get agentworkloads -w
 ```
 
-**Option C — GitHub Codespaces (zero local setup):**
+**Option C: GitHub Codespaces (zero local setup):**
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Clawdlinux/agentic-operator-core?devcontainer_path=.devcontainer/devcontainer.json)
+
+---
+
+## Run the claims demo
+
+One script proves the decision-architecture claims on a fresh kind cluster.
+No API keys. A deterministic mock MCP server plays the agent. Each scenario
+prints its command and a PASS or FAIL line. The script exits nonzero on any
+failure and deletes its cluster at the end.
+
+Prerequisites: docker (running), kind, kubectl, helm, go, python3, openssl,
+curl.
+
+```bash
+scripts/demo-claims.sh            # --keep, --skip-build, --cluster-name, --dry-run, --help
+```
+
+Runtime: about 5 minutes end to end, build included. Two runs from a fresh
+cluster took 252s and 297s on an Apple Silicon laptop (kind v0.31, images
+already pulled). About 90s of that is a settle wait after each of the two
+operator restarts. A new pod's first connections stall on kind, and the
+operator then fails closed with INV-05.
+
+The demo runs the secure configuration. It creates the receipt signing key,
+pins the writer public key from it, and mounts an approval stamp HMAC key. It
+never sets `RECEIPTS_INSECURE_NO_PIN`.
+
+It proves invariants (INV-01, INV-03, INV-06), write-ahead receipts, pack
+escalation, HMAC-stamped approvals, identity digests in receipts, replay
+refusal for a consumed approval, offline verification with a signed manifest,
+rejection of a removed manifest and a wrong pin, an operator pinned to the
+wrong writer key denying by INV-05, and the shadow decision model. It does not
+prove the runtime-adapter path, Argo approval gates, execution outcome
+receipts, production model quality, packet-level egress, caller identity,
+escalate mode on a failed model load, or `agentctl` resourceVersion conflicts.
+The script ends with the full list. It builds a demo-only image from host
+binaries until the receiptspec dependency is tagged. See
+[BLOCKERS.md](BLOCKERS.md).
 
 ---
 
@@ -209,8 +259,9 @@ templates consume those labels. Actual sandboxing requires gVisor on the nodes.
 Network enforcement depends on the cluster CNI.
 
 The audit package and offline JSONL verifier are implemented. The controller does
-not yet append each run event into that chain. Durable storage, production signing
-keys, and independently verified checkpoints remain integration work.
+not yet append each run event into that chain. Separately, opt-in signed decision
+receipts cover each direct-path decision before it runs. Durable storage, key
+rotation, and independently verified checkpoints remain integration work.
 
 ---
 
@@ -283,7 +334,12 @@ assets/                 Branding assets (logo, etc.)
 | [Architecture](docs/04-architecture.md) | System design deep dive |
 | [Multi-tenancy](docs/05-multi-tenancy.md) | Tenant isolation and quota enforcement |
 | [Cost Management](docs/06-cost-management.md) | Per-workload billing and chargeback |
-| [Security](docs/07-security.md) | Cilium, OPA, RBAC, and egress hardening |
+| [Security](docs/07-security.md) | Cilium, action rules, RBAC, and egress hardening |
+| [Policy input](docs/policy-input.md) | Declared, observed, and agent-claimed decision inputs |
+| [Policy packs](docs/policy-packs.md) | Invariants and opt-in Rego packs (`dpdp-in`, `gdpr-eu`) |
+| [Receipts](docs/receipts.md) | Opt-in signed decision receipts, receipt-writer, offline verify |
+| [Approvals](docs/approvals.md) | Human approve, reject, edit protocol and the signed approval dataset |
+| [Decision model](docs/architecture/decision-model.md) | Escalate-only scoring, shadow by default, offline eval, not production-validated |
 | [Troubleshooting](docs/10-troubleshooting.md) | Common issues and fixes |
 
 ---
@@ -327,18 +383,18 @@ See [ROADMAP.md](ROADMAP.md) for the public roadmap and quarterly milestones.
 
 Design proposals in flight live in [`docs/rfcs/`](docs/rfcs/). Currently in design:
 
-- **[RFC-0001: Cross-Cluster Agent Identity Federation (SPIFFE/SPIRE)](docs/rfcs/0001-cross-cluster-agent-identity.md)** — multi-cluster identity for agents in air-gapped and regulated environments. Validation gate: 6+ use cases or 1 paying customer. _GitHub Discussion opens shortly; track status in epic [#146](https://github.com/Clawdlinux/agentic-operator-core/issues/146)._
+- **[RFC-0001: Cross-Cluster Agent Identity Federation (SPIFFE/SPIRE)](docs/rfcs/0001-cross-cluster-agent-identity.md)**: multi-cluster identity for agents in air-gapped and regulated environments. Validation gate: 6+ use cases or 1 paying customer. _GitHub Discussion opens shortly; track status in epic [#146](https://github.com/Clawdlinux/agentic-operator-core/issues/146)._
 
 ---
 
 ## Community
 
-- **Discord** — [Join our Discord](https://discord.gg/r4QhZJQgV) for questions, discussions, and design partner conversations
-- **Issues** — [Report bugs or request features](https://github.com/Clawdlinux/agentic-operator-core/issues)
-- **Releases** — [Subscribe to releases](https://github.com/Clawdlinux/agentic-operator-core/releases) for changelog updates
+- **Discord**: [Join our Discord](https://discord.gg/r4QhZJQgV) for questions, discussions, and design partner conversations
+- **Issues**: [Report bugs or request features](https://github.com/Clawdlinux/agentic-operator-core/issues)
+- **Releases**: [Subscribe to releases](https://github.com/Clawdlinux/agentic-operator-core/releases) for changelog updates
 
 ---
 
 ## License
 
-Apache License 2.0 — See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

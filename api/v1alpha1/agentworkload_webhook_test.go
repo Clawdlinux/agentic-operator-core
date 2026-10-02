@@ -308,3 +308,76 @@ func TestValidateMCPEndpoint(t *testing.T) {
 		}
 	}
 }
+
+func TestWebhook_PolicyPacks(t *testing.T) {
+	tests := []struct {
+		name    string
+		packs   []string
+		wantErr bool
+	}{
+		{"none", nil, false},
+		{"known", []string{"dpdp-in@v0.1.0", "gdpr-eu@v0.1.0"}, false},
+		{"unknown version", []string{"dpdp-in@v9.9.9"}, true},
+		{"unknown name", []string{"hipaa@v0.1.0"}, true},
+		{"no version", []string{"gdpr-eu"}, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			w := &AgentWorkload{Spec: AgentWorkloadSpec{
+				MCPServerEndpoint: stringPtr("https://localhost:8000"),
+				Objective:         stringPtr("test objective"),
+				Agents:            []string{"agent1"},
+				PolicyPacks:       tc.packs,
+			}}
+			err := w.ValidateCreate()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("ValidateCreate err = %v, wantErr %v", err, tc.wantErr)
+			}
+			if err != nil && !strings.Contains(err.Error(), "policyPacks") {
+				t.Fatalf("error should name policyPacks: %v", err)
+			}
+		})
+	}
+}
+
+func TestWebhook_DecisionModel(t *testing.T) {
+	i := func(v int64) *int64 { return &v }
+	tests := []struct {
+		name     string
+		dm       *DecisionModel
+		artifact int64
+		wantErr  bool
+	}{
+		{"unset", nil, 0, false},
+		{"shadow", &DecisionModel{Mode: "shadow"}, 0, false},
+		{"escalate stricter", &DecisionModel{Mode: "escalate", ThresholdMicro: i(300000)}, 500000, false},
+		{"equal to artifact", &DecisionModel{ThresholdMicro: i(500000)}, 500000, false},
+		{"looser than artifact", &DecisionModel{ThresholdMicro: i(600000)}, 500000, true},
+		{"no artifact loaded, range only", &DecisionModel{ThresholdMicro: i(900000)}, 0, false},
+		{"out of range", &DecisionModel{ThresholdMicro: i(1000001)}, 0, true},
+		{"negative", &DecisionModel{ThresholdMicro: i(-1)}, 0, true},
+		{"bad mode", &DecisionModel{Mode: "auto-allow"}, 0, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			SetDecisionModelThreshold(tc.artifact)
+			defer SetDecisionModelThreshold(0)
+			w := &AgentWorkload{Spec: AgentWorkloadSpec{
+				MCPServerEndpoint: stringPtr("https://localhost:8000"),
+				Objective:         stringPtr("test objective"),
+				Agents:            []string{"agent1"},
+				DecisionModel:     tc.dm,
+			}}
+			err := w.ValidateCreate()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("ValidateCreate err = %v, wantErr %v", err, tc.wantErr)
+			}
+			if err != nil && !strings.Contains(err.Error(), "decisionModel") {
+				t.Fatalf("error should name decisionModel: %v", err)
+			}
+		})
+	}
+	if (AgentWorkloadSpec{}).DecisionModelMode() != DecisionModelShadow {
+		t.Fatal("default mode must be shadow")
+	}
+}

@@ -1,0 +1,318 @@
+# helm-unittest spec for signed decision receipts (docs/receipts.md).
+# Run with: helm unittest charts
+suite: decision receipts
+templates:
+  - receipt-writer.yaml
+  - networkpolicy.yaml
+  - charts/agentic-operator/templates/deployment.yaml
+tests:
+  - it: renders nothing for receipts by default
+    set:
+      license:
+        key: "test"
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: receipt-writer.yaml
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_ENABLED
+            value: "true"
+        template: charts/agentic-operator/templates/deployment.yaml
+
+  - it: fails without a signing key secret
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "signingKey.existingSecret is required"
+        template: receipt-writer.yaml
+
+  - it: renders a hardened single-replica writer with a PVC
+    release:
+      name: rel
+      namespace: agentic-system
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - hasDocuments:
+          count: 4
+        template: receipt-writer.yaml
+      - isKind:
+          of: StatefulSet
+        documentIndex: 2
+        template: receipt-writer.yaml
+      - equal:
+          path: spec.replicas
+          value: 1
+        documentIndex: 2
+        template: receipt-writer.yaml
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+        documentIndex: 2
+        template: receipt-writer.yaml
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+        documentIndex: 2
+        template: receipt-writer.yaml
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 1Gi
+        documentIndex: 2
+        template: receipt-writer.yaml
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: signing-key
+            secret:
+              secretName: receipt-signing-key
+              defaultMode: 0440
+        documentIndex: 2
+        template: receipt-writer.yaml
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPT_KEY_GENERATE
+            value: "true"
+        documentIndex: 2
+        template: receipt-writer.yaml
+      - isKind:
+          of: Service
+        documentIndex: 1
+        template: receipt-writer.yaml
+      - equal:
+          path: spec.type
+          value: ClusterIP
+        documentIndex: 1
+        template: receipt-writer.yaml
+
+  - it: only lets operator pods reach the writer
+    release:
+      name: rel
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - isKind:
+          of: NetworkPolicy
+        documentIndex: 3
+        template: receipt-writer.yaml
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels
+          value:
+            app.kubernetes.io/name: agentic-operator
+            app.kubernetes.io/instance: rel
+            app.kubernetes.io/component: operator
+        documentIndex: 3
+        template: receipt-writer.yaml
+      - equal:
+          path: spec.egress
+          value: []
+        documentIndex: 3
+        template: receipt-writer.yaml
+      - contains:
+          path: spec.egress
+          content:
+            to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: NAMESPACE
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: receipt-writer
+                    app.kubernetes.io/instance: rel
+            ports:
+              - port: 8080
+                protocol: TCP
+        template: networkpolicy.yaml
+
+  - it: uses an existing token secret and creates none
+    release:
+      name: rel
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+          token:
+            existingSecret: my-token
+            key: bearer
+    asserts:
+      - hasDocuments:
+          count: 3
+        template: receipt-writer.yaml
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: receipts-token
+            secret:
+              secretName: my-token
+              defaultMode: 0444
+        template: charts/agentic-operator/templates/deployment.yaml
+
+  - it: wires the operator to the writer
+    release:
+      name: rel
+      namespace: agentic-system
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          required: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_REQUIRED
+            value: "true"
+        template: charts/agentic-operator/templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_WRITER_URL
+            value: http://rel-receipt-writer.agentic-system.svc:8080
+        template: charts/agentic-operator/templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_WRITER_TOKEN_FILE
+            value: /etc/receipts/token/token
+        template: charts/agentic-operator/templates/deployment.yaml
+
+  - it: fails without a pinned trust root
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+    asserts:
+      - failedTemplate:
+          errorPattern: "trustRoot.existingConfigMap is required"
+        template: receipt-writer.yaml
+
+  - it: mounts the pinned trust root into the operator
+    release:
+      name: rel
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_WRITER_TRUST_FILE
+            value: /etc/receipts/trust/trust.json
+        template: charts/agentic-operator/templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: receipts-trust
+            configMap:
+              name: receipt-trust-root
+              items:
+                - key: trust.json
+                  path: trust.json
+        template: charts/agentic-operator/templates/deployment.yaml
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_INSECURE_NO_PIN
+            value: "true"
+        template: charts/agentic-operator/templates/deployment.yaml
+
+  - it: insecureNoPin sets the demo-only env
+    release:
+      name: rel
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          insecureNoPin: true
+          signingKey:
+            existingSecret: receipt-signing-key
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECEIPTS_INSECURE_NO_PIN
+            value: "true"
+        template: charts/agentic-operator/templates/deployment.yaml
+
+  - it: fails when receipts are required but the writer is not enabled
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: false
+          required: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "required=true needs global.receipts.enabled=true"
+        template: receipt-writer.yaml
+
+  - it: keeps the writer out of the operator egress allow selector
+    release:
+      name: rel
+      namespace: agentic-system
+    set:
+      license:
+        key: "test"
+      global:
+        receipts:
+          enabled: true
+          signingKey:
+            existingSecret: receipt-signing-key
+          trustRoot:
+            existingConfigMap: receipt-trust-root
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/part-of"]
+          value: agentic-operator-receipt-writer
+        documentIndex: 2
+        template: receipt-writer.yaml

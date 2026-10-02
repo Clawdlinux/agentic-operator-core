@@ -1,10 +1,10 @@
-# Threat Model — Clawdlinux
+# Threat Model: Clawdlinux
 
 > Last updated: 2026-04-21
 
 ## Scope
 
-This document describes the security boundaries, threat vectors, and mitigations for the Clawdlinux platform — a Kubernetes-native system for scheduling, isolating, and managing AI agent workloads.
+This document describes the security boundaries, threat vectors, and mitigations for the Clawdlinux platform, a Kubernetes-native system for scheduling, isolating, and managing AI agent workloads.
 
 ## Trust Boundaries
 
@@ -86,6 +86,13 @@ This document describes the security boundaries, threat vectors, and mitigations
 | Agent calls unauthorized tools | `toolProfile` is enforced in selected runtime paths, not universally | Partial |
 | Tenant escalates to cluster admin | RBAC: tenant SA can only CRUD AgentWorkload in own namespace | Implemented |
 
+## Decision Inputs
+
+| Threat | Mitigation | Status |
+|--------|-----------|--------|
+| Agent self-reported inputs (`confidence`, `cluster_health`) drive the action decision | Treated as agent-claimed. They may tighten a decision, never loosen it. The operator also records platform-observed inputs: destination host, data classes found by `pkg/dataclass`, tool, and per-workload history. Invariants INV-01 to INV-06 and policy packs act on observed facts. Direct action path only. See [decision architecture](../architecture/decision-architecture.md) and [policy input](../policy-input.md) | Mitigated on the direct path. Runtime-adapter path open |
+| Prompt injection moves a model gate verdict | A model never owns the floor. Invariants in code bound every decision. The decision model is escalate-only: it can move allow to require_approval and never loosens. Shadow by default. The shipped artifact is trained on synthetic data and is not production-validated. See [decision model](../architecture/decision-model.md) | Mitigated by design. Model not production-validated |
+
 ## Network Security
 
 ### Egress Control
@@ -109,7 +116,7 @@ Agent pods are restricted to allowlisted domains. Two layers of enforcement:
 
 External destinations require explicit chart or optional Cilium configuration.
 
-> **Note**: Cilium FQDN egress requires Cilium CNI. Vanilla Kubernetes installs use standard NetworkPolicy (namespace-level ingress/egress only) — that is what the chart ships by default.
+> **Note**: Cilium FQDN egress requires Cilium CNI. Vanilla Kubernetes installs use standard NetworkPolicy (namespace-level ingress/egress only): that is what the chart ships by default.
 
 ### Identity Boundary
 

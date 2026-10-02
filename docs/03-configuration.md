@@ -57,9 +57,12 @@ Policy objects are configuration. Packet enforcement depends on the cluster CNI.
 ## Action Policy
 
 `AgentWorkload.spec.opaPolicy` selects strict or permissive behavior in the
-legacy in-process Go evaluator. The direct action path does not execute Rego.
+legacy in-process Go threshold evaluator (`pkg/rules/threshold`).
+`spec.policyPacks` opts into Rego policy packs run by the embedded OPA engine.
+See [policy packs](policy-packs.md).
 
-Rego samples under `pkg/opa` and `config/policies` are integration assets.
+Rego samples under `pkg/rules/threshold` and `config/policies` are integration
+assets. They are not evaluated.
 
 ## Model Routing
 

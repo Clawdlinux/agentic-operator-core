@@ -20,6 +20,7 @@ import (
 type mockMCPScenario struct {
 	confidence    interface{}
 	clusterHealth interface{}
+	description   string
 }
 
 type mockMCPRequest struct {
@@ -189,9 +190,13 @@ func newMockMCPServer(scenario mockMCPScenario) *httptest.Server {
 				"cluster_health": scenario.clusterHealth,
 			}
 		case "propose_action":
+			description := "Tune resource requests based on observed usage"
+			if scenario.description != "" {
+				description = scenario.description
+			}
 			resp.Result = map[string]interface{}{
 				"action":      "optimize",
-				"description": "Tune resource requests based on observed usage",
+				"description": description,
 				"confidence":  scenario.confidence,
 			}
 		case "execute_action":

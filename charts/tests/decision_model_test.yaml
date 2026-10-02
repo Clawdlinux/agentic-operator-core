@@ -1,0 +1,62 @@
+# helm-unittest spec for the decision model artifact mount
+# (docs/architecture/decision-model.md). Run with: helm unittest charts
+suite: decision model
+templates:
+  - charts/agentic-operator/templates/deployment.yaml
+tests:
+  - it: loads no model by default
+    set:
+      license:
+        key: "test"
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DECISION_MODEL_PATH
+            value: /etc/decision-model/model.json
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: decision-model
+          any: true
+
+  - it: mounts the artifact config map and sets DECISION_MODEL_PATH
+    set:
+      license:
+        key: "test"
+      global:
+        decisionModel:
+          existingConfigMap: decision-model
+          key: model-v2.json
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DECISION_MODEL_PATH
+            value: /etc/decision-model/model-v2.json
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: decision-model
+            mountPath: /etc/decision-model
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: decision-model
+            configMap:
+              name: decision-model
+              items:
+                - key: model-v2.json
+                  path: model-v2.json
+
+  - it: rejects an unsafe key
+    set:
+      license:
+        key: "test"
+      global:
+        decisionModel:
+          existingConfigMap: decision-model
+          key: "../etc/passwd"
+    asserts:
+      - failedTemplate: {}

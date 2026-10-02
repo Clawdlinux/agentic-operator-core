@@ -236,7 +236,7 @@ Protect the closing slide. Under time pressure, cut the opener slide first.
 - Do not say replay is live.
 - Do not claim same-run signed attestation is complete.
 - Do not claim customers, revenue, deployments, or production adoption.
-- Do not mention OPA unless someone asks about it.
+- If asked about OPA: policy packs (`dpdp-in@v0.1.0`, `gdpr-eu@v0.1.0`) are Rego and run through the embedded OPA engine on the direct action path. The sample Rego files under `config/policies/samples/` are not evaluated. The threshold check still runs after packs. Orchestrated runtimes reject packs. See `docs/policy-packs.md`.
 - Do not call configuration evidence runtime proof.
 
 ## One-line close

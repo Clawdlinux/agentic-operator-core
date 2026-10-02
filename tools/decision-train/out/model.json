@@ -1,0 +1,158 @@
+{
+  "artifact_sha256": "5aa47544fc3726134da1d1ffe3fa3d2f3da5e8c8e93bf76f7bf8b512f4b3d5db",
+  "bias": "-0.445828",
+  "calibration": {
+    "bins": [
+      {
+        "count": 0,
+        "lower_micro": 0,
+        "mean_predicted_micro": 0,
+        "observed_micro": 0,
+        "upper_micro": 100000
+      },
+      {
+        "count": 1,
+        "lower_micro": 100000,
+        "mean_predicted_micro": 192335,
+        "observed_micro": 0,
+        "upper_micro": 200000
+      },
+      {
+        "count": 2,
+        "lower_micro": 200000,
+        "mean_predicted_micro": 260565,
+        "observed_micro": 0,
+        "upper_micro": 300000
+      },
+      {
+        "count": 9,
+        "lower_micro": 300000,
+        "mean_predicted_micro": 346333,
+        "observed_micro": 0,
+        "upper_micro": 400000
+      },
+      {
+        "count": 11,
+        "lower_micro": 400000,
+        "mean_predicted_micro": 446209,
+        "observed_micro": 272727,
+        "upper_micro": 500000
+      },
+      {
+        "count": 5,
+        "lower_micro": 500000,
+        "mean_predicted_micro": 555739,
+        "observed_micro": 200000,
+        "upper_micro": 600000
+      },
+      {
+        "count": 7,
+        "lower_micro": 600000,
+        "mean_predicted_micro": 649618,
+        "observed_micro": 714285,
+        "upper_micro": 700000
+      },
+      {
+        "count": 12,
+        "lower_micro": 700000,
+        "mean_predicted_micro": 742522,
+        "observed_micro": 1000000,
+        "upper_micro": 800000
+      },
+      {
+        "count": 18,
+        "lower_micro": 800000,
+        "mean_predicted_micro": 859844,
+        "observed_micro": 1000000,
+        "upper_micro": 900000
+      },
+      {
+        "count": 11,
+        "lower_micro": 900000,
+        "mean_predicted_micro": 942934,
+        "observed_micro": 909090,
+        "upper_micro": 1000000
+      }
+    ],
+    "ece_micro": 183617,
+    "method": "none",
+    "split": "holdout"
+  },
+  "feature_spec_version": "v1",
+  "features": [
+    "dc_personal_count",
+    "dc_credential",
+    "dc_undeclared_count",
+    "personal_to_undeclared",
+    "dest_present",
+    "dest_declared",
+    "declared_present",
+    "decision_automated",
+    "action_destructive",
+    "prior_actions_bucket",
+    "prior_denied",
+    "conf_absent",
+    "conf_low",
+    "conf_mid",
+    "health_absent",
+    "health_low",
+    "health_mid",
+    "pack_any",
+    "pack_dpdp_in",
+    "pack_gdpr_eu",
+    "esc_invariant",
+    "esc_rules",
+    "esc_threshold",
+    "esc_model"
+  ],
+  "model_id": "clawdlinux-escalate-logreg",
+  "model_type": "logistic_regression",
+  "schema_version": 1,
+  "threshold_micro": 500000,
+  "trained_on": {
+    "data_source": "synthetic",
+    "dataset_sha256": "6cec36b556e9f873d3937225feaf019d0fbba82c4161201512d4b39a33e8520e",
+    "examples_holdout": 76,
+    "examples_total": 360,
+    "examples_train": 284,
+    "human_rows": 0,
+    "negatives": 102,
+    "positives": 182,
+    "synthetic_rows": 360
+  },
+  "training": {
+    "iterations": "2000",
+    "l2": "0.01",
+    "label": "1 when a human rejected or edited",
+    "learning_rate": "0.3",
+    "method": "full-batch gradient descent",
+    "split": "holdout when sha256(example_id)[:8] mod 5 == 0"
+  },
+  "version": "0.1.0-synthetic-draft",
+  "weights": [
+    "0.323578",
+    "1.106614",
+    "1.340047",
+    "1.527634",
+    "0.783338",
+    "-0.744295",
+    "0.217009",
+    "0.494954",
+    "0.968414",
+    "-0.314903",
+    "0.468405",
+    "1.071085",
+    "0.567318",
+    "-0.740682",
+    "0.000000",
+    "1.415208",
+    "-0.343049",
+    "0.416680",
+    "-0.175417",
+    "0.592097",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000"
+  ]
+}

@@ -1,0 +1,199 @@
+{
+  "active_features": [
+    "dc_personal_count",
+    "dc_credential",
+    "dc_undeclared_count",
+    "personal_to_undeclared",
+    "dest_present",
+    "dest_declared",
+    "declared_present",
+    "decision_automated",
+    "action_destructive",
+    "prior_actions_bucket",
+    "prior_denied",
+    "conf_absent",
+    "conf_low",
+    "conf_mid",
+    "health_low",
+    "health_mid",
+    "pack_any",
+    "pack_dpdp_in",
+    "pack_gdpr_eu"
+  ],
+  "artifact_sha256": "5aa47544fc3726134da1d1ffe3fa3d2f3da5e8c8e93bf76f7bf8b512f4b3d5db",
+  "data_source": "synthetic",
+  "feature_matrix_sha256": "f6734700e3e7fc3b17e01803e0a8b00bd94ff3c3ce8ce3bfe20d0449a436fb5e",
+  "holdout": {
+    "bins": [
+      {
+        "count": 0,
+        "lower_micro": 0,
+        "mean_predicted_micro": 0,
+        "observed_micro": 0,
+        "upper_micro": 100000
+      },
+      {
+        "count": 1,
+        "lower_micro": 100000,
+        "mean_predicted_micro": 192335,
+        "observed_micro": 0,
+        "upper_micro": 200000
+      },
+      {
+        "count": 2,
+        "lower_micro": 200000,
+        "mean_predicted_micro": 260565,
+        "observed_micro": 0,
+        "upper_micro": 300000
+      },
+      {
+        "count": 9,
+        "lower_micro": 300000,
+        "mean_predicted_micro": 346333,
+        "observed_micro": 0,
+        "upper_micro": 400000
+      },
+      {
+        "count": 11,
+        "lower_micro": 400000,
+        "mean_predicted_micro": 446209,
+        "observed_micro": 272727,
+        "upper_micro": 500000
+      },
+      {
+        "count": 5,
+        "lower_micro": 500000,
+        "mean_predicted_micro": 555739,
+        "observed_micro": 200000,
+        "upper_micro": 600000
+      },
+      {
+        "count": 7,
+        "lower_micro": 600000,
+        "mean_predicted_micro": 649618,
+        "observed_micro": 714285,
+        "upper_micro": 700000
+      },
+      {
+        "count": 12,
+        "lower_micro": 700000,
+        "mean_predicted_micro": 742522,
+        "observed_micro": 1000000,
+        "upper_micro": 800000
+      },
+      {
+        "count": 18,
+        "lower_micro": 800000,
+        "mean_predicted_micro": 859844,
+        "observed_micro": 1000000,
+        "upper_micro": 900000
+      },
+      {
+        "count": 11,
+        "lower_micro": 900000,
+        "mean_predicted_micro": 942934,
+        "observed_micro": 909090,
+        "upper_micro": 1000000
+      }
+    ],
+    "ece_micro": 183617,
+    "examples": 76,
+    "extra_review_rate_micro": 259259,
+    "false_negative": 3,
+    "false_positive": 7,
+    "negatives": 27,
+    "positives": 49,
+    "precision_micro": 867924,
+    "recall_micro": 938775,
+    "true_negative": 20,
+    "true_positive": 46
+  },
+  "model_id": "clawdlinux-escalate-logreg",
+  "threshold_micro": 500000,
+  "train": {
+    "bins": [
+      {
+        "count": 0,
+        "lower_micro": 0,
+        "mean_predicted_micro": 0,
+        "observed_micro": 0,
+        "upper_micro": 100000
+      },
+      {
+        "count": 4,
+        "lower_micro": 100000,
+        "mean_predicted_micro": 172636,
+        "observed_micro": 0,
+        "upper_micro": 200000
+      },
+      {
+        "count": 14,
+        "lower_micro": 200000,
+        "mean_predicted_micro": 261065,
+        "observed_micro": 142857,
+        "upper_micro": 300000
+      },
+      {
+        "count": 21,
+        "lower_micro": 300000,
+        "mean_predicted_micro": 349582,
+        "observed_micro": 142857,
+        "upper_micro": 400000
+      },
+      {
+        "count": 45,
+        "lower_micro": 400000,
+        "mean_predicted_micro": 447538,
+        "observed_micro": 177777,
+        "upper_micro": 500000
+      },
+      {
+        "count": 34,
+        "lower_micro": 500000,
+        "mean_predicted_micro": 543194,
+        "observed_micro": 500000,
+        "upper_micro": 600000
+      },
+      {
+        "count": 45,
+        "lower_micro": 600000,
+        "mean_predicted_micro": 644590,
+        "observed_micro": 733333,
+        "upper_micro": 700000
+      },
+      {
+        "count": 35,
+        "lower_micro": 700000,
+        "mean_predicted_micro": 761121,
+        "observed_micro": 942857,
+        "upper_micro": 800000
+      },
+      {
+        "count": 60,
+        "lower_micro": 800000,
+        "mean_predicted_micro": 858985,
+        "observed_micro": 1000000,
+        "upper_micro": 900000
+      },
+      {
+        "count": 26,
+        "lower_micro": 900000,
+        "mean_predicted_micro": 943570,
+        "observed_micro": 1000000,
+        "upper_micro": 1000000
+      }
+    ],
+    "ece_micro": 142876,
+    "examples": 284,
+    "extra_review_rate_micro": 303921,
+    "false_negative": 13,
+    "false_positive": 31,
+    "negatives": 102,
+    "positives": 182,
+    "precision_micro": 845000,
+    "recall_micro": 928571,
+    "true_negative": 71,
+    "true_positive": 169
+  },
+  "version": "0.1.0-synthetic-draft"
+}

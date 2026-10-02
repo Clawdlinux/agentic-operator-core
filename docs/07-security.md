@@ -41,18 +41,35 @@ Verify rendered Roles and bindings against the customer's tenancy model before p
 
 ## Action Policy And Rego Assets
 
-The legacy direct-action path uses an in-process Go evaluator selected by:
+The legacy direct-action path decides in 3 layers. The strictest result wins.
+
+1. Invariants in `pkg/invariants`. Deterministic Go. Always on. Example: a
+   credential-shaped value in the proposed action is denied. See
+   [invariants](architecture/invariants.md).
+2. Policy packs in `pkg/rules/packs`, evaluated by the embedded OPA Go library
+   in `pkg/rules/engine`. Opt in with `spec.policyPacks`. Packs only add deny
+   or require approval. See [policy packs](policy-packs.md).
+3. A Go threshold evaluator in `pkg/rules/threshold`, selected by:
 
 ```yaml
 opaPolicy: strict
 ```
 
-It evaluates action type, caller-supplied confidence, cluster health, and strict
-or permissive mode. Read-only actions use a separate allow path.
+The threshold evaluator reads action type, caller-supplied confidence, cluster
+health, and strict or permissive mode. Read-only actions use a separate allow
+path. Confidence comes from the `propose_action` tool reply. Cluster health
+comes from the MCP status reply and defaults to 75 when absent. The platform
+measures neither, so both are agent-claimed inputs.
+They can tighten a decision. They must never loosen one. See
+[decision architecture](architecture/decision-architecture.md).
 
-The repository also ships Rego samples in a ConfigMap. The direct action path
-does not execute those Rego files or call a real OPA engine today. Treat them as
-policy assets and integration examples.
+The engine evaluates the shipped packs only. The Rego samples under
+`config/policies` and `pkg/rules/threshold/policies.rego` are still not
+evaluated. Treat them as policy assets and integration examples.
+
+Orchestrated workloads (`spec.orchestration`) do not run invariants or packs
+yet. A workload that sets `spec.policyPacks` on that path fails closed with
+condition `PolicyPackInvalid`.
 
 ## Network Isolation
 
@@ -67,7 +84,7 @@ The umbrella Helm chart ships a default-deny egress NetworkPolicy
 for pods labeled `app.kubernetes.io/part-of: agentic-operator`. Toggle via
 `networkPolicy.enabled` (default `true`). Allow-listed: kube-dns, the
 in-cluster LiteLLM proxy, Postgres, MinIO, Browserless (when enabled), and
-external OPA (when configured). Operator-supplied additions go under
+an external OPA service (when `networkPolicy.opa` is set; the egress rule only, no policy evaluation). Operator-supplied additions go under
 `networkPolicy.additionalAllowedHosts`. Verified by helm-unittest in
 [`charts/tests/networkpolicy_test.yaml`](../charts/tests/networkpolicy_test.yaml).
 Managed workload namespaces require separate policy application and matching labels.
@@ -98,7 +115,7 @@ project, specifically the platform-default seccomp filter shipped in
 [`pkg/seccomp/seccomp_amd64.go`](https://github.com/google/gvisor/tree/master/pkg/seccomp)
 plus the per-runtime additions documented in
 [`runsc/boot/filter`](https://github.com/google/gvisor/tree/master/runsc/boot/filter).
-We do not maintain a fork — we deliberately track upstream so security fixes land
+We do not maintain a fork; we deliberately track upstream so security fixes land
 without lag.
 
 Kata Containers may be evaluated separately when the customer requires a
@@ -140,6 +157,8 @@ apiServer:
 
 The repository also provides HMAC hash-chain and JSONL verification primitives.
 The controller does not automatically append each run event into that chain.
+Separately, opt-in Ed25519 decision receipts cover each direct-path decision.
+See [receipts](receipts.md).
 
 ## Compliance
 

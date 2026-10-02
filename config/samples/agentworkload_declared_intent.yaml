@@ -1,0 +1,23 @@
+apiVersion: agentic.clawdlinux.org/v1alpha1
+kind: AgentWorkload
+metadata:
+  name: declared-intent-demo
+  namespace: agentic-system
+  annotations:
+    demo.clawdlinux.org/description: "Declared intent. Actions that send undeclared data classes or call undeclared hosts are denied in strict mode."
+spec:
+  objective: "triage refund requests and draft replies"
+  workloadType: generic
+  agents:
+    - "refund-agent"
+  opaPolicy: strict
+  autoApproveThreshold: "0.95"
+  mcpServerEndpoint: "https://mcp.refunds.internal:8443"
+  declaredIntent:
+    purpose: "Triage refund tickets. No customer data leaves the cluster."
+    decisionType: "refund-triage"
+    allowedDataClasses:
+      - email
+    allowedDestinations:
+      - mcp.refunds.internal
+      - "*.svc.cluster.local"

@@ -121,4 +121,8 @@ Cost reporting interface:
 
 Audit capture is not part of either complete path today.
 
+For how an action is decided (invariants, decision model, human approval) and
+what is built versus planned, see
+[decision architecture](architecture/decision-architecture.md).
+
 For detailed flows, see respective controller documentation.

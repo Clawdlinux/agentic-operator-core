@@ -1,12 +1,15 @@
-# OPA Policy Library
+# Rego policy samples (not evaluated yet)
 
-Reusable policy samples for common AgentWorkload guardrails.
+These are sample Rego files. The operator does not execute them. The operator
+evaluates only the shipped policy packs in `pkg/rules/packs`. See
+[policy packs](../../docs/policy-packs.md) and the
+[decision architecture](../../docs/architecture/decision-architecture.md).
 
 ## What is included
 
-- `samples/budget-cap.rego` enforces monthly or per-run budget ceilings.
-- `samples/egress-allowlist.rego` blocks outbound domains outside an allow-list.
-- `samples/model-allowlist.rego` restricts providers and models to approved sets.
+- `samples/budget-cap.rego` is a sample rule for monthly or per-run budget ceilings.
+- `samples/egress-allowlist.rego` is a sample rule for outbound domains outside an allow-list.
+- `samples/model-allowlist.rego` is a sample rule for restricting providers and models to approved sets.
 
 ## Package into a ConfigMap
 

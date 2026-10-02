@@ -63,6 +63,39 @@ spec:
               value: {{ .enforcementMode | default "strict" | quote }}
             {{- end }}
             {{- end }}
+            {{- with (.Values.global).receipts }}
+            {{- if .enabled }}
+            - name: RECEIPTS_ENABLED
+              value: "true"
+            - name: RECEIPTS_REQUIRED
+              value: {{ .required | default false | quote }}
+            - name: RECEIPTS_WRITER_URL
+              value: {{ printf "http://%s.%s.svc:%d" (printf "%s-receipt-writer" $.Release.Name | trunc 63 | trimSuffix "-") $.Release.Namespace (int (.port | default 8080)) | quote }}
+            - name: RECEIPTS_WRITER_TOKEN_FILE
+              value: /etc/receipts/token/{{ (.token).key | default "token" }}
+            - name: RECEIPTS_WRITER_TIMEOUT
+              value: {{ .timeout | default "5s" | quote }}
+            {{- if (.trustRoot).existingConfigMap }}
+            - name: RECEIPTS_WRITER_TRUST_FILE
+              value: /etc/receipts/trust/{{ (.trustRoot).key | default "trust.json" }}
+            {{- else if .insecureNoPin }}
+            - name: RECEIPTS_INSECURE_NO_PIN
+              value: "true"
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- with (.Values.global).decisionModel }}
+            {{- if .existingConfigMap }}
+            - name: DECISION_MODEL_PATH
+              value: /etc/decision-model/{{ .key | default "model.json" }}
+            {{- end }}
+            {{- end }}
+            {{- with ((.Values.global).approvals).stampKey }}
+            {{- if .existingSecret }}
+            - name: APPROVAL_STAMP_KEY_FILE
+              value: /etc/approval-stamp/{{ .key | default "stamp.key" }}
+            {{- end }}
+            {{- end }}
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}
@@ -108,11 +141,68 @@ spec:
             - name: webhook-certs
               mountPath: /tmp/k8s-webhook-server/serving-certs
               readOnly: true
+            {{- if ((.Values.global).receipts).enabled }}
+            - name: receipts-token
+              mountPath: /etc/receipts/token
+              readOnly: true
+            {{- if (((.Values.global).receipts).trustRoot).existingConfigMap }}
+            - name: receipts-trust
+              mountPath: /etc/receipts/trust
+              readOnly: true
+            {{- end }}
+            {{- end }}
+            {{- if (((.Values.global).approvals).stampKey).existingSecret }}
+            - name: approval-stamp-key
+              mountPath: /etc/approval-stamp
+              readOnly: true
+            {{- end }}
+            {{- if ((.Values.global).decisionModel).existingConfigMap }}
+            - name: decision-model
+              mountPath: /etc/decision-model
+              readOnly: true
+            {{- end }}
       volumes:
         - name: webhook-certs
           secret:
             secretName: {{ printf "%s-agentic-operator-webhook-tls" .Release.Name | trunc 63 | trimSuffix "-" }}
             optional: true
+        {{- with (.Values.global).receipts }}
+        {{- if .enabled }}
+        - name: receipts-token
+          secret:
+            secretName: {{ (.token).existingSecret | default (printf "%s-receipt-writer-token" $.Release.Name | trunc 63 | trimSuffix "-") }}
+            defaultMode: 0444
+        {{- if (.trustRoot).existingConfigMap }}
+        - name: receipts-trust
+          configMap:
+            name: {{ (.trustRoot).existingConfigMap }}
+            items:
+              - key: {{ (.trustRoot).key | default "trust.json" }}
+                path: {{ (.trustRoot).key | default "trust.json" }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- with (.Values.global).decisionModel }}
+        {{- if .existingConfigMap }}
+        - name: decision-model
+          configMap:
+            name: {{ .existingConfigMap }}
+            items:
+              - key: {{ .key | default "model.json" }}
+                path: {{ .key | default "model.json" }}
+        {{- end }}
+        {{- end }}
+        {{- with ((.Values.global).approvals).stampKey }}
+        {{- if .existingSecret }}
+        - name: approval-stamp-key
+          secret:
+            secretName: {{ .existingSecret }}
+            defaultMode: 0444
+            items:
+              - key: {{ .key | default "stamp.key" }}
+                path: {{ .key | default "stamp.key" }}
+        {{- end }}
+        {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

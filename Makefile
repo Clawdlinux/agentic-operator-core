@@ -18,7 +18,7 @@ SETUP_ENVTEST := $(LOCALBIN)/setup-envtest
 STATICCHECK := $(LOCALBIN)/staticcheck
 CONTROLLER_GEN := $(LOCALBIN)/controller-gen
 
-.PHONY: help test validate test-unit test-go test-anf-snapshot vet-anf-snapshot verify-anf-snapshot test-python setup-envtest test-controller fmt fmt-anf-snapshot fmt-check fmt-check-anf-snapshot vet lint staticcheck-anf-snapshot build build-agentctl build-agentctl-web build-anf-snapshot install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate
+.PHONY: help test validate test-unit test-go test-anf-snapshot vet-anf-snapshot verify-anf-snapshot test-python setup-envtest test-controller fmt fmt-anf-snapshot fmt-check fmt-check-anf-snapshot vet lint staticcheck-anf-snapshot build build-agentctl build-agentctl-web build-receipt-writer build-anf-snapshot install-agentctl scan-secrets clean-venv check-python-version helm-lint test-cluster test-smoke test-e2e-cluster manifests generate decision-train
 
 .DEFAULT_GOAL := help
 
@@ -177,6 +177,13 @@ build:
 	@echo "Building Go binaries..."
 	@$(GO) build ./...
 
+decision-train: ## Seed DRAFT synthetic data and train the decision model twice; fails unless both artifacts match
+	@bash tools/decision-train/run.sh
+
+.PHONY: trace-coverage
+trace-coverage:
+	@$(GO) test ./internal/controller -run '^TestDecisionTraceCoverage$$' -count=1 -v
+
 build-agentctl:
 	@echo "Building agentctl binary..."
 	@mkdir -p bin
@@ -186,6 +193,11 @@ build-agentctl-web:
 	@echo "Building agentctl-web binary..."
 	@mkdir -p bin
 	@$(GO) build -o bin/agentctl-web ./cmd/agentctl-web/...
+
+build-receipt-writer:
+	@echo "Building receipt-writer binary..."
+	@mkdir -p bin
+	@$(GO) build -o bin/receipt-writer ./cmd/receipt-writer
 
 build-anf-snapshot:
 	@echo "Building anf-snapshot binary..."

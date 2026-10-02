@@ -57,11 +57,15 @@ import (
 	"github.com/Clawdlinux/agentic-operator-core/internal/controller"
 	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy"
 	"github.com/Clawdlinux/agentic-operator-core/internal/netpolicy/netprobe"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/approval"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/dataset"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/decision/learned"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/governance"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/otel/genai"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -284,6 +288,15 @@ func main() {
 	workloadReconciler.TenantRes = tenantResolver            // Phase 7: Tenant isolation
 	workloadReconciler.SandboxClass = sandboxConfig.RuntimeClassName
 	workloadReconciler.Recorder = mgr.GetEventRecorder("agentworkload-controller")
+	receiptsCfg, err := receipts.ConfigFromEnv(os.Getenv)
+	if err != nil {
+		setupLog.Error(err, "Invalid receipts configuration")
+		os.Exit(1)
+	}
+	workloadReconciler.Receipts = buildReceiptsConfig(receiptsCfg, setupLog)
+	workloadReconciler.DecisionModel = buildDecisionModelConfig(os.Getenv("DECISION_MODEL_PATH"), setupLog)
+	workloadReconciler.ApprovalStampKey = buildApprovalStampKey(os.Getenv("APPROVAL_STAMP_KEY_FILE"), setupLog)
+	agenticv1alpha1.SetApprovalStampKey(workloadReconciler.ApprovalStampKey)
 
 	if err := workloadReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "AgentWorkload")
@@ -355,6 +368,70 @@ type runnableFunc func(context.Context) error
 
 func (f runnableFunc) Start(ctx context.Context) error {
 	return f(ctx)
+}
+
+// buildReceiptsConfig turns env config into controller config. A writer that
+// cannot be built stays nil: with RECEIPTS_REQUIRED every action is then
+// denied by INV-05 instead of the operator refusing to start.
+func buildReceiptsConfig(cfg receipts.Config, logger logr.Logger) controller.ReceiptsConfig {
+	out := controller.ReceiptsConfig{Enabled: cfg.Enabled, Required: cfg.Required}
+	if !cfg.Enabled {
+		return out
+	}
+	w, err := cfg.NewWriter()
+	if err != nil {
+		logger.Error(err, "Receipt writer misconfigured", "required", cfg.Required)
+		return out
+	}
+	out.Writer = w
+	if cfg.InsecureNoPin && len(cfg.TrustedKeys) == 0 {
+		logger.Info("WARNING: RECEIPTS_INSECURE_NO_PIN=true. Writer receipts are not verified. Demo only.")
+	}
+	if ds, err := dataset.NewRemote(cfg.WriterURL, receipts.TokenFile(cfg.TokenFile), cfg.Timeout); err == nil {
+		out.Approvals = ds
+	} else {
+		logger.Error(err, "Approval dataset client misconfigured; examples will not be stored")
+	}
+	logger.Info("Decision receipts enabled", "writer", cfg.WriterURL, "required", cfg.Required)
+	return out
+}
+
+// buildApprovalStampKey loads the approval stamp HMAC key. Without a usable
+// key the webhook refuses new decisions and the controller refuses to act on
+// any decision. Startup is never blocked.
+func buildApprovalStampKey(path string, logger logr.Logger) []byte {
+	if path == "" {
+		logger.Info("Approvals refused: APPROVAL_STAMP_KEY_FILE not set")
+		return nil
+	}
+	key, err := approval.LoadKey(path)
+	if err != nil {
+		logger.Error(err, "Approval stamp key rejected; approvals are refused", "path", path)
+		return nil
+	}
+	logger.Info("Approval stamp key loaded")
+	return key
+}
+
+// buildDecisionModelConfig loads the decision model artifact. No path means
+// no model. A configured artifact that fails to load gives an unavailable
+// model: escalate workloads then require approval, as on a scorer error. It
+// never blocks startup.
+func buildDecisionModelConfig(path string, logger logr.Logger) controller.DecisionModelConfig {
+	if path == "" {
+		logger.Info("Decision model off: DECISION_MODEL_PATH not set")
+		return controller.DecisionModelConfig{}
+	}
+	m, err := learned.Load(path)
+	if err != nil {
+		logger.Error(err, "Decision model artifact rejected; escalate workloads require approval, shadow only logs", "path", path)
+		return controller.DecisionModelConfig{Unavailable: err}
+	}
+	a := m.Artifact()
+	agenticv1alpha1.SetDecisionModelThreshold(m.ThresholdMicro())
+	logger.Info("Decision model loaded", "id", a.ModelID, "version", a.Version, "artifactSHA256", a.ArtifactSHA256,
+		"thresholdMicro", a.ThresholdMicro, "dataSource", a.TrainedOn.DataSource)
+	return controller.DecisionModelConfig{Scorer: m}
 }
 
 func registerFinOpsMetrics(registerer prometheus.Registerer, reporter *finops.MemoryCostReporter) error {

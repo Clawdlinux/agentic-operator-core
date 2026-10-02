@@ -24,20 +24,28 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/packs"
 )
 
 var agentworkloadlog = logf.Log.WithName("agentworkload-resource")
 
+// SetupWebhookWithManager registers the defaulting and validating webhooks.
+// Without WithDefaulter and WithValidator the builder registers no handler.
 func (r *AgentWorkload) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, r).
+		WithDefaulter(workloadAdmission{stampKey: approvalStampKey}).
+		WithValidator(workloadAdmission{stampKey: approvalStampKey}).
 		Complete()
 }
 
@@ -120,7 +128,44 @@ func (r *AgentWorkload) ValidateUpdate(old runtime.Object) error {
 		)
 	}
 
+	if err := r.validateApprovalFreeze(oldWorkload); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// validateApprovalFreeze rejects changes to the fields that shape a decision
+// while an action is held for a human or a decision is being recorded. The
+// stamp binds an approval to the proposal, not to the spec. Without this an
+// approved proposal could run under a different declared intent, policy pack
+// set, policy mode, or model setting than the reviewer saw.
+func (r *AgentWorkload) validateApprovalFreeze(old *AgentWorkload) error {
+	p := old.Status.PendingApproval
+	if p == nil || (old.Status.Phase != PhasePendingApproval && p.State == "") {
+		return nil
+	}
+	var changed []string
+	if !apiequality.Semantic.DeepEqual(old.Spec.DeclaredIntent, r.Spec.DeclaredIntent) {
+		changed = append(changed, "declaredIntent")
+	}
+	if !apiequality.Semantic.DeepEqual(old.Spec.PolicyPacks, r.Spec.PolicyPacks) {
+		changed = append(changed, "policyPacks")
+	}
+	if !stringPtrEqual(old.Spec.OPAPolicy, r.Spec.OPAPolicy) {
+		changed = append(changed, "opaPolicy")
+	}
+	if !apiequality.Semantic.DeepEqual(old.Spec.DecisionModel, r.Spec.DecisionModel) {
+		changed = append(changed, "decisionModel")
+	}
+	if !apiequality.Semantic.DeepEqual(old.Spec.ApprovalCapture, r.Spec.ApprovalCapture) {
+		changed = append(changed, "approvalCapture")
+	}
+	if len(changed) == 0 {
+		return nil
+	}
+	return apierrors.NewForbidden(GroupVersion.WithResource("agentworkloads").GroupResource(), r.Name,
+		fmt.Errorf("spec.%s cannot change while an approval is pending. Approve, reject or edit the pending action first", strings.Join(changed, ", spec.")))
 }
 
 // ValidateDelete validates the resource on deletion
@@ -180,6 +225,16 @@ func (r *AgentWorkload) validate() error {
 		}
 	}
 
+	// 7. Validate policyPacks against shipped packs at exact versions.
+	for _, p := range r.Spec.PolicyPacks {
+		if !packs.Valid(p) {
+			allErrs = append(allErrs, fmt.Sprintf("policyPacks: unknown pack %q, known: %v", p, packs.Known()))
+		}
+	}
+
+	// 8. Validate decisionModel. The threshold may only be stricter.
+	allErrs = append(allErrs, validateDecisionModel(r.Spec.DecisionModel)...)
+
 	// Combine errors
 	if len(allErrs) > 0 {
 		errMsg := strings.Join(allErrs, "; ")
@@ -193,6 +248,36 @@ func (r *AgentWorkload) validate() error {
 	}
 
 	return nil
+}
+
+// decisionModelThreshold is the loaded artifact threshold in micro-units, or
+// 0 when no artifact is loaded. Set once by the operator at startup.
+var decisionModelThreshold atomic.Int64
+
+// SetDecisionModelThreshold tells the webhook the loaded artifact threshold,
+// so a looser workload override is rejected at admission.
+func SetDecisionModelThreshold(micro int64) { decisionModelThreshold.Store(micro) }
+
+func validateDecisionModel(dm *DecisionModel) []string {
+	if dm == nil {
+		return nil
+	}
+	var errs []string
+	switch dm.Mode {
+	case "", DecisionModelOff, DecisionModelShadow, DecisionModelEscalate:
+	default:
+		errs = append(errs, fmt.Sprintf("decisionModel.mode must be one of off, shadow, escalate, got %q", dm.Mode))
+	}
+	if t := dm.ThresholdMicro; t != nil {
+		art := decisionModelThreshold.Load()
+		switch {
+		case *t < 0 || *t > 1000000:
+			errs = append(errs, fmt.Sprintf("decisionModel.thresholdMicro must be 0 to 1000000, got %d", *t))
+		case art > 0 && *t > art:
+			errs = append(errs, fmt.Sprintf("decisionModel.thresholdMicro %d is looser than the model artifact threshold %d; only a stricter (lower) value is allowed", *t, art))
+		}
+	}
+	return errs
 }
 
 // validateMCPEndpoint validates the MCP server endpoint

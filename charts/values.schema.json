@@ -27,7 +27,33 @@
         },
         "storageClass": { "type": "string" },
         "namespace": { "type": "string" },
-        "runtimeSandbox": { "$ref": "#/$defs/runtimeSandbox" }
+        "runtimeSandbox": { "$ref": "#/$defs/runtimeSandbox" },
+        "receipts": { "$ref": "#/$defs/receipts" },
+        "decisionModel": {
+          "type": "object",
+          "description": "Escalate-only decision model artifact. See docs/architecture/decision-model.md.",
+          "properties": {
+            "existingConfigMap": { "type": "string" },
+            "key": { "type": "string", "pattern": "^[-._a-zA-Z0-9]+$" }
+          },
+          "additionalProperties": false
+        },
+        "approvals": {
+          "type": "object",
+          "description": "Human approval protocol. See docs/approvals.md.",
+          "properties": {
+            "stampKey": {
+              "type": "object",
+              "description": "Secret holding the approval stamp HMAC key. Unset refuses approvals.",
+              "properties": {
+                "existingSecret": { "type": "string" },
+                "key": { "type": "string", "pattern": "^[-._a-zA-Z0-9]+$" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
       }
     },
     "license": {
@@ -336,6 +362,43 @@
         "enforcementMode": { "type": "string", "enum": ["strict", "best-effort"] },
         "overhead": { "type": "object" },
         "scheduling": { "type": "object" }
+      }
+    },
+    "receipts": {
+      "type": "object",
+      "description": "Signed decision receipts and the receipt-writer StatefulSet. See docs/receipts.md.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "required": { "type": "boolean" },
+        "image": { "$ref": "#/$defs/image" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "timeout": { "type": "string" },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "size": { "type": "string" },
+            "storageClass": { "type": "string" }
+          }
+        },
+        "token": { "$ref": "#/$defs/secretRef" },
+        "signingKey": { "$ref": "#/$defs/secretRef" },
+        "trustRoot": {
+          "type": "object",
+          "properties": {
+            "existingConfigMap": { "type": "string" },
+            "key": { "type": "string", "pattern": "^[-._a-zA-Z0-9]+$" }
+          },
+          "additionalProperties": false
+        },
+        "insecureNoPin": { "type": "boolean" },
+        "resources": { "$ref": "#/$defs/resources" }
+      }
+    },
+    "secretRef": {
+      "type": "object",
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "key": { "type": "string", "minLength": 1 }
       }
     }
   }

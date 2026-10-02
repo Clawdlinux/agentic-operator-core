@@ -1,6 +1,6 @@
 # Roadmap
 
-Public roadmap for Clawdlinux. Updated quarterly. For the architecture and use case, read [docs/DESIGN.md](docs/DESIGN.md) first.
+Public roadmap for Clawdlinux. Updated quarterly. No dates are committed. For the architecture and use case, read [docs/DESIGN.md](docs/DESIGN.md) first.
 
 ## The problem we are solving
 
@@ -19,7 +19,7 @@ and cost components. Same-run capture and enforcement parity are not complete.
 - **Mar to Apr 2026.** Core platform hardened: Cilium FQDN egress generation, LiteLLM routing, MinIO artifacts, Python LangGraph runtime with A2A, full-cycle integration tests, Helm umbrella chart.
 - **May 2026.** ACP (Agent Contract Protocol) spun out as its own repo and spec. Benchmarks landed: 64.7% to 97.4% token reduction vs raw MCP, one round trip. Briefly explored a consumer AgentOS direction; reversed within the month. Enterprise K8s is the business.
 - **Jun 2026.** Positioning locked: we sell the governance and evidence plane, not a runtime. Runtime adapters, gVisor mutation, and offline JSONL verification primitives shipped. Governance parity and same-run capture remained incomplete.
-- **Jul 2026.** Demo gate (`scripts/demo-booth.sh`) reproducible on kind. Focus: validation conversations and the Jul 22 Agentic Summit booth. Fintech is the anchor vertical.
+- **Jul 2026.** Demo gate (`scripts/demo-booth.sh`) reproducible on kind. Focus: validation conversations. Fintech is the anchor vertical.
 
 ## Scope note
 
@@ -46,16 +46,29 @@ Strong CNCF base runtimes for agents on Kubernetes exist and are improving. Claw
 - [x] HMAC hash-chain and offline JSONL `audit-verify`
 - [x] gVisor RuntimeClass + pod admission injector for labeled agent pods
 - [x] Runtime adapter interface (AgentWorkload, BYO pods, external runtimes)
-- [x] Rego policy samples and an in-process Go action evaluator
+- [x] Rego policy samples (not evaluated) and an in-process Go threshold evaluator
 - [x] Grafana observability and per-workload cost dashboards
 - [x] Reproducible booth demo gate on kind
 
-## Now (Q3 2026)
+## Shipped (decision architecture)
+
+- [x] Rule engine (OPA Go library) with invariants and policy packs. 6 invariants (INV-01 to INV-06), `dpdp-in@v0.1.0` and `gdpr-eu@v0.1.0` packs. Direct action path only; orchestrated runtimes reject packs. See [policy packs](docs/policy-packs.md)
+- [x] Signed decision receipts, opt-in. AgentGate receipt format, `receipt-writer` service, write-ahead, fail closed with `RECEIPTS_REQUIRED`, `agentctl receipts export|verify`. Direct action path only. See [receipts](docs/receipts.md)
+- [x] Human approval protocol and signed approval dataset. Webhook-stamped approver, append-once decisions, edit re-validated against invariants, `spec.approvalCapture`, `approvals.jsonl` on the receipt-writer, `agentctl dataset export|verify`. Direct action path only; Argo approval gates not covered. See [approvals](docs/approvals.md)
+- [x] Decision model phase A: logistic regression with integer-only inference, escalate-only, `spec.decisionModel.mode` shadow by default, `DECISION_MODEL_PATH`, receipt `model` block, `agentctl decision eval` with a hand-weighted baseline, stdlib trainer with byte-identical reruns. Shipped artifact trained on synthetic DRAFT scenarios, not production-validated. Phase B not built. See [decision model](docs/architecture/decision-model.md)
+
+- [x] P7 decision traces on direct proposals and stamped human approve, reject, and edit decisions.
+	Receipt joins use writer-returned sequence and entry hash. Privacy and write-ahead tests enforce an 11-path coverage matrix.
+	See [decision tracing](docs/TRACING.md#decision-tracing).
+
+## Now
 
 Priority order. Validation before features.
 
-- [ ] 10 qualified platform/security conversations by Sep 15, including 3 active production-review blockers and 1 scoped design-partner engagement. This is the one-time reset of the missed Jul 15 criterion.
-- [ ] Jul 22 Agentic Summit booth demo, fintech use case
+- [ ] Decision trace gaps: runtime adapters, execution outcomes, receipt-writer internals, and cross-process propagation to the writer.
+
+- [ ] Qualified platform and security conversations, including active production-review blockers and 1 scoped design-partner engagement
+- [ ] Fintech booth demo use case
 - [ ] Air-gapped install smoke test in CI
 - [ ] Webhook admission controller for CRD validation
 - [ ] Per-runtime sandbox label guide
@@ -63,8 +76,12 @@ Priority order. Validation before features.
 - [ ] Runtime governance-label parity and enforcing-CNI packet tests
 - [ ] ACP RemoteMCPServer wrapper example
 - [ ] Homebrew tap for agentctl
+- [x] Observed decision inputs on the direct action path: destination host, deterministic data-class detection, action history. Caller identity is not observed yet. Agent self-report only tightens. See [policy input](docs/policy-input.md)
+- [ ] Invariants and policy packs on orchestrated runtimes (`spec.orchestration`)
+- [ ] Receipt gaps: runtime-adapter path, execution outcome, approval receipts, key rotation, retention, writer TLS, published writer image
+- [ ] Decision model on real labels: founder-written scenarios, retrain on human rows, pass the escalate gate. Runtime-adapter path not scored. LLM judge not started. See [decision model](docs/architecture/decision-model.md)
 
-## Later (Q4 2026+, all validation-gated)
+## Later (all validation-gated)
 
 - [ ] Cross-cluster agent identity federation (SPIFFE/SPIRE). RFC: [docs/rfcs/0001-cross-cluster-agent-identity.md](docs/rfcs/0001-cross-cluster-agent-identity.md). Gate: 6+ distinct external use cases or 1 paying customer request.
 - [ ] Multi-cluster federation

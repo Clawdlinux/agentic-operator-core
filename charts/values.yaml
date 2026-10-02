@@ -48,6 +48,74 @@ global:
     enforcementMode: strict
     overhead: {}
     scheduling: {}
+  # Signed decision receipts (docs/receipts.md). Lives under global because
+  # the operator Deployment is a subchart and reads it to get its env.
+  # When enabled, the chart runs a receipt-writer StatefulSet in the release
+  # namespace and points the operator at it.
+  receipts:
+    enabled: false
+    # required: every action is denied (INV-05) unless its receipt is stored
+    # first. false: a failed receipt is logged and the action still runs.
+    required: false
+    image:
+      repository: ghcr.io/clawdlinux/agentic-operator-core/receipt-writer
+      tag: "latest"
+      pullPolicy: Always
+    port: 8080
+    # Operator side HTTP timeout per receipt.
+    timeout: 5s
+    storage:
+      size: 1Gi
+      storageClass: ""
+    # Bearer token shared by operator and writer. Empty existingSecret: the
+    # chart creates <release>-receipt-writer-token once and keeps it.
+    token:
+      existingSecret: ""
+      key: token
+    # Ed25519 signing key, hex seed. REQUIRED when enabled. The chart never
+    # generates it. Create it yourself and keep a copy offline:
+    #   kubectl create secret generic receipt-signing-key \
+    #     --from-literal=signing-key=$(openssl rand -hex 32)
+    signingKey:
+      existingSecret: ""
+      key: signing-key
+    # Pinned writer public key. REQUIRED when enabled. The operator verifies
+    # every returned receipt (signature, entry hash, chain continuity) under
+    # it. Make the trust file from the signing key, then a ConfigMap:
+    #   agentctl receipts trust-root --signing-key-file key.hex > trust.json
+    #   kubectl create configmap receipt-trust-root --from-file=trust.json
+    trustRoot:
+      existingConfigMap: ""
+      key: trust.json
+    # Demo only. Accept writer receipts without verifying them. A spoofed
+    # writer or a MITM can then fake receipts.
+    insecureNoPin: false
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+
+  # Escalate-only decision model. See docs/architecture/decision-model.md.
+  # Empty existingConfigMap: no model is loaded and decisions are unchanged.
+  # The shipped artifact is trained on synthetic DRAFT data:
+  #   kubectl create configmap decision-model \
+  #     --from-file=model.json=tools/decision-train/out/model.json
+  # Workloads default to spec.decisionModel.mode: shadow (score, no effect).
+  decisionModel:
+    existingConfigMap: ""
+    key: model.json
+
+  # Approval stamp HMAC key. See docs/approvals.md. Without it every human
+  # approval is refused (fail closed). Create a key of at least 32 bytes:
+  #   kubectl create secret generic approval-stamp-key \
+  #     --from-literal=stamp.key="$(openssl rand -hex 32)"
+  approvals:
+    stampKey:
+      existingSecret: ""
+      key: stamp.key
 
 # ---------------------------------------------------------------------------
 # License (REQUIRED)
@@ -382,7 +450,8 @@ networkPolicy:
   # MinIO, and Browserless run. Empty uses the release namespace.
   platformNamespace: ""
   # Extra allow-list entries appended to the default policy. Each entry is an
-  # IP CIDR plus optional ports.
+  # IP CIDR plus optional ports. The default list has no rule for the
+  # workload MCP endpoint. Add one here when your CNI enforces NetworkPolicy.
   # Example:
   #   additionalAllowedHosts:
   #     - cidr: 10.20.0.0/16

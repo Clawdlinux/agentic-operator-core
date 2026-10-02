@@ -1,4 +1,4 @@
-# Model Routing Observability with OpenTelemetry
+# Model Routing and Decision Tracing with OpenTelemetry
 
 This document describes how to observe and debug model routing decisions using OpenTelemetry tracing.
 
@@ -71,6 +71,148 @@ Spans record events for key decisions and errors:
 - `model_call_failed` - API call failed
 - `routing_completed` - Routing succeeded
 
+## Decision tracing
+
+P7 instruments valid proposals on the legacy direct action path.
+Each proposal starts `decision.evaluate` using tracer `agentic.operator/decision`.
+Stamped human approve, reject, and edit decisions start separate evaluation spans.
+Decision logic, precedence, receipt format, and execution behavior are unchanged.
+
+### Span tree
+
+```text
+decision.evaluate
+   +- decision.threshold
+   +- decision.invariants
+   +- decision.packs
+   +- decision.model             [model loaded and mode != off]
+   +- decision.receipt.append    [receipts enabled]
+
+decision.evaluate
+   +- decision.human
+          +- decision.threshold   [approve or edit]
+          +- decision.invariants  [approve or edit]
+          +- decision.packs       [approve or edit]
+          +- decision.receipt.append [receipts enabled]
+```
+
+The threshold runs first in existing controller code. Instrumentation does not reorder it.
+Packs have a span even when no packs are configured.
+Human approve and edit recheck invariants and packs, but do not rerun the model.
+A blocked human decision produces another evaluation span for its subsequent deny receipt.
+Receipt append spans finish before `execute_action` runs.
+Evaluation and human spans also finish before execution starts.
+
+### Attributes
+
+These are the exact decision attribute keys. No other decision payload attributes are emitted.
+
+| Key | Type | Meaning and placement |
+|---|---|---|
+| `clawd.workload.namespace` | string | Kubernetes namespace identifier, on root and children |
+| `clawd.workload.name` | string | Workload identifier, on root and children |
+| `clawd.decision.layer` | string | Root's decisive layer; child's stage: `invariant`, `rules`, `threshold`, `human`, `model` |
+| `clawd.decision.outcome` | string | `allow`, `deny`, `require_approval`, `approved`, `rejected`, `edited` |
+| `clawd.audit.seq` | int64 | Writer-returned receipt sequence, on append span, its parent, and evaluation root |
+| `clawd.audit.entry_hash` | string | Full hexadecimal receipt entry hash, on the same spans as sequence |
+| `clawd.decision.rule_ids` | string slice | Invariant IDs and pack rule IDs only; collected on evaluation root and corresponding layer spans |
+| `clawd.decision.pack_ids` | string slice | Configured versioned pack IDs, on evaluation root and pack span |
+| `clawd.decision.model.id` | string | Scored model identifier, on model span |
+| `clawd.decision.model.version` | string | Scored model version, on model span |
+| `clawd.decision.model.risk_micro` | int64 | Scored risk in micro-units, on model span |
+| `clawd.decision.mode` | string | Effective model mode: `off`, `shadow`, or `escalate`; on root and children |
+
+`pack` in the internal decision result becomes `rules` in trace attributes, matching receipts.
+Rule IDs exclude pack prefixes, matched data, and reason text. Threshold prose is never used as a rule ID.
+Only a successful append sets receipt sequence and hash. Disabled receipts and failed writes leave both absent.
+A required write failure changes the proposal root to `invariant` / `deny`, matching existing INV-05 behavior.
+A human write failure keeps the attempted human outcome, adds error status, and follows existing required-receipt behavior.
+Errors call `span.RecordError` with fixed error classes and set error status.
+Classes are `receipt_write_failed`, `policy_pack_failed`, `model_score_failed`, and `human_decision_failed`.
+Append failures also emit `receipt.write.failed` without payload attributes.
+Original error messages are never recorded in decision spans.
+
+### Enablement and retention
+
+The operator initializes the existing global OTel provider through `pkg/otel/genai`.
+Set `OTEL_EXPORTER_OTLP_ENDPOINT` to an OTLP/gRPC collector address, for example `otel-collector:4317`.
+No configured endpoint leaves the default no-op tracer. No collector, network call, or tracing-specific decision gate is added.
+Spans use that global provider, including its sampler and exporter.
+Every evaluated decision reaches instrumentation. Sampling, exporter failures, and backend retention can still remove trace evidence.
+Keep all decision traces at the collector when audit trace coverage matters.
+Signed receipts remain the evidence source; traces are an unsigned diagnostic index.
+
+### Join traces to receipts
+
+1. Select a `decision.evaluate` span by workload, layer, and outcome.
+2. Read `clawd.audit.seq` and `clawd.audit.entry_hash`.
+3. Export the corresponding writer chain and verify it against an independently pinned trust root.
+
+```sh
+agentctl receipts export --writer http://localhost:8080 \
+   --token-file ./token --out ./evidence
+agentctl receipts verify ./evidence --trust-root ./pinned-trust.json
+```
+
+Successful verification prints these lines:
+
+```text
+PASS: <count> receipts verified, head seq=<seq> hash=<16 hex characters>
+PASS: <count> decision records bound to their receipts
+```
+
+Find the receipt whose `seq` equals `clawd.audit.seq` and compare its full entry hash.
+Scope sequences to that writer chain. Sequences alone are not unique across writers or reset chains.
+The verified receipt binds its signed record hash to the corresponding decision record.
+The CLI prints only a shortened head hash. Compare the complete receipt hash, not that prefix.
+The trace itself is not signed or verified by `agentctl receipts verify`.
+Without a successful receipt append, no signed-chain join is available.
+See [decision receipts](receipts.md#verify-offline) and [human approvals](approvals.md).
+
+Generic OTLP backend pseudo-query, adapted to the backend's span index:
+
+```sql
+SELECT trace_id, attributes['clawd.audit.seq'], attributes['clawd.audit.entry_hash']
+FROM spans
+WHERE span_name = 'decision.evaluate'
+   AND attributes['clawd.workload.namespace'] = 'default'
+   AND attributes['clawd.workload.name'] = 'my-workload'
+   AND attributes['clawd.decision.outcome'] = 'require_approval'
+```
+
+### Privacy rules
+
+Decision attributes and events contain identifiers, classes, hashes, and integers only.
+Never add raw params, action descriptions, matched data, approver names, free-text reasons, tokens, or personal data.
+Do not copy error strings into span status or events. They can contain credentials or email addresses.
+Approved identifier fields are not substitutes for free-text fields.
+Recorder tests plant description, credential, email, approver, and reason canaries and scan attributes and events.
+These rules apply to decision spans. Existing model-routing instrumentation has its own older attribute schema.
+
+### Coverage check
+
+```sh
+make trace-coverage
+go test ./internal/controller -run '^TestDecisionTraceCoverage$' -count=1 -v
+```
+
+Both commands print the same 11-path matrix and assert root layer and outcome values.
+Cases cover allow, invariant deny, pack deny, threshold deny, pack approval, and model escalation.
+They also cover human approve, reject, edit, disabled receipts, and required receipt failure.
+SDK recorder tests check receipt identity, parent links, privacy, and write-ahead span completion.
+Separate tests cover no-op tracing, model off/errors, and human receipt failures.
+
+### Not covered
+
+- The runtime-adapter path (`reconcileViaRuntime`) has no decision spans.
+- Execution outcome after the receipt is not traced as a decision.
+- Receipt-writer service internals are not traced.
+- Cross-process trace propagation to the receipt-writer is not implemented.
+- Invalid proposals before typed evaluation, unstamped decisions, stale annotations, and replay recovery have no decision evaluation spans.
+
+`pkg/receipts/remote.go` uses a plain HTTP client without propagator injection or an OTel transport wrapper.
+The global propagator alone does not inject headers into those requests.
+
 ## Setup & Configuration
 
 ### Prerequisites
@@ -82,7 +224,8 @@ Spans record events for key decisions and errors:
 
 ### Enable Tracing
 
-Traces are **automatically enabled** when OpenTelemetry SDK is initialized. No configuration needed.
+The operator exports traces when `OTEL_EXPORTER_OTLP_ENDPOINT` configures its global OpenTelemetry provider.
+Without that endpoint, the default tracer is a no-op. See [Decision tracing](#decision-tracing) for current operator configuration.
 
 ### Export to Loki
 

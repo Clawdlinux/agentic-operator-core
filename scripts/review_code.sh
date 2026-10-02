@@ -25,15 +25,15 @@ case $TASK in
   "WEEK2_TASK2B")
     echo "Reviewing: OPA Policies"
     FILES=(
-      "pkg/opa/policies.rego"
-      "pkg/opa/policies_test.go"
+      "pkg/rules/threshold/policies.rego"
+      "pkg/rules/threshold/policies_test.go"
     )
     ;;
   "WEEK2_TASK2C")
     echo "Reviewing: OPA Evaluator"
     FILES=(
-      "pkg/opa/evaluator.go"
-      "pkg/opa/evaluator_test.go"
+      "pkg/rules/threshold/evaluator.go"
+      "pkg/rules/threshold/evaluator_test.go"
     )
     ;;
   *)

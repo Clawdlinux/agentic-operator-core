@@ -108,10 +108,14 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(newVersionCommand(opts))
 	cmd.AddCommand(newInitCommand(opts))
 	cmd.AddCommand(newApproveCommand(opts))
+	cmd.AddCommand(newEditApproveCommand(opts))
 	cmd.AddCommand(newRejectCommand(opts))
 	cmd.AddCommand(newWorkflowsCommand(opts))
 	cmd.AddCommand(newStatusCommand(opts))
 	cmd.AddCommand(newMCPCommand(opts))
+	cmd.AddCommand(newReceiptsCommand(opts))
+	cmd.AddCommand(newDatasetCommand(opts))
+	cmd.AddCommand(newDecisionCommand(opts))
 
 	return cmd
 }
@@ -164,7 +168,7 @@ func newGetWorkloadsCommand(opts *cliOptions) *cobra.Command {
 				if allNamespaces {
 					headers = append([]string{"NAMESPACE"}, headers...)
 				}
-				tbl.SetHeader(headers)
+				tbl.Header(headers)
 				for _, row := range rows {
 					rec := []string{row.Name, agentctl.SafeText(row.Status, "unknown"), agentctl.SafeText(row.Model, "n/a"), fmt.Sprintf("$%.4f", row.CostToday), row.Age}
 					if allNamespaces {
@@ -215,7 +219,7 @@ func newDescribeWorkloadCommand(opts *cliOptions) *cobra.Command {
 			if len(detail.Steps) > 0 {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Recent workflow steps:")
 				tbl := tablewriter.NewWriter(cmd.OutOrStdout())
-				tbl.SetHeader([]string{"STEP", "PHASE", "STARTED", "ENDED"})
+				tbl.Header([]string{"STEP", "PHASE", "STARTED", "ENDED"})
 				for _, step := range detail.Steps {
 					tbl.Append([]string{step.Name, step.Phase, step.StartedAt, step.EndedAt})
 				}
@@ -319,7 +323,7 @@ func newCostSummaryCommand(opts *cliOptions) *cobra.Command {
 				if allNamespaces {
 					headers = append([]string{"NAMESPACE"}, headers...)
 				}
-				tbl.SetHeader(headers)
+				tbl.Header(headers)
 				for _, row := range rows {
 					rec := []string{agentctl.SafeText(row.Workload, "unknown"), agentctl.SafeText(row.Model, "unknown"), strconv.FormatInt(row.TokensToday, 10), fmt.Sprintf("$%.4f", row.CostToday), fmt.Sprintf("$%.4f", row.CostMTD)}
 					if allNamespaces {

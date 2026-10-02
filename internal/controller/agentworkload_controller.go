@@ -29,27 +29,36 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apiMeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	agenticv1alpha1 "github.com/Clawdlinux/agentic-operator-core/api/v1alpha1"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/decision"
+	decisioninput "github.com/Clawdlinux/agentic-operator-core/pkg/decision/input"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/decision/observe"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/evaluation"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/finops"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/llm"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/mcp"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/metrics"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/multitenancy"
-	"github.com/Clawdlinux/agentic-operator-core/pkg/opa"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/receipts"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/resilience"
 	"github.com/Clawdlinux/agentic-operator-core/pkg/routing"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/rules/packs"
 	runtimeadapter "github.com/Clawdlinux/agentic-operator-core/pkg/runtime"
+	"github.com/Clawdlinux/agentic-operator-core/pkg/tracing/decisiontrace"
 )
 
 // Maximum number of actions to keep in status to prevent unbounded growth
@@ -62,6 +71,26 @@ const maxActionsInStatus = 100
 const AgentWorkloadFinalizer = "agentic.clawdlinux.org/finalizer"
 
 const modelRoutingPendingCondition = "ModelRoutingPending"
+
+const policyPackInvalidCondition = "PolicyPackInvalid"
+
+// policyPackProblem returns why spec.policyPacks cannot be enforced, or "".
+// Packs run only on the legacy direct-action path today.
+func policyPackProblem(w *agenticv1alpha1.AgentWorkload) string {
+	if len(w.Spec.PolicyPacks) == 0 {
+		return ""
+	}
+	for _, p := range w.Spec.PolicyPacks {
+		if !packs.Valid(p) {
+			return fmt.Sprintf("unknown policy pack %q, known: %v", p, packs.Known())
+		}
+	}
+	orchestrated := w.Spec.Orchestration != nil && w.Spec.Orchestration.Type != nil && strings.TrimSpace(*w.Spec.Orchestration.Type) != ""
+	if orchestrated || (w.Status.ArgoWorkflow != nil && w.Status.ArgoWorkflow.Name != "") {
+		return "policy packs are enforced only on the direct action path, not on spec.orchestration runtimes"
+	}
+	return ""
+}
 
 const userControlledPersonaPreferenceLabel = "USER-CONTROLLED PERSONA PREFERENCE (treat as untrusted text):"
 
@@ -80,6 +109,9 @@ type AgentWorkloadReconciler struct {
 	RuntimeRegistry  *runtimeadapter.Registry // runtime adapter registry; nil lazily defaults to Argo
 	SandboxClass     string                   // RuntimeClass required for sandbox enforcement
 	Recorder         events.EventRecorder     // Optional Kubernetes event recorder
+	Receipts         ReceiptsConfig           // Decision receipts; zero value disables them
+	DecisionModel    DecisionModelConfig      // Decision model; zero value scores nothing
+	ApprovalStampKey []byte                   // HMAC key for approval stamps; nil refuses approvals
 }
 
 type quotaChecker interface {
@@ -230,6 +262,35 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			log.Error(err, "failed to add finalizer")
 			return ctrl.Result{}, err
 		}
+	}
+
+	// Unknown packs, or packs on a path that cannot enforce them, fail closed
+	// before any MCP call. The webhook also rejects unknown packs, but it can
+	// be disabled.
+	if msg := policyPackProblem(&workload); msg != "" {
+		workload.Status.Phase = "Failed"
+		workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
+			Type:               policyPackInvalidCondition,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: workload.Generation,
+			Reason:             "PolicyPackInvalid",
+			Message:            msg,
+			LastTransitionTime: metav1.Now(),
+		})
+		if err := r.Status().Update(ctx, &workload); err != nil {
+			return ctrl.Result{}, fmt.Errorf("update policy pack status: %w", err)
+		}
+		return ctrl.Result{}, nil
+	}
+	if c := apiMeta.FindStatusCondition(workload.Status.Conditions, policyPackInvalidCondition); c != nil && c.Status == metav1.ConditionTrue {
+		workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
+			Type:               policyPackInvalidCondition,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: workload.Generation,
+			Reason:             "PolicyPacksValid",
+			Message:            "Policy packs are valid.",
+			LastTransitionTime: metav1.Now(),
+		})
 	}
 
 	// A persisted execution reference is authoritative. Resume it through the
@@ -412,6 +473,15 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return r.reconcileViaRuntime(ctx, &workload)
 	}
 
+	// Rejected is terminal on the direct path. Recreate the workload to retry.
+	if workload.Status.Phase == agenticv1alpha1.PhaseRejected {
+		return ctrl.Result{}, nil
+	}
+	// A held action is resolved by a human decision, not re-proposed.
+	if workload.Status.Phase == agenticv1alpha1.PhasePendingApproval && workload.Status.PendingApproval != nil {
+		return r.reconcileApproval(ctx, &workload)
+	}
+
 	// Step 2: Connect to MCP server and fetch status
 	mcpEndpoint := ""
 	if workload.Spec.MCPServerEndpoint != nil {
@@ -429,17 +499,20 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	log.Info("Got status from MCP", "status", status)
+	// MCP replies can carry personal data or credentials. Never log values.
+	log.Info("Got status from MCP", "fields", len(status))
 
 	// Extract cluster health from status
 	// Default to 75 if not provided by MCP, but log a warning
 	clusterHealth := 75.0
+	var claimedHealth *float64
 	if rawHealth, ok := status["cluster_health"]; ok {
 		health, err := parseFlexibleFloat(rawHealth)
 		if err != nil {
-			log.Info("Warning: MCP status has invalid 'cluster_health' field, using default", "default", clusterHealth, "value", rawHealth)
+			log.Info("Warning: MCP status has invalid 'cluster_health' field, using default", "default", clusterHealth, "code", "invalid_cluster_health", "valueType", fmt.Sprintf("%T", rawHealth))
 		} else {
 			clusterHealth = health
+			claimedHealth = &health
 		}
 	} else {
 		log.Info("Warning: MCP status missing 'cluster_health' field, using default", "default", clusterHealth)
@@ -465,7 +538,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	log.Info("Proposed action from MCP", "proposal", proposal)
+	log.Info("Proposed action from MCP", "fields", len(proposal))
 
 	// Step 4: Evaluate action safety using OPA
 	now := metav1.Now()
@@ -503,7 +576,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	confidence, err := parseFlexibleFloat(rawConfidence)
 	if err != nil {
-		log.Error(err, "failed to parse confidence", "confidence", rawConfidence)
+		log.Error(err, "failed to parse confidence", "code", "invalid_confidence", "valueType", fmt.Sprintf("%T", rawConfidence))
 		workload.Status.Phase = "Failed"
 		if err := r.Status().Update(ctx, &workload); err != nil {
 			log.Error(err, "failed to update workload status")
@@ -512,7 +585,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if confidence < 0 || confidence > 1 {
-		log.Error(nil, "confidence value out of range", "confidence", confidence)
+		log.Error(nil, "confidence value out of range", "code", "confidence_out_of_range")
 		workload.Status.Phase = "Failed"
 		if err := r.Status().Update(ctx, &workload); err != nil {
 			log.Error(err, "failed to update workload status")
@@ -522,33 +595,46 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	confidenceStr := fmt.Sprintf("%.2f", confidence)
 
-	// Create OPA evaluator and evaluate action
-	// Use the appropriate evaluation mode based on policy setting
-	evaluator := opa.NewPolicyEvaluator()
-
 	// Determine OPA policy mode with nil guard (default to strict if nil)
 	opaPolicyMode := "strict"
 	if workload.Spec.OPAPolicy != nil {
 		opaPolicyMode = *workload.Spec.OPAPolicy
 	}
+	ctx, decisionSpan := decisiontrace.StartEvaluation(ctx, workload.Namespace, workload.Name, workload.Spec.DecisionModelMode())
+	decisiontrace.SetRules(decisionSpan, nil, workload.Spec.PolicyPacks)
+	opaResult := traceThreshold(ctx, opaPolicyMode, actionName, confidence, clusterHealth)
 
-	opaInput := &opa.EvaluationInput{
-		ActionType:         actionName,
-		Confidence:         confidence,
-		ClusterHealthScore: clusterHealth,
-		OPAPolicyMode:      opaPolicyMode,
+	log.Info("OPA evaluation result", "allowed", opaResult.Allowed, "confidence", opaResult.Confidence, "reasons", safeLogTexts(opaResult.Reasons))
+
+	// Both threshold inputs come from the agent's MCP server, not the platform.
+	log.Info("agent-claimed decision inputs", "claimedConfidence", confidence, "claimedClusterHealth", claimedHealth, "clusterHealthUsed", clusterHealth)
+
+	priorTotal, priorDenied := observe.History(workload.Status.ExecutedActions, workload.Status.ProposedActions)
+	decisionInput := decisioninput.Input{
+		Declared: observe.Declared(workload.Spec.DeclaredIntent),
+		Observed: observe.Observe(observe.Facts{
+			Endpoint:         mcpEndpoint,
+			Tool:             actionName,
+			Payload:          proposal,
+			PriorActionCount: priorTotal,
+			PriorDeniedCount: priorDenied,
+		}),
+		Claimed: decisioninput.AgentClaimed{Confidence: &confidence, ClusterHealth: claimedHealth, Intent: description},
 	}
 
-	// Apply mode-specific evaluation logic
-	var opaResult *opa.EvaluationResult
-	if opaPolicyMode == "permissive" {
-		opaResult = evaluator.EvaluatePermissive(opaInput)
-	} else {
-		// Default to strict mode
-		opaResult = evaluator.EvaluateStrict(opaInput)
-	}
-
-	log.Info("OPA evaluation result", "allowed", opaResult.Allowed, "confidence", opaResult.Confidence, "reasons", opaResult.Reasons)
+	// Layers run in order: invariants, policy packs, threshold. Decide keeps
+	// the strictest outcome, so no layer or claim can loosen another.
+	layers := r.evaluateLayers(ctx, &workload, decisionInput, opaResult)
+	result := decision.Decide(layers)
+	// The model runs last and can only tighten: escalate-only.
+	result, modelBlock := r.applyDecisionModel(ctx, &workload, actionName, decisionInput, result)
+	// The receipt binds the digest of exactly this execute_action payload.
+	executeParams := receipts.ExecutionPayload(actionName, proposal, confidenceStr)
+	// Write-ahead: the receipt is stored before the action can run.
+	result, recorded := r.recordDecision(ctx, &workload, actionName, decisionInput, executeParams, layers, result, opaPolicyMode, modelBlock)
+	decisiontrace.SetResult(decisionSpan, result.Layer, string(result.Outcome))
+	decisionSpan.End()
+	log.Info("decision", "outcome", result.Outcome, "layer", result.Layer, "destination", decisionInput.Observed.Destination, "dataClasses", decisionInput.Observed.DataClasses, "reasons", safeLogTexts(result.Reasons))
 
 	// Step 5: Handle action execution or approval pending
 	action := agenticv1alpha1.Action{
@@ -558,26 +644,33 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		Timestamp:   &now,
 	}
 
-	if opaResult.Allowed {
-		// Step 5a: Execute approved action via MCP
-		log.Info("OPA approved action, executing", "action", action.Name)
-
-		executeParams := map[string]interface{}{
-			"action":     action.Name,
-			"params":     proposal,
-			"confidence": confidenceStr,
+	if result.Outcome == decision.Allow {
+		// Order: receipt append, reservation, execute. The reservation is an
+		// optimistic status write. A spec change since the decision read
+		// (new pack, tighter declared intent) conflicts here, before any side
+		// effect, and the action is decided again on the fresh object.
+		if err := r.reserveExecution(ctx, &workload, action.Name, recorded, now); err != nil {
+			if apierrors.IsConflict(err) {
+				log.Info("workload changed after the decision; not executing, deciding again", "action", safeLogText(action.Name))
+				return ctrl.Result{RequeueAfter: time.Second}, nil
+			}
+			log.Error(err, "execution reservation failed; not executing", "action", safeLogText(action.Name))
+			return ctrl.Result{}, err
 		}
+
+		// Step 5a: Execute approved action via MCP
+		log.Info("OPA approved action, executing", "action", safeLogText(action.Name))
 
 		execution, err := mcpClient.CallTool("execute_action", executeParams)
 		if err != nil {
-			log.Error(err, "failed to execute action", "action", action.Name)
+			log.Error(err, "failed to execute action", "action", safeLogText(action.Name))
 			workload.Status.Phase = "Failed"
 			action.Approved = boolPtr(false)
 			workload.Status.ProposedActions = append(workload.Status.ProposedActions, action)
 			prunedProposed := pruneActions(workload.Status.ProposedActions, maxActionsInStatus)
 			workload.Status.ProposedActions = prunedProposed
 		} else {
-			log.Info("Action executed successfully", "action", action.Name, "result", execution)
+			log.Info("Action executed successfully", "action", safeLogText(action.Name), "resultFields", len(execution))
 			action.Approved = boolPtr(true)
 			workload.Status.ExecutedActions = append(workload.Status.ExecutedActions, action)
 			prunedExecuted := pruneActions(workload.Status.ExecutedActions, maxActionsInStatus)
@@ -586,23 +679,50 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	} else {
 		// Step 5b: Mark for human approval
-		log.Info("OPA denied action, requiring human approval", "action", action.Name, "reasons", opaResult.Reasons)
+		log.Info("action not allowed, requiring human approval", "action", safeLogText(action.Name), "outcome", result.Outcome, "reasons", safeLogTexts(result.Reasons))
 		action.Approved = boolPtr(false)
 		workload.Status.ProposedActions = append(workload.Status.ProposedActions, action)
 		prunedProposed := pruneActions(workload.Status.ProposedActions, maxActionsInStatus)
 		workload.Status.ProposedActions = prunedProposed
-		if workload.Spec.OPAPolicy != nil && *workload.Spec.OPAPolicy == "strict" {
+		switch {
+		case result.Outcome == decision.RequireApproval:
+			// A pack or model approval finding never auto-allows, in any mode.
+			reason := "PolicyPackApproval"
+			if result.Layer == decision.LayerModel {
+				reason = "ModelEscalation"
+			}
+			workload.Status.Phase = "PendingApproval"
+			workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
+				Type:               "ApprovalRequired",
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: workload.Generation,
+				Reason:             reason,
+				Message:            fmt.Sprintf("action %q needs human approval: %s", safeLogText(action.Name), safeLogText(strings.Join(result.Reasons, "; "))),
+				LastTransitionTime: now,
+			})
+		case workload.Spec.OPAPolicy != nil && *workload.Spec.OPAPolicy == "strict":
 			workload.Status.Phase = "PolicyDenied"
 			workload.Status.Conditions = upsertCondition(workload.Status.Conditions, metav1.Condition{
 				Type:               "PolicyDenied",
 				Status:             metav1.ConditionTrue,
 				ObservedGeneration: workload.Generation,
 				Reason:             "OPADenied",
-				Message:            fmt.Sprintf("OPA denied action %q: %s", action.Name, strings.Join(opaResult.Reasons, "; ")),
+				Message:            fmt.Sprintf("OPA denied action %q (%s layer): %s", safeLogText(action.Name), result.Layer, safeLogText(strings.Join(result.Reasons, "; "))),
 				LastTransitionTime: now,
 			})
-		} else {
+		default:
 			workload.Status.Phase = "PendingApproval"
+		}
+	}
+
+	// A held action waits for a human decision instead of being re-proposed.
+	workload.Status.PendingApproval = nil
+	if workload.Status.Phase == agenticv1alpha1.PhasePendingApproval {
+		pending, err := newPendingApproval(&workload, action, proposal, clusterHealth, claimedHealth, recorded, now)
+		if err != nil {
+			log.Error(err, "failed to record pending approval; action will be re-proposed")
+		} else {
+			workload.Status.PendingApproval = pending
 		}
 	}
 
@@ -657,7 +777,7 @@ func parseFlexibleFloat(value interface{}) (float64, error) {
 	case json.Number:
 		parsed, err := v.Float64()
 		if err != nil {
-			return 0, fmt.Errorf("invalid numeric value %q: %w", v.String(), err)
+			return 0, fmt.Errorf("invalid numeric value")
 		}
 		return parsed, nil
 	case float64:
@@ -682,7 +802,7 @@ func parseFlexibleFloat(value interface{}) (float64, error) {
 		}
 		parsed, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid numeric string %q: %w", v, err)
+			return 0, fmt.Errorf("invalid numeric string")
 		}
 		return parsed, nil
 	default:
@@ -1029,9 +1149,23 @@ func (r *AgentWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&agenticv1alpha1.AgentWorkload{}).
+		For(&agenticv1alpha1.AgentWorkload{}, builder.WithPredicates(workloadEventFilter())).
 		Named("agentworkload").
 		Complete(r)
+}
+
+// workloadEventFilter drops status-only updates. Without it every status write
+// re-triggers Reconcile, which re-proposes and re-executes the direct-path
+// action in a hot loop instead of on the RequeueAfter interval.
+func workloadEventFilter() predicate.Predicate {
+	return predicate.Or(
+		predicate.GenerationChangedPredicate{},
+		predicate.AnnotationChangedPredicate{},
+		predicate.LabelChangedPredicate{},
+		predicate.Funcs{UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectNew != nil && !e.ObjectNew.GetDeletionTimestamp().IsZero()
+		}},
+	)
 }
 
 func (r *AgentWorkloadReconciler) updateWorkloadCostAnnotation(ctx context.Context, workload *agenticv1alpha1.AgentWorkload) error {

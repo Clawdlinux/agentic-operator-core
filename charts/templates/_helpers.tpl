@@ -91,3 +91,23 @@ Render a full image reference: [registry/]repo:tag
 {{- printf "%s:%s" $repo $tag -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+receipt-writer labels. Own app name so operator selectors never match it.
+*/}}
+{{- define "agentic-operator.receiptWriter.selectorLabels" -}}
+app.kubernetes.io/name: receipt-writer
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "agentic-operator.receiptWriter.labels" -}}
+helm.sh/chart: {{ include "agentic-operator.chart" . }}
+{{ include "agentic-operator.receiptWriter.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- /* Not part-of agentic-operator: that label is the broad egress allow selector, and NetworkPolicy rules add up. */}}
+app.kubernetes.io/part-of: agentic-operator-receipt-writer
+app.kubernetes.io/component: receipt-writer
+{{- end }}

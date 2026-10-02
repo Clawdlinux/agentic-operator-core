@@ -139,6 +139,118 @@ type AgentWorkloadSpec struct {
 	// persona defines optional runtime identity, style, memory scope, and tool access policy.
 	// +optional
 	Persona *AgentPersona `json:"persona,omitempty"`
+
+	// declaredIntent states what this workload is for and what it may touch.
+	// When set, observed data classes and destinations outside it deny or
+	// escalate the action. See docs/policy-input.md.
+	// +optional
+	DeclaredIntent *DeclaredIntent `json:"declaredIntent,omitempty"`
+
+	// policyPacks lists Rego policy packs to evaluate, each as name@vX.Y.Z.
+	// Packs only add deny or require-approval. They are engineering controls,
+	// not legal advice. Enforced on the direct action path only.
+	// See docs/policy-packs.md.
+	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:validation:items:Pattern=`^(dpdp-in|gdpr-eu)@v[0-9]+\.[0-9]+\.[0-9]+$`
+	// +listType=set
+	// +optional
+	PolicyPacks []string `json:"policyPacks,omitempty"`
+
+	// approvalCapture controls what the approval dataset stores about the
+	// action content of each human decision. See docs/approvals.md.
+	// +optional
+	ApprovalCapture *ApprovalCapture `json:"approvalCapture,omitempty"`
+
+	// decisionModel sets how the escalate-only decision model is used on the
+	// direct action path. Nothing runs until the operator has a model
+	// artifact (DECISION_MODEL_PATH). See docs/architecture/decision-model.md.
+	// +optional
+	DecisionModel *DecisionModel `json:"decisionModel,omitempty"`
+}
+
+// DecisionModel configures the decision model for one workload.
+type DecisionModel struct {
+	// mode is off (never scored), shadow (scored and recorded, no effect), or
+	// escalate (may move allow to require_approval, never anything looser).
+	// +kubebuilder:validation:Enum=off;shadow;escalate
+	// +kubebuilder:default=shadow
+	// +optional
+	Mode string `json:"mode,omitempty"`
+
+	// thresholdMicro overrides the artifact escalation threshold, in
+	// micro-units (1000000 is 1.0). It may only be stricter: at or below the
+	// artifact threshold. A looser value is rejected by the webhook and
+	// ignored by the controller.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000000
+	// +optional
+	ThresholdMicro *int64 `json:"thresholdMicro,omitempty"`
+}
+
+// Decision model modes.
+const (
+	DecisionModelOff      = "off"
+	DecisionModelShadow   = "shadow"
+	DecisionModelEscalate = "escalate"
+)
+
+// DecisionModelMode returns the effective mode. Unset means shadow.
+func (s AgentWorkloadSpec) DecisionModelMode() string {
+	if s.DecisionModel == nil || s.DecisionModel.Mode == "" {
+		return DecisionModelShadow
+	}
+	return s.DecisionModel.Mode
+}
+
+// ApprovalCapture sets the content capture mode for approval examples.
+type ApprovalCapture struct {
+	// content is none (hashes and class names only), redacted (action name and
+	// params with detected data classes and credentials replaced by [class]),
+	// or full (raw content, may hold personal data, choose it explicitly).
+	// Receipts never hold raw params in any mode.
+	// +kubebuilder:validation:Enum=none;redacted;full
+	// +kubebuilder:default=redacted
+	// +optional
+	Content string `json:"content,omitempty"`
+}
+
+// Approval capture modes.
+const (
+	CaptureNone     = "none"
+	CaptureRedacted = "redacted"
+	CaptureFull     = "full"
+)
+
+// CaptureMode returns the effective capture mode. Unset means redacted.
+func (s AgentWorkloadSpec) CaptureMode() string {
+	if s.ApprovalCapture == nil || s.ApprovalCapture.Content == "" {
+		return CaptureRedacted
+	}
+	return s.ApprovalCapture.Content
+}
+
+// DeclaredIntent is the human-reviewed purpose and allow lists for a workload.
+// Once any field is set, an empty allow list allows nothing.
+type DeclaredIntent struct {
+	// purpose is a short human statement of what the workload does.
+	// +kubebuilder:validation:MaxLength=1024
+	// +optional
+	Purpose string `json:"purpose,omitempty"`
+
+	// decisionType names the kind of decision the agent makes (e.g. "refund").
+	// +kubebuilder:validation:MaxLength=128
+	// +optional
+	DecisionType string `json:"decisionType,omitempty"`
+
+	// allowedDataClasses lists data classes the workload may send.
+	// Known classes: email, phone, aadhaar, pan, iban, card.
+	// +optional
+	AllowedDataClasses []string `json:"allowedDataClasses,omitempty"`
+
+	// allowedDestinations lists hosts the workload may call. Exact host or
+	// "*.example.com" for any subdomain.
+	// +optional
+	AllowedDestinations []string `json:"allowedDestinations,omitempty"`
 }
 
 // AgentPersona defines agent identity and behavior controls for runtime execution.
@@ -388,6 +500,90 @@ type AgentWorkloadStatus struct {
 	// agentStatuses reports per-agent status when collaborationMode is "team" or "delegation"
 	// +optional
 	AgentStatuses []AgentInstanceStatus `json:"agentStatuses,omitempty"`
+
+	// pendingApproval is the direct-path action waiting for a human decision.
+	// +optional
+	PendingApproval *PendingApproval `json:"pendingApproval,omitempty"`
+
+	// lastApproval records the last human decision the controller handled.
+	// +optional
+	LastApproval *ApprovalOutcome `json:"lastApproval,omitempty"`
+
+	// consumedApprovalIDs holds the most recent decided pending ids. A pending
+	// action restored with one of them is never acted on again.
+	// +kubebuilder:validation:MaxItems=32
+	// +optional
+	ConsumedApprovalIDs []string `json:"consumedApprovalIDs,omitempty"`
+}
+
+// Workload phases set by the direct action path.
+const (
+	PhasePendingApproval = "PendingApproval"
+	PhaseRejected        = "Rejected"
+)
+
+// Pending approval states. A decision moves "" to Recording to Executing.
+const (
+	ApprovalStateRecording = "Recording"
+	ApprovalStateExecuting = "Executing"
+)
+
+// PendingApproval is an action held for a human decision.
+type PendingApproval struct {
+	// id binds a decision to this action. The webhook stamps it into
+	// clawdlinux.org/approval-for.
+	ID string `json:"id"`
+
+	Action      string `json:"action"`
+	Description string `json:"description"`
+	Confidence  string `json:"confidence"`
+
+	// clusterHealth is the value the threshold used, as a decimal string.
+	ClusterHealth string `json:"clusterHealth"`
+
+	// claimedClusterHealth is set when the MCP server reported health.
+	// +optional
+	ClaimedClusterHealth string `json:"claimedClusterHealth,omitempty"`
+
+	// proposal is the raw MCP proposal JSON. approve executes it as is.
+	// It may hold personal data. Receipts and the dataset never copy it raw
+	// unless approvalCapture.content is full.
+	Proposal string `json:"proposal"`
+
+	// record is the canonical JSON of the original decision record. It holds
+	// hashes and class names only.
+	Record string `json:"record"`
+
+	// receiptSeq and receiptEntryHash identify the original decision receipt.
+	// Zero when receipts are off.
+	// +optional
+	ReceiptSeq int64 `json:"receiptSeq,omitempty"`
+	// +optional
+	ReceiptEntryHash string `json:"receiptEntryHash,omitempty"`
+
+	ProposedAt metav1.Time `json:"proposedAt"`
+
+	// state tracks a decision in progress so a replayed reconcile never
+	// executes twice.
+	// +kubebuilder:validation:Enum="";Recording;Executing
+	// +optional
+	State string `json:"state,omitempty"`
+
+	// decision is the label being handled while state is set.
+	// +optional
+	Decision string `json:"decision,omitempty"`
+}
+
+// ApprovalOutcome is the result of one handled human decision.
+type ApprovalOutcome struct {
+	ID       string `json:"id"`
+	Decision string `json:"decision"`
+	// outcome is executed, failed, rejected, denied, or unknown.
+	Outcome        string `json:"outcome"`
+	ApproverSHA256 string `json:"approverSHA256"`
+	// +optional
+	DecisionReceiptSeq int64       `json:"decisionReceiptSeq,omitempty"`
+	DecidedAt          metav1.Time `json:"decidedAt"`
 }
 
 const (
