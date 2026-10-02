@@ -1,0 +1,7 @@
+{{define "title"}}Decisions{{end}}
+{{define "content"}}
+<h1 class="dv-h1">What the operator decided</h1>
+<p class="dv-lede">Every row is a decision the operator made before an agent action ran, bound to a signed receipt. The chain badge says whether you can trust the rows.</p>
+{{template "panel" .}}
+{{template "notcovered" .}}
+{{end}}

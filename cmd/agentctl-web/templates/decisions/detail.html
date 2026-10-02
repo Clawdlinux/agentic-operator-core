@@ -1,0 +1,111 @@
+{{define "title"}}{{if .Detail}}Decision {{.Detail.Row.Seq}}{{else}}Not found{{end}}{{end}}
+{{define "content"}}
+<p><a href="/decisions">Back to decisions</a></p>
+{{if .NotFound}}
+<h1 class="dv-h1">No such decision</h1>
+<p class="dv-lede">The chain has no decision with that sequence number.</p>
+{{else}}
+{{with .Detail}}
+<h1 class="dv-h1">Decision {{.Row.Seq}}</h1>
+<p class="dv-lede">
+    <span class="badge dv-outcome-{{.Row.Outcome}}">{{outcome .Row.Outcome}}</span>
+    decided by the {{.Row.Layer}} layer for {{.Row.Namespace}}/{{.Row.Workload}} at {{ts .Row.Time}}.
+    {{if .Row.Held}}No human has decided it yet.{{end}}
+</p>
+
+<section class="dv-section" aria-labelledby="dv-action-title">
+    <h2 id="dv-action-title">Action</h2>
+    <dl class="dv-dl">
+        <dt>Action</dt><dd class="dv-mono">{{.Record.Action}}</dd>
+        <dt>Policy packs</dt><dd>{{if .Record.PolicyPacks}}{{join .Record.PolicyPacks}}{{else}}none{{end}}</dd>
+        <dt>Threshold mode</dt><dd>{{if .Record.ThresholdMode}}{{.Record.ThresholdMode}}{{else}}not recorded{{end}}</dd>
+    </dl>
+</section>
+
+<section class="dv-section" aria-labelledby="dv-reasons-title">
+    <h2 id="dv-reasons-title">Why</h2>
+    {{if .Record.Reasons}}
+    <table class="data-table">
+        <thead><tr><th>Rule</th><th>Finding</th></tr></thead>
+        <tbody>
+            {{range .Record.Reasons}}<tr><td class="dv-mono">{{.RuleID}}</td><td>{{.Reason}}</td></tr>{{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p>No rule objected. The action was within the declared intent.</p>
+    {{end}}
+</section>
+
+<section class="dv-section" aria-labelledby="dv-observed-title">
+    <h2 id="dv-observed-title">What the platform observed</h2>
+    <dl class="dv-dl">
+        <dt>Destination host</dt><dd class="dv-mono">{{if .Record.Observed.DestinationHost}}{{.Record.Observed.DestinationHost}}{{else}}none{{end}}</dd>
+        <dt>Data classes found</dt><dd>{{if .Record.Observed.DataClasses}}{{join .Record.Observed.DataClasses}}{{else}}none{{end}}</dd>
+        <dt>Tool</dt><dd class="dv-mono">{{if .Record.Observed.Tool}}{{.Record.Observed.Tool}}{{else}}none{{end}}</dd>
+        <dt>Earlier actions</dt><dd>{{.Record.Observed.PriorActionCount}} ({{.Record.Observed.PriorDeniedCount}} denied)</dd>
+    </dl>
+    <p class="dv-note">The record holds class names and a host, never the raw payload.</p>
+</section>
+
+<section class="dv-section" aria-labelledby="dv-declared-title">
+    <h2 id="dv-declared-title">What was declared</h2>
+    <dl class="dv-dl">
+        <dt>Decision type</dt><dd>{{if .Record.Declared.DecisionType}}{{.Record.Declared.DecisionType}}{{else}}not declared{{end}}</dd>
+        <dt>Allowed data classes</dt><dd>{{if .Record.Declared.AllowedDataClasses}}{{join .Record.Declared.AllowedDataClasses}}{{else}}none{{end}}</dd>
+        <dt>Allowed destinations</dt><dd class="dv-mono">{{if .Record.Declared.AllowedDestinations}}{{join .Record.Declared.AllowedDestinations}}{{else}}none{{end}}</dd>
+    </dl>
+</section>
+
+{{if or .Record.Claimed.Confidence .Record.Claimed.ClusterHealth}}
+<section class="dv-section" aria-labelledby="dv-claimed-title">
+    <h2 id="dv-claimed-title">What the agent claimed</h2>
+    <dl class="dv-dl">
+        <dt>Confidence</dt><dd>{{if .Record.Claimed.Confidence}}{{.Record.Claimed.Confidence}}{{else}}not claimed{{end}}</dd>
+        <dt>Cluster health</dt><dd>{{if .Record.Claimed.ClusterHealth}}{{.Record.Claimed.ClusterHealth}}{{else}}not claimed{{end}}</dd>
+    </dl>
+    <p class="dv-note">Claims can only tighten a decision. They never loosen it.</p>
+</section>
+{{end}}
+
+{{with .Record.Model}}
+<section class="dv-section" aria-labelledby="dv-model-title">
+    <h2 id="dv-model-title">Decision model</h2>
+    <dl class="dv-dl">
+        <dt>Mode</dt><dd>{{.Mode}}</dd>
+        <dt>Model</dt><dd class="dv-mono">{{.ID}} {{.Version}}</dd>
+        <dt>Risk</dt><dd>{{micro .RiskMicro}} against threshold {{micro .ThresholdMicro}}</dd>
+        <dt>Risk with claims</dt><dd>{{micro .ClaimedRiskMicro}}</dd>
+        <dt>Risk without claims</dt><dd>{{micro .BaselineRiskMicro}}</dd>
+        <dt>Outcome before the model</dt><dd>{{outcome .BaseOutcome}}</dd>
+        <dt>Outcome after the model</dt><dd>{{outcome .Outcome}}</dd>
+        {{if .Error}}<dt>Scorer error</dt><dd class="dv-error">{{.Error}}</dd>{{end}}
+    </dl>
+    <p class="dv-note">The model can only escalate. In shadow mode it is recorded and changes nothing.</p>
+</section>
+{{end}}
+
+{{with .Record.Approval}}
+<section class="dv-section" aria-labelledby="dv-approval-title">
+    <h2 id="dv-approval-title">Human decision</h2>
+    <dl class="dv-dl">
+        <dt>Label</dt><dd>{{.Label}}</dd>
+        <dt>Approver</dt><dd class="dv-mono">{{short .Approver}}</dd>
+        <dt>Answers decision</dt><dd><a href="/decisions/{{.OriginalSeq}}">{{.OriginalSeq}}</a></dd>
+        {{if .EditedFields}}<dt>Edited fields</dt><dd>{{join .EditedFields}}</dd>{{end}}
+    </dl>
+    <p class="dv-note">The approver is a digest of the identity the admission webhook stamped. The reason is hashed.</p>
+</section>
+{{end}}
+
+<section class="dv-section" aria-labelledby="dv-receipt-title">
+    <h2 id="dv-receipt-title">Receipt</h2>
+    <dl class="dv-dl">
+        <dt>Signer</dt><dd class="dv-mono">{{.SignerKID}}</dd>
+        <dt>Entry hash</dt><dd class="dv-mono">{{.EntryHash}}</dd>
+        <dt>Previous hash</dt><dd class="dv-mono">{{.PrevHash}}</dd>
+    </dl>
+</section>
+{{end}}
+{{end}}
+{{template "chainstatus" .}}
+{{end}}

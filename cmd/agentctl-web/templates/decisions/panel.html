@@ -1,0 +1,80 @@
+{{define "chainstatus"}}
+<section class="dv-chain dv-chain-{{.Status}}" aria-labelledby="dv-chain-title">
+    <h2 id="dv-chain-title" class="dv-chain-title">
+        Receipt chain
+        <span class="badge dv-badge-{{.Status}}">{{statusLabel .Status}}</span>
+    </h2>
+    <p>{{statusNote .Status}}</p>
+    {{if .View.Verification.Error}}<p class="dv-error">Could not verify: {{.View.Verification.Error}}</p>{{end}}
+    {{if .View.Verification.Reason}}<p class="dv-error">Chain check failed at seq {{.View.Verification.FailedAtSeq}}: {{.View.Verification.Reason}}</p>{{end}}
+    {{range .View.Verification.RecordFailures}}<p class="dv-error">Record seq {{.Seq}} does not match its receipt: {{.Reason}}</p>{{end}}
+    {{if .View.Err}}<p class="dv-error">Showing the last good data, loaded {{ts .View.LoadedAt}}. {{.View.Err}}</p>{{end}}
+    <p class="dv-meta">
+        {{.View.Verification.VerifiedCount}} of {{.View.Verification.TotalReceipts}} receipts verified,
+        head seq {{.View.Verification.HeadSeq}},
+        loaded {{age .View.LoadedAt}} ago.
+    </p>
+</section>
+{{end}}
+
+{{define "notcovered"}}
+<section class="dv-notcovered" aria-labelledby="dv-nc-title">
+    <h2 id="dv-nc-title">Not covered</h2>
+    <ul>
+        <li>The runtime-adapter path. It runs no invariants, packs, receipts or approvals.</li>
+        <li>Execution outcomes. Only the decision before the action runs is receipted.</li>
+        <li>Argo approval gates.</li>
+        <li>A decision still held for a human is not in the chain until someone decides it.</li>
+    </ul>
+</section>
+{{end}}
+
+{{define "panel"}}
+<div id="dv-panel" hx-get="/decisions/panel{{if .Filter}}?outcome={{.Filter}}{{end}}" hx-trigger="every 5s" hx-swap="outerHTML">
+    {{template "chainstatus" .}}
+
+    <div class="status-cards dv-tiles">
+        <div class="stat-card"><div class="stat-value">{{.View.Summary.Total}}</div><div class="stat-label">Decisions</div></div>
+        <div class="stat-card"><div class="stat-value">{{index .View.Summary.ByOutcome "allow"}}</div><div class="stat-label">Allowed</div></div>
+        <div class="stat-card"><div class="stat-value">{{index .View.Summary.ByOutcome "deny"}}</div><div class="stat-label">Denied</div></div>
+        <div class="stat-card"><div class="stat-value">{{.View.Summary.Held}}</div><div class="stat-label">Awaiting approval</div></div>
+        <div class="stat-card"><div class="stat-value">{{.View.Summary.Human}}</div><div class="stat-label">Human decisions</div></div>
+        <div class="stat-card"><div class="stat-value dv-small">{{if .View.Summary.ModelModes}}{{join .View.Summary.ModelModes}}{{else}}off{{end}}</div><div class="stat-label">Model mode</div></div>
+    </div>
+
+    <nav class="dv-filters" aria-label="Filter by outcome">
+        <a class="dv-filter{{if not .Filter}} dv-filter-active{{end}}" href="/decisions"{{if not .Filter}} aria-current="page"{{end}}>All</a>
+        <a class="dv-filter{{if eq .Filter "allow"}} dv-filter-active{{end}}" href="/decisions?outcome=allow"{{if eq .Filter "allow"}} aria-current="page"{{end}}>Allow</a>
+        <a class="dv-filter{{if eq .Filter "deny"}} dv-filter-active{{end}}" href="/decisions?outcome=deny"{{if eq .Filter "deny"}} aria-current="page"{{end}}>Deny</a>
+        <a class="dv-filter{{if eq .Filter "require_approval"}} dv-filter-active{{end}}" href="/decisions?outcome=require_approval"{{if eq .Filter "require_approval"}} aria-current="page"{{end}}>Require approval</a>
+    </nav>
+
+    {{if .Rows}}
+    <table class="data-table dv-table">
+        <caption class="dv-caption">Newest first. Showing {{.Shown}} of {{.View.Summary.Total}}.</caption>
+        <thead>
+            <tr><th>Seq</th><th>Time</th><th>Workload</th><th>Action</th><th>Layer</th><th>Outcome</th><th>Reasons</th></tr>
+        </thead>
+        <tbody>
+            {{range .Rows}}
+            <tr>
+                <td><a href="/decisions/{{.Seq}}">{{.Seq}}</a></td>
+                <td class="dv-mono">{{ts .Time}}</td>
+                <td>{{.Namespace}}/{{.Workload}}</td>
+                <td class="dv-mono">{{.Action}}</td>
+                <td>{{.Layer}}</td>
+                <td>
+                    <span class="badge dv-outcome-{{.Outcome}}">{{outcome .Outcome}}</span>
+                    {{if .HumanLabel}}<span class="dv-note">human: {{.HumanLabel}}</span>{{end}}
+                    {{if .Held}}<span class="dv-note">awaiting approval</span>{{end}}
+                </td>
+                <td class="dv-mono">{{if .ReasonCodes}}{{join .ReasonCodes}}{{else}}none{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p class="dv-empty">No decisions to show{{if .Filter}} for this filter{{end}}.</p>
+    {{end}}
+</div>
+{{end}}

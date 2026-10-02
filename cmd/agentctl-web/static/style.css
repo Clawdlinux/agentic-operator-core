@@ -654,3 +654,44 @@ textarea:focus-visible {
     .workload-card { align-items: flex-start; flex-direction: column; }
     .workload-card-meta { justify-content: flex-start; max-width: 100%; }
 }
+
+/* Decision pages (docs/architecture/demo-dashboard.md) */
+.dv-h1 { font-size: 1.6rem; margin: 8px 0 6px; }
+.dv-lede { color: var(--text-secondary); max-width: 760px; margin-bottom: 20px; }
+.dv-chain { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); padding: 16px 18px; margin: 16px 0; }
+.dv-chain p { margin: 6px 0; }
+.dv-chain-title { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; }
+.dv-chain-verified { border-color: var(--success); }
+.dv-chain-failed { border-color: var(--danger); }
+.dv-chain-partial, .dv-chain-consistent { border-color: var(--warning); }
+.dv-badge-verified { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.dv-badge-partial, .dv-badge-consistent { background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); }
+.dv-badge-failed { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+.dv-outcome-allow { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.dv-outcome-deny { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+.dv-outcome-require_approval { background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); }
+.dv-error { color: var(--danger); }
+.dv-meta, .dv-note, .dv-caption { color: var(--text-muted); font-size: 0.85rem; }
+.dv-note { margin-left: 8px; }
+.dv-caption { text-align: left; padding: 6px 0; }
+.dv-mono { font-family: var(--font-evidence); font-size: 0.85rem; word-break: break-all; }
+.dv-small { font-size: 1.1rem; }
+.dv-tiles { margin: 16px 0; }
+.dv-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.dv-filter { padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-secondary); text-decoration: none; }
+.dv-filter-active { border-color: var(--accent); color: var(--text); }
+.dv-table { width: 100%; }
+.dv-empty { color: var(--text-muted); padding: 24px 0; }
+.dv-section { margin: 24px 0; }
+.dv-section h2 { font-size: 1.05rem; margin-bottom: 8px; }
+.dv-dl { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: 6px 16px; }
+.dv-dl dt { color: var(--text-muted); }
+.dv-dl dd { margin: 0; overflow-wrap: anywhere; }
+.dv-pre { background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 12px; overflow-x: auto; font-family: var(--font-evidence); font-size: 0.85rem; }
+.dv-notcovered { border: 1px dashed var(--border); border-radius: var(--radius); padding: 14px 18px; margin: 24px 0; color: var(--text-secondary); }
+.dv-notcovered h2 { font-size: 1rem; margin-bottom: 6px; }
+.dv-notcovered ul { margin-left: 20px; }
+@media (max-width: 640px) {
+    .dv-dl { grid-template-columns: 1fr; }
+    .dv-table { display: block; overflow-x: auto; }
+}
