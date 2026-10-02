@@ -604,7 +604,7 @@ func (r *AgentWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	decisiontrace.SetRules(decisionSpan, nil, workload.Spec.PolicyPacks)
 	opaResult := traceThreshold(ctx, opaPolicyMode, actionName, confidence, clusterHealth)
 
-	log.Info("OPA evaluation result", "allowed", opaResult.Allowed, "confidence", opaResult.Confidence, "reasons", opaResult.Reasons)
+	log.Info("OPA evaluation result", "allowed", opaResult.Allowed, "confidence", opaResult.Confidence, "reasons", safeLogTexts(opaResult.Reasons))
 
 	// Both threshold inputs come from the agent's MCP server, not the platform.
 	log.Info("agent-claimed decision inputs", "claimedConfidence", confidence, "claimedClusterHealth", claimedHealth, "clusterHealthUsed", clusterHealth)

@@ -6,7 +6,7 @@ MODE="${1:-local}"
 PATTERN='(dop_v1_[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{70,}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|OPENSSH|DSA)? ?PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}|sk_live_[0-9a-zA-Z]{16,}|AIza[0-9A-Za-z\-_]{35})'
 # Fixtures that hold fake credentials (AWS's documented example key and
 # similar) to prove detectors, redaction and denial paths work.
-ALLOWLIST_PATHS_REGEX='^(agents/tests/test_credential_sanitizer\.py|internal/controller/(agentworkload_controller_approval_test|agentworkload_controller_opa_test|decision_tracing_test|mcp_log_canary_test)\.go|pkg/dataclass/dataclass_test\.go|pkg/dataset/dataset_test\.go|pkg/decision/observe/observe_test\.go|pkg/tracing/decisiontrace/decisiontrace_test\.go|scripts/demo-claims\.sh|scripts/demo/mockmcp/main\.go):'
+ALLOWLIST_PATHS_REGEX='^(agents/tests/test_credential_sanitizer\.py|internal/controller/(logsafe_test|agentworkload_controller_approval_test|agentworkload_controller_opa_test|decision_tracing_test|mcp_log_canary_test)\.go|pkg/dataclass/dataclass_test\.go|pkg/dataset/dataset_test\.go|pkg/decision/observe/observe_test\.go|pkg/tracing/decisiontrace/decisiontrace_test\.go|scripts/demo-claims\.sh|scripts/demo/mockmcp/main\.go):'
 
 collect_files() {
   if [[ "$MODE" == "--ci" ]]; then

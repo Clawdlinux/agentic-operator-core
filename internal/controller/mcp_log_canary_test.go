@@ -53,12 +53,12 @@ func TestReconcile_InvalidMCPRepliesNeverLogValues(t *testing.T) {
 			}
 			writeTool(w, mcp.ToolResponse{Success: true, Result: map[string]interface{}{"action": "noop", "description": "d", "confidence": canary}})
 		}},
-		{name: "credential in action name", reply: func(tool string, w http.ResponseWriter) {
+		{name: "credential in action name and threshold reason", reply: func(tool string, w http.ResponseWriter) {
 			if tool == "get_status" {
 				writeTool(w, okStatus)
 				return
 			}
-			writeTool(w, mcp.ToolResponse{Success: true, Result: map[string]interface{}{"action": "delete " + canary, "description": "d", "confidence": "0.10"}})
+			writeTool(w, mcp.ToolResponse{Success: true, Result: map[string]interface{}{"action": "get_" + canary, "description": "d", "confidence": "0.10"}})
 		}},
 		{name: "error body", reply: func(_ string, w http.ResponseWriter) {
 			w.WriteHeader(http.StatusBadRequest)
