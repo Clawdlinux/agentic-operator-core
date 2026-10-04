@@ -1,0 +1,44 @@
+{
+  "$schema": "https://fundingjson.org/schema/v1.1.0.json",
+  "version": "1.1.0",
+  "entity": {
+    "type": "individual",
+    "role": "maintainer",
+    "name": "Shreyansh Sancheti",
+    "email": "007ssancheti@gmail.com",
+    "description": "I build and maintain Clawdlinux (agentic-operator-core), an open-source Kubernetes operator for governing AI agent workloads in air-gapped and enterprise environments: gVisor sandboxing, Cilium egress policy, hash-chained audit logging, and FinOps controls. I also maintain agent-native-format (ANF/ACP), a token-minimal governed execution format for agent tool calls.",
+    "webpageUrl": { "url": "https://clawdlinux.org" }
+  },
+  "projects": [
+    {
+      "guid": "clawdlinux-operator",
+      "name": "Clawdlinux (agentic-operator-core)",
+      "description": "Kubernetes governance operator for AI agents: sandboxing, network egress control, tamper-evident audit trails, air-gap support.",
+      "webpageUrl": { "url": "https://github.com/Clawdlinux/agentic-operator-core" },
+      "repositoryUrl": { "url": "https://github.com/Clawdlinux/agentic-operator-core" },
+      "licenses": ["spdx:Apache-2.0"],
+      "tags": ["kubernetes", "ai-agents", "security", "governance", "air-gap"]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "bank-transfer",
+        "type": "bank",
+        "address": "HDFC Bank",
+        "description": "Direct bank transfer (India)"
+      }
+    ],
+    "plans": [
+      {
+        "guid": "core-dev-2027",
+        "status": "active",
+        "name": "Core maintenance and security hardening — Clawdlinux",
+        "amount": 10000,
+        "currency": "USD",
+        "frequency": "yearly",
+        "channels": ["bank-transfer"]
+      }
+    ]
+  }
+}
