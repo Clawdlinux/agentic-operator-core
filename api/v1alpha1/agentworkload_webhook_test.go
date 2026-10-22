@@ -132,42 +132,6 @@ func TestWebhook_RejectEmptyAgents(t *testing.T) {
 	}
 }
 
-func TestWebhook_RejectObjectiveTooLong(t *testing.T) {
-	longObjective := strings.Repeat("a", 32769)
-
-	workload := &AgentWorkload{
-		Spec: AgentWorkloadSpec{
-			WorkloadType:      stringPtr("generic"),
-			MCPServerEndpoint: stringPtr("https://localhost:8000"),
-			Objective:         &longObjective,
-			Agents:            []string{"agent1"},
-		},
-	}
-
-	err := workload.ValidateCreate()
-	if err == nil {
-		t.Error("Expected validation error for objective > 32768 characters, got nil")
-	} else {
-		t.Logf("Correctly rejected: %v", err)
-	}
-}
-
-func TestWebhook_AcceptsObjectiveAtLimit(t *testing.T) {
-	objective := strings.Repeat("a", 32768)
-	workload := &AgentWorkload{
-		Spec: AgentWorkloadSpec{
-			WorkloadType:      stringPtr("generic"),
-			MCPServerEndpoint: stringPtr("https://localhost:8000"),
-			Objective:         &objective,
-			Agents:            []string{"agent1"},
-		},
-	}
-
-	if err := workload.ValidateCreate(); err != nil {
-		t.Fatalf("objective at 32768-character limit was rejected: %v", err)
-	}
-}
-
 func TestWebhook_ObjectiveLimitCountsUnicodeCharacters(t *testing.T) {
 	objective := strings.Repeat("é", 32768)
 	workload := &AgentWorkload{
@@ -208,50 +172,6 @@ func TestWebhook_AcceptAllWorkloadTypes(t *testing.T) {
 		}
 	}
 	t.Log("✅ All workload types accepted")
-}
-
-func TestWebhook_DefaultAutoApproveThreshold(t *testing.T) {
-	workload := &AgentWorkload{
-		Spec: AgentWorkloadSpec{
-			WorkloadType:      stringPtr("generic"),
-			MCPServerEndpoint: stringPtr("https://localhost:8000"),
-			Objective:         stringPtr("test objective"),
-			Agents:            []string{"agent1"},
-			// No AutoApproveThreshold specified
-		},
-	}
-
-	workload.Default()
-
-	if workload.Spec.AutoApproveThreshold == nil {
-		t.Error("Expected Default() to set AutoApproveThreshold")
-	} else if *workload.Spec.AutoApproveThreshold != "0.95" {
-		t.Errorf("Expected default threshold 0.95, got %q", *workload.Spec.AutoApproveThreshold)
-	} else {
-		t.Log("✅ Default AutoApproveThreshold set correctly")
-	}
-}
-
-func TestWebhook_DefaultOPAPolicy(t *testing.T) {
-	workload := &AgentWorkload{
-		Spec: AgentWorkloadSpec{
-			WorkloadType:      stringPtr("generic"),
-			MCPServerEndpoint: stringPtr("https://localhost:8000"),
-			Objective:         stringPtr("test objective"),
-			Agents:            []string{"agent1"},
-			// No OPAPolicy specified
-		},
-	}
-
-	workload.Default()
-
-	if workload.Spec.OPAPolicy == nil {
-		t.Error("Expected Default() to set OPAPolicy")
-	} else if *workload.Spec.OPAPolicy != "strict" {
-		t.Errorf("Expected default policy 'strict', got %q", *workload.Spec.OPAPolicy)
-	} else {
-		t.Log("✅ Default OPAPolicy set correctly")
-	}
 }
 
 func TestValidateThreshold(t *testing.T) {

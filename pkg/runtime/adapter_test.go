@@ -46,18 +46,6 @@ func TestRuntimeAdapterInterface_Compliance(t *testing.T) {
 	}
 }
 
-// TestExecutionStatus_NormalizedPhases verifies the status model works
-// for any adapter, not just Argo.
-func TestExecutionStatus_NormalizedPhases(t *testing.T) {
-	phases := []string{"Pending", "Running", "Suspended", "Succeeded", "Failed", "Error"}
-	for _, phase := range phases {
-		s := ExecutionStatus{Phase: phase, Name: "test", Namespace: "default"}
-		if s.Phase == "" {
-			t.Errorf("phase %q should not be empty after assignment", phase)
-		}
-	}
-}
-
 // TestRuntimeAdapter_CleanupNilWorkflow verifies cleanup is safe when no
 // workflow reference exists. This is runtime-neutral behavior.
 func TestRuntimeAdapter_CleanupNilWorkflow(t *testing.T) {
