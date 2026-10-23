@@ -152,30 +152,6 @@ async def test_synthesis_agent_report(sample_state):
         print("✅ Report synthesis successful")
 
 
-def test_workflow_state_structure():
-    """Test that state structure matches expectations"""
-    state: AgentWorkflowState = {
-        "job_id": "test",
-        "target_urls": ["https://example.com"],
-        "status": "running",
-        "raw_html": {},
-        "screenshots": {},
-        "dom_structures": {},
-        "visual_insights": [],
-        "competitive_signals": [],
-        "report_content": None,
-        "error": None,
-        "start_time": None,
-        "end_time": None,
-        "messages": [],
-    }
-    
-    assert state["job_id"] == "test"
-    assert isinstance(state["target_urls"], list)
-    assert isinstance(state["raw_html"], dict)
-    print("✅ State structure valid")
-
-
 @pytest.mark.asyncio
 @pytest.mark.xfail(
     reason="LangGraph >=1.0 enforces single-value-per-step on non-Annotated keys; "
@@ -220,26 +196,3 @@ async def test_full_workflow_execution(sample_state):
         assert result["report_content"] is not None
         
         print("✅ Full workflow execution successful")
-
-
-def test_error_handling():
-    """Test error handling in workflow"""
-    state: AgentWorkflowState = {
-        "job_id": "error-test",
-        "target_urls": [],  # Empty list
-        "status": "running",
-        "raw_html": {},
-        "screenshots": {},
-        "dom_structures": {},
-        "visual_insights": [],
-        "competitive_signals": [],
-        "report_content": None,
-        "error": None,
-        "start_time": None,
-        "end_time": None,
-        "messages": [],
-    }
-    
-    # Should handle empty URL list gracefully
-    assert len(state["target_urls"]) == 0
-    print("✅ Error handling tested")

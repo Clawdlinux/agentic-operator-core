@@ -66,7 +66,8 @@ If your change touches Python runtime code under `agents/`, run `make test-pytho
 ## Pull Request Guidelines
 
 - Use a clear title and summary of behavior changes.
-- Link the related issue (`Fixes #123`).
+- Use closing keywords (`Fixes`, `Closes`, `Resolves`) only when the PR satisfies the issue's full acceptance criteria.
+- Use `Refs #123` or `Relates to #123` for partial progress.
 - Include test evidence (commands and outcomes).
 - Avoid unrelated refactors in the same PR.
 - Keep reconciliation behavior idempotent.
@@ -81,6 +82,9 @@ If your change touches Python runtime code under `agents/`, run `make test-pytho
 
 - Use the bug template for defects.
 - Use the feature template for enhancement requests.
+- Templates apply `bug` or `enhancement` automatically.
+- Priorities reflect current phase blockers. Age alone does not determine priority.
+- Deferred work closes as not planned, with a scope explanation and a condition for revisiting it.
 - Provide reproduction steps and expected behavior.
 
 ## Security
@@ -92,5 +96,7 @@ If your change touches Python runtime code under `agents/`, run `make test-pytho
 
 This repository is the open-source core.
 
-- Include: CRD lifecycle, orchestration, isolation, generic runtime patterns.
+- Include: runtime-agnostic governance, workload contracts, runtime adapters, pod isolation, declared egress, and offline-verifiable evidence.
+- Supported adapters include Argo, BYO pods, and kagent.
+- Generic registries, routing, sidecar buses, and multi-cluster features need a concrete regulated deployment requirement.
 - Exclude: proprietary licensing, billing, and private enterprise overlays.

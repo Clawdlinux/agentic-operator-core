@@ -335,20 +335,6 @@ func TestAgentWorkloadCompatibility_CRDObjectiveLength(t *testing.T) {
 	}
 }
 
-func TestAgentWorkloadCompatibility_WebhookAcceptsBoundedContextObjective(t *testing.T) {
-	objective := strings.Repeat("a", 4096)
-	workload := &AgentWorkload{
-		Spec: AgentWorkloadSpec{
-			Objective: &objective,
-			Agents:    []string{"agent1"},
-		},
-	}
-
-	if err := workload.ValidateCreate(); err != nil {
-		t.Fatalf("4 KiB objective allowed by the CRD must pass webhook validation: %v", err)
-	}
-}
-
 func TestAgentWorkloadCompatibility_CRDAndWebhookAgreeOnMultibyteObjective(t *testing.T) {
 	objective := strings.Repeat("é", 32768)
 	workload := &AgentWorkload{

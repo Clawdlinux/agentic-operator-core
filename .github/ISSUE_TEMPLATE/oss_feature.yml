@@ -3,7 +3,6 @@ description: Request an open-source feature for agentic-operator-core.
 title: "[OSS] "
 labels:
   - enhancement
-  - oss
 body:
   - type: textarea
     id: problem

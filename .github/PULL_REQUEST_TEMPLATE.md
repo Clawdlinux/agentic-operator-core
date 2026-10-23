@@ -27,4 +27,4 @@
 
 ## Related issues
 
-<!-- Fixes #123, Relates to #456 -->
+<!-- Use Fixes #123 only when all acceptance criteria are met. Use Refs #123 for partial progress. -->
