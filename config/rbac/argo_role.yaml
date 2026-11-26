@@ -13,7 +13,7 @@ metadata:
   namespace: argo-workflows
   labels:
     app.kubernetes.io/name: argo-workflows
-    app.kubernetes.io/part-of: agentic-k8s-operator
+    app.kubernetes.io/part-of: agentic-operator
 
 ---
 # ClusterRole: Argo workflow executor permissions
@@ -24,7 +24,7 @@ metadata:
   name: argo-workflow-executor
   labels:
     app.kubernetes.io/name: argo-workflows
-    app.kubernetes.io/part-of: agentic-k8s-operator
+    app.kubernetes.io/part-of: agentic-operator
 rules:
   # Workflows: Read and update own workflow status
   - apiGroups:
@@ -78,7 +78,7 @@ metadata:
   name: argo-workflow-executor
   labels:
     app.kubernetes.io/name: argo-workflows
-    app.kubernetes.io/part-of: agentic-k8s-operator
+    app.kubernetes.io/part-of: agentic-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -98,7 +98,7 @@ metadata:
   namespace: argo-workflows
   labels:
     app.kubernetes.io/name: argo-workflows
-    app.kubernetes.io/part-of: agentic-k8s-operator
+    app.kubernetes.io/part-of: agentic-operator
 rules:
   # Workflows: Create, read, update, delete
   - apiGroups:
@@ -154,7 +154,7 @@ metadata:
   namespace: argo-workflows
   labels:
     app.kubernetes.io/name: argo-workflows
-    app.kubernetes.io/part-of: agentic-k8s-operator
+    app.kubernetes.io/part-of: agentic-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -173,7 +173,7 @@ metadata:
   name: agentworkload-operator-argo
   labels:
     app.kubernetes.io/name: agentic-k8s-operator
-    app.kubernetes.io/part-of: agentic-k8s-operator
+    app.kubernetes.io/part-of: agentic-operator
 rules:
   # Workflows: Create, read, update, delete
   - apiGroups:
@@ -209,7 +209,7 @@ metadata:
   name: agentworkload-operator-argo
   labels:
     app.kubernetes.io/name: agentic-k8s-operator
-    app.kubernetes.io/part-of: agentic-k8s-operator
+    app.kubernetes.io/part-of: agentic-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

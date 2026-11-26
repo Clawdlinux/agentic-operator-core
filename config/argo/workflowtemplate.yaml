@@ -34,7 +34,7 @@ metadata:
   namespace: argo-workflows
   labels:
     app.kubernetes.io/name: visual-analysis-template
-    app.kubernetes.io/part-of: agentic-k8s-operator
+    app.kubernetes.io/part-of: agentic-operator
 spec:
   # Entrypoint: Start with scraper step
   entrypoint: visual-analysis-dag

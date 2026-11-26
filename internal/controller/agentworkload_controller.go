@@ -109,6 +109,7 @@ type AgentWorkloadReconciler struct {
 	RuntimeRegistry  *runtimeadapter.Registry // runtime adapter registry; nil lazily defaults to Argo
 	SandboxClass     string                   // RuntimeClass required for sandbox enforcement
 	Recorder         events.EventRecorder     // Optional Kubernetes event recorder
+	PolicyReader     client.Reader            // Uncached NetworkPolicy reads for EgressSealed; nil uses Client
 	Receipts         ReceiptsConfig           // Decision receipts; zero value disables them
 	DecisionModel    DecisionModelConfig      // Decision model; zero value scores nothing
 	ApprovalStampKey []byte                   // HMAC key for approval stamps; nil refuses approvals
@@ -184,6 +185,7 @@ func (r *AgentWorkloadReconciler) ensureRuntimeDefaults() {
 // +kubebuilder:rbac:groups=agentic.clawdlinux.org,resources=agentworkloads/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch
 
 // Reconcile reconciles the AgentWorkload by:
 // 1. Fetching the AgentWorkload CR
@@ -866,6 +868,7 @@ func (r *AgentWorkloadReconciler) reconcileViaRuntime(ctx context.Context, workl
 		// Update phase based on normalized execution status
 		workload.Status.ArgoPhase = execStatus.Phase
 		r.observeSandboxStatus(ctx, workload, execStatus.Message)
+		r.observeEgressSeal(ctx, workload)
 		switch execStatus.Phase {
 		case "Succeeded":
 			workload.Status.Phase = "Completed"
@@ -911,6 +914,7 @@ func (r *AgentWorkloadReconciler) reconcileViaRuntime(ctx context.Context, workl
 		CreatedAt: &metav1.Time{Time: time.Now()},
 	}
 	r.observeSandboxStatus(ctx, workload, execStatus.Message)
+	r.observeEgressSeal(ctx, workload)
 
 	if err := r.Status().Update(ctx, workload); err != nil {
 		log.Error(err, "failed to update status with execution reference")

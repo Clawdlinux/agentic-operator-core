@@ -592,6 +592,14 @@ const (
 	SandboxEnforcedRuntimeClassMissing   = "RuntimeClassMissing"
 	SandboxEnforcedNoReadyNode           = "NoReadyNode"
 	SandboxEnforcedBestEffortUnsandboxed = "BestEffortUnsandboxed"
+	// EgressSealed reports whether the chart's default-deny egress policy selects every
+	// workload pod in its own namespace. It does not check that the CNI enforces it.
+	ConditionTypeEgressSealed = "EgressSealed"
+	EgressSealedVerified      = "Verified"
+	EgressSealedNoSealPolicy  = "NoSealPolicy"
+	// The seal selects the pods but an egress rule allows any destination, as
+	// denyEgressByDefault=false or a 0.0.0.0/0 allow-list entry renders it.
+	EgressSealedAllowsAnyDestination = "AllowsAnyDestination"
 )
 
 // AgentInstanceStatus reports the status of a single agent in a collaborative workload
