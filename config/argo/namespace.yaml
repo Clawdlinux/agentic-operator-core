@@ -7,6 +7,6 @@ metadata:
   name: argo-workflows
   labels:
     app.kubernetes.io/name: argo-workflows
-    app.kubernetes.io/part-of: agentic-k8s-operator
+    app.kubernetes.io/part-of: agentic-operator
   annotations:
     description: "Argo Workflows execution engine for agentic workloads"

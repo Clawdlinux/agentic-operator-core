@@ -107,6 +107,21 @@ Agent pods are restricted to allowlisted domains. Two layers of enforcement:
    allow-listing on top of the namespace-level NetworkPolicy. Gated behind
    `networkPolicy.cilium.enabled` (default `false`); requires the Cilium CNI.
 
+**Coverage check** ([#168](https://github.com/Clawdlinux/agentic-operator-core/issues/168)).
+A NetworkPolicy only seals pods in its own namespace. The chart renders the seal
+in the release namespace and in `networkPolicy.workloadNamespaces`. The Argo
+runtime runs pods in `argo-workflows`, so list it there. Each AgentWorkload
+reports an `EgressSealed` condition:
+
+- `True`, reason `Verified`: the seal selects every workload pod.
+- `False`, reason `NoSealPolicy`: a pod's namespace has no seal, or the pod lacks
+  the seal label. A Warning event names the namespace.
+- `False`, reason `AllowsAnyDestination`: the seal has an allow-all rule, as with
+  `denyEgressByDefault: false` or a `0.0.0.0/0` allow-list entry.
+
+The operator only reads NetworkPolicies. It never writes them. The condition does
+not check that the CNI enforces the policy.
+
 **Default posture**: Deny all egress except:
 - LiteLLM proxy (internal)
 - Browserless (internal)

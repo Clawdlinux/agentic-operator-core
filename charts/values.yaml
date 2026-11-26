@@ -445,6 +445,8 @@ networkPolicy:
   # Additional namespaces where AgentWorkload runtime pods execute. They must
   # exist before Helm applies this release. The Helm installer needs permission
   # to manage NetworkPolicies in each listed namespace. CNI enforcement is not verified.
+  # The Argo runtime runs pods in argo-workflows, so list it here. Each workload's
+  # EgressSealed condition reports pods no seal selects.
   workloadNamespaces: []
   # Shared service namespace. Set it to the namespace where LiteLLM, PostgreSQL,
   # MinIO, and Browserless run. Empty uses the release namespace.

@@ -95,3 +95,19 @@ tests:
             verbs:
               - get
         documentIndex: 1
+  - it: reads NetworkPolicies for the EgressSealed condition and never writes them
+    set:
+      license.key: dev-license
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - networking.k8s.io
+            resources:
+              - networkpolicies
+            verbs:
+              - get
+              - list
+              - watch
+        documentIndex: 1

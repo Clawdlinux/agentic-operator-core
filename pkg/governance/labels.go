@@ -12,6 +12,10 @@ const (
 	WorkloadNamespaceLabelKey = "agentic.clawdlinux.org/workload-namespace"
 	ManagedByLabelKey         = "app.kubernetes.io/managed-by"
 	ManagedByLabelValue       = "agentic-operator"
+	// The annotation that marks the chart's default-deny egress policy, so the operator can
+	// tell the seal from any other egress policy (charts/templates/networkpolicy.yaml).
+	EgressPolicyPurposeAnnotationKey   = "agentic.clawdlinux.org/policy-purpose"
+	EgressPolicyPurposeAnnotationValue = "default-deny-egress"
 )
 
 // PodLabels returns labels propagated to workload pods regardless of runtime.

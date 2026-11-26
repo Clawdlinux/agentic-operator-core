@@ -288,6 +288,8 @@ func main() {
 	workloadReconciler.TenantRes = tenantResolver            // Phase 7: Tenant isolation
 	workloadReconciler.SandboxClass = sandboxConfig.RuntimeClassName
 	workloadReconciler.Recorder = mgr.GetEventRecorder("agentworkload-controller")
+	// Uncached, so a missing NetworkPolicy grant fails fast instead of waiting on an informer.
+	workloadReconciler.PolicyReader = mgr.GetAPIReader()
 	receiptsCfg, err := receipts.ConfigFromEnv(os.Getenv)
 	if err != nil {
 		setupLog.Error(err, "Invalid receipts configuration")
